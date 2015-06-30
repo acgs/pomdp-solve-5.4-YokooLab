@@ -87,6 +87,7 @@
 #include "zlz_speedup.h"
 #include "mcgs.h"
 #include "pomdp-solve.h"
+ #include "doule-vector.h"
 
 /**********************************************************************/
 /************* Routines for beginning and end of solving   ************/
