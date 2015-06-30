@@ -677,11 +677,11 @@ POMDP_SOLVE_OPTS_parse( ProgramOptions opts )
 
   ret_value = PO_getStringOption( opts,
                          POMDP_SOLVE_OPTS_ARG_BELIEF_STATES,
-                         options->belief_states_filename,
+                         options->input_belief_states_filename,
                          NULL,
                          NULL );
   if ( ret_value == PO_OPT_PRESENT_ERROR )
-    PO_handleError( opts, "Option 'belief_states_filename' has invalid value." );
+    PO_handleError( opts, "Option 'input_belief_states_filename' has invalid value." );
 
 
   ret_value = PO_getEnumOption( opts,
