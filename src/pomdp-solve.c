@@ -154,7 +154,7 @@ initPomdpSolve( PomdpSolveParams param )
    /* Victor Szczepanski */
    if ( param->input_belief_states_filename[0] != NULL_CHAR ) {
      if (( param->input_belief_states
-           = readBeliefList( param->initial_policy_filename,
+           = readBeliefList( param->input_belief_states_filename,
                             -1 )) == NULL) {
 
        sprintf
@@ -534,7 +534,23 @@ meetStopCriteria( AlphaList prev_alpha_list,
       Victor Szczepanski addition. We stop if there are any belief states where the current function dominates the initial function.
       */
       //iterate over belief states from param
+      double initial_function_value = 0.0;
+      double current_function_value = 0.0;
+      DoubleVectorNode node, temp;
+      if(param->input_belief_states != NULL){
+          node = orig_list->head;
+          while( node != NULL ) {
+                temp = node;
+                node = node->next;
 
+                /*We don't care what the vector is, just its value. We also use epsilon = 0.0 because we want strict dominance. */
+                initial_function_value = bestVectorValue( param->initial_policy, temp->v, NULL, 0.0 ) ;
+                current_function_value = bestVectorValue( cur_alpha_list, temp->v, NULL, 0.0 ) ;
+                if(current_function_value > initial_function_value){
+                  return(TRUE);
+                }
+          } /* while( node != NULL) */
+      } /* if(param->input_belief_states != NULL) */
 
 
 

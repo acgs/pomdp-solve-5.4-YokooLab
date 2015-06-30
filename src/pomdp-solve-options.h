@@ -538,7 +538,6 @@ struct PomdpSolveProgOptionsStruct {
    */
 
   char input_belief_states_filename[MAX_FILENAME_LENGTH];
-
   /*
    *  The pomdp-solve program normally only saves the last
    * epoch's solution to a file. There is an option (save_all) to

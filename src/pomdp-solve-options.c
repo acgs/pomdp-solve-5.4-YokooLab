@@ -27,14 +27,14 @@
  *    2005, Anthony R. Cassandra
  *
  *    All Rights Reserved
- *                          
+ *
  *    Permission to use, copy, modify, and distribute this software and its
  *    documentation for any purpose other than its incorporation into a
  *    commercial product is hereby granted without fee, provided that the
  *    above copyright notice appear in all copies and that both that
  *    copyright notice and this permission notice appear in supporting
  *    documentation.
- * 
+ *
  *    ANTHONY CASSANDRA DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
  *    INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR ANY
  *    PARTICULAR PURPOSE.  IN NO EVENT SHALL ANTHONY CASSANDRA BE LIABLE FOR
@@ -129,6 +129,7 @@ POMDP_SOLVE_OPTS_new( )
   options->memory_limit = 0;
   options->alg_init_rand_points = 0;
   options->initial_policy_filename[0] = '\0';
+  options->input_belief_states_filename[0] = '\0'
   options->save_penultimate = POMDP_SOLVE_OPTS_OPT_SAVE_PENULTIMATE_DEFAULT;
   options->epsilon = POMDP_SOLVE_OPTS_OPT_EPSILON_DEFAULT;
   options->rand_seed[0] = '\0';
@@ -250,6 +251,10 @@ POMDP_SOLVE_OPTS_toConfigFile( PomdpSolveProgOptions options )
   sprintf( str, "%s", options->initial_policy_filename );
   CF_addParam( cfg, POMDP_SOLVE_OPTS_CFG_TERMINAL_VALUES_STR, str );
 
+  /*Victor Szczepanski*/
+  sprintf( str, "%s", options->belief_states_filename );
+  CF_addParam( cfg, POMDP_SOLVE_OPTS_CFG_BELIEF_STATES, str );
+
   sprintf( str, "%s", Boolean_Str[options->save_penultimate] );
   CF_addParam( cfg, POMDP_SOLVE_OPTS_CFG_SAVE_PENULTIMATE_STR, str );
 
@@ -301,12 +306,13 @@ POMDP_SOLVE_OPTS_toConfigFile( PomdpSolveProgOptions options )
   sprintf( str, "%s", Boolean_Str[options->use_witness_points] );
   CF_addParam( cfg, POMDP_SOLVE_OPTS_CFG_WITNESS_POINTS_STR, str );
 
+
   return cfg;
 
 } /* POMDP_SOLVE_OPTS_toConfigFile */
 
 /*******************************************************/
-void 
+void
 POMDP_SOLVE_OPTS_showUsageBrief( FILE* file, char* exec_name )
 {
   fprintf( file, "Usage: %s [opts...] [args...]\n", exec_name );
@@ -315,7 +321,7 @@ POMDP_SOLVE_OPTS_showUsageBrief( FILE* file, char* exec_name )
 }  /* POMDP_SOLVE_OPTS_showUsageBrief */
 
 /*******************************************************/
-void 
+void
 POMDP_SOLVE_OPTS_showUsage( FILE* file, char* exec_name )
 {
   fprintf( file, "Usage: %s [opts...] [args...]\n", exec_name );
@@ -669,6 +675,15 @@ POMDP_SOLVE_OPTS_parse( ProgramOptions opts )
   if ( ret_value == PO_OPT_PRESENT_ERROR )
     PO_handleError( opts, "Option 'initial_policy_filename' has invalid value." );
 
+  ret_value = PO_getStringOption( opts,
+                         POMDP_SOLVE_OPTS_ARG_BELIEF_STATES,
+                         options->belief_states_filename,
+                         NULL,
+                         NULL );
+  if ( ret_value == PO_OPT_PRESENT_ERROR )
+    PO_handleError( opts, "Option 'belief_states_filename' has invalid value." );
+
+
   ret_value = PO_getEnumOption( opts,
                          POMDP_SOLVE_OPTS_ARG_SAVE_PENULTIMATE_STR,
                          &(enum_idx),
@@ -836,7 +851,7 @@ POMDP_SOLVE_OPTS_create( int argc, char** argv )
 
   if ( ! PO_isValid( opts ))
     {
-      POMDP_SOLVE_OPTS_showUsageBrief( stdout, 
+      POMDP_SOLVE_OPTS_showUsageBrief( stdout,
           opts->cmd_line->exec_name );
       PO_delete( opts );
       exit( 1 );
@@ -846,7 +861,7 @@ POMDP_SOLVE_OPTS_create( int argc, char** argv )
 
   if ( options->__error__ )
     {
-      POMDP_SOLVE_OPTS_showUsageBrief( stdout, 
+      POMDP_SOLVE_OPTS_showUsageBrief( stdout,
           opts->cmd_line->exec_name );
       PO_delete( opts );
 
