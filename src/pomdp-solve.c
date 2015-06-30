@@ -538,7 +538,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
       double current_function_value = 0.0;
       DoubleVectorNode node, temp;
       if(param->input_belief_states != NULL){
-          node = orig_list->head;
+          node = input_belief_states->head;
           while( node != NULL ) {
                 temp = node;
                 node = node->next;
