@@ -25,14 +25,14 @@
  *    1998-2003, Anthony R. Cassandra
  *
  *    All Rights Reserved
- *                          
+ *
  *    Permission to use, copy, modify, and distribute this software and its
  *    documentation for any purpose other than its incorporation into a
  *    commercial product is hereby granted without fee, provided that the
  *    above copyright notice appear in all copies and that both that
  *    copyright notice and this permission notice appear in supporting
  *    documentation.
- * 
+ *
  *    ANTHONY CASSANDRA DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
  *    INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR ANY
  *    PARTICULAR PURPOSE.  IN NO EVENT SHALL ANTHONY CASSANDRA BE LIABLE FOR
@@ -54,6 +54,7 @@
 #include "alpha.h"
 #include "stats.h"
 #include "pomdp-solve-options.h"
+ #include "belief.h"
 
 /*******************************************************************/
 /**************      USEFUL MNENOMIC CONSTANTS      ****************/
@@ -87,8 +88,8 @@
    checking, i.e., pruning assumes you want the domination checking,
    which will be done first. */
 #define MAX_NUM_PURGE_OPTIONS          4
-typedef enum { purge_none, 
-               purge_dom, 
+typedef enum { purge_none,
+               purge_dom,
                purge_prune,
                purge_epsilon_prune } PurgeOption;
 #define PURGE_OPTION_STRINGS     { \
@@ -99,31 +100,31 @@ typedef enum { purge_none,
                                   }
 
 #define MAX_INC_PRUNE_TYPES                    3
-typedef enum { NormalIp, 
-               RestrictedRegionIp, 
+typedef enum { NormalIp,
+               RestrictedRegionIp,
                GeneralizedIp } GeneralizedIpChoice;
 #define INC_PRUNE_TYPE_STRINGS     { \
                                       "normal", \
                                       "restricted_region", \
                                       "generalized" \
-                                   }     
+                                   }
 
 #define MAX_VI_VARIATION_TYPES                    4
-typedef enum { NormalVi, 
+typedef enum { NormalVi,
                ZlzSpeedup,
-               AdjustableEpsilonVi, 
+               AdjustableEpsilonVi,
                FixedSolnSizeVi } ViVariation;
 #define VI_VARIATION_TYPE_STRINGS     { \
                                       "normal", \
                                       "zlz", \
                                       "adjustable_epsilon", \
                                       "fixed_soln_size" \
-                                   }     
+                                   }
 
 /* We just want to encapsulate all the parameters used in the
    pomdp-solve program into a single structure for convenience. These
    do not include any parameters that are specific to a particular
-   algorithm. */ 
+   algorithm. */
 typedef struct PomdpSolveParamStruct *PomdpSolveParams;
 struct PomdpSolveParamStruct {
 
@@ -152,7 +153,7 @@ struct PomdpSolveParamStruct {
   /* Since we save the stats for each epoch, we can optionally print
      them out when the program is finished executing. */
   int stat_summary;
-  
+
   /* Name of file to print all output information to.  Defaults to
      stdout. */
   char report_filename[MAX_FILENAME_LENGTH];
@@ -183,6 +184,12 @@ struct PomdpSolveParamStruct {
      value function. */
   char initial_policy_filename[MAX_FILENAME_LENGTH];
   AlphaList initial_policy;
+
+  /*Victor Szczepanski
+  The name of the file with belief states we want to check.  */
+  char input_belief_states_filename[MAX_FILENAME_LENGTH];
+  /*The set of belief states (same number as states?)*/
+  BeliefList input_belief_states;
 
   /* We can set a timer to interrupt the program after too many
      seconds have elapsed.  It is done from the command line and is
@@ -325,7 +332,7 @@ struct PomdpSolveParamStruct {
      Specifically, we look at the recent history of the solution sizes
      over the last few epochs.  These define the hostory window length
      and the amount by which we assume a change is not important. */
-  int epoch_history_window_length; 
+  int epoch_history_window_length;
   int epoch_history_window_delta;
 
 };
@@ -395,7 +402,7 @@ struct PomdpSolveParamStruct {
 #define DEFAULT_ENUM_PURGE_OPTION                purge_prune
 
 /* How to purge the set of vectors that are created from the finite
-   grid. */  
+   grid. */
 #define DEFAULT_FG_PURGE_OPTION                  purge_prune
 
 /****************************************/
@@ -485,7 +492,7 @@ extern PomdpSolveParams newPomdpSolveParams(  );
  extern void destroyPomdpSolveParams( PomdpSolveParams param );
 
 /*
-  Main routine for parsing config file and command line. 
+  Main routine for parsing config file and command line.
 */
 extern PomdpSolveParams parseCmdLineAndCfgFile( int argc, char **argv );
 
