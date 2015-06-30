@@ -129,7 +129,7 @@ POMDP_SOLVE_OPTS_new( )
   options->memory_limit = 0;
   options->alg_init_rand_points = 0;
   options->initial_policy_filename[0] = '\0';
-  options->input_belief_states_filename[0] = '\0'
+  options->input_belief_states_filename[0] = '\0';
   options->save_penultimate = POMDP_SOLVE_OPTS_OPT_SAVE_PENULTIMATE_DEFAULT;
   options->epsilon = POMDP_SOLVE_OPTS_OPT_EPSILON_DEFAULT;
   options->rand_seed[0] = '\0';
@@ -252,7 +252,7 @@ POMDP_SOLVE_OPTS_toConfigFile( PomdpSolveProgOptions options )
   CF_addParam( cfg, POMDP_SOLVE_OPTS_CFG_TERMINAL_VALUES_STR, str );
 
   /*Victor Szczepanski*/
-  sprintf( str, "%s", options->belief_states_filename );
+  sprintf( str, "%s", options->input_belief_states_filename );
   CF_addParam( cfg, POMDP_SOLVE_OPTS_CFG_BELIEF_STATES, str );
 
   sprintf( str, "%s", Boolean_Str[options->save_penultimate] );
