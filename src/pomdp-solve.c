@@ -1116,8 +1116,11 @@ solvePomdp( PomdpSolveParams param )
   /* Get the initial policy/value function to use. Note that we set
      these to next_alpha_list because the first thing the loop does
      is to swap in the next_alpha_list for the current_alpha_list. */
-  if ( param->initial_policy == NULL )
+  if ( param->initial_policy == NULL ){
     next_alpha_list = getDefaultInitialPolicy( );
+    /*Victor Szczepanski set initial_policy in param to default initial policy as well, to use in our comparison */
+    param->initial_policy = getDefaultInitialPolicy();
+  }
   else
     next_alpha_list = duplicateAlphaList( param->initial_policy );
 
