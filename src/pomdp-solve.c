@@ -87,7 +87,7 @@
 #include "zlz_speedup.h"
 #include "mcgs.h"
 #include "pomdp-solve.h"
- #include "doule-vector.h"
+ #include "double-vector.h"
 
 /**********************************************************************/
 /************* Routines for beginning and end of solving   ************/
@@ -539,7 +539,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
       double current_function_value = 0.0;
       DoubleVectorNode node, temp;
       if(param->input_belief_states != NULL){
-          node = input_belief_states->head;
+          node = param->input_belief_states;
           while( node != NULL ) {
                 temp = node;
                 node = node->next;
