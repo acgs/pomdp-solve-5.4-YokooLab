@@ -586,10 +586,11 @@ meetStopCriteria( AlphaList prev_alpha_list,
 
 
                 Assert(param->initial_policy != NULL, "Initial Policy is NULL!");
-		printf("Number of states: %d\n",gNumStates);
-                initial_function_value = bestVectorValue( param->initial_policy, temp->b, NULL, 0.0 ) ;
+                AlphaList *best; //Just to see if bestVectorValue needs a proper pointer.
+		   printf("Number of states: %d\n",gNumStates);
+                initial_function_value = bestVectorValue( param->initial_policy, temp->b, best, 0.0 ) ;
                 Assert(cur_alpha_list != NULL, "Current Alpha List is NULL!");
-                current_function_value = bestVectorValue( cur_alpha_list, temp->b, NULL, 0.0 ) ;
+                current_function_value = bestVectorValue( cur_alpha_list, temp->b, best, 0.0 ) ;
                 if(current_function_value > initial_function_value){
                   printf("Current function is better than initial at belief point ");
 

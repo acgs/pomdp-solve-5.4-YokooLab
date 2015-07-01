@@ -738,6 +738,9 @@ bestVectorValuePrimed( AlphaList list,
     /* Get dot product value */
     cur_value = 0.0;
     for ( i = 0; i < gNumStates; i++)
+      printf("Getting value at state %d\n", i);
+      printf("Belief State %d\n", belief_state[i]);
+      printf("Alpha %d", list->alpha[i])
       cur_value += belief_state[i] * list->alpha[i];
 
     /* We must break ties in the values by using the lexicographic
