@@ -562,7 +562,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
       double initial_function_value = 0.0;
       double current_function_value = 0.0;
       int k;
-      DoubleVectorNode node, temp;
+      BeliefList node, temp;
       if(param->input_belief_states != NULL){
           printf("Testing current function against initial function for stopping condition.");
           node = param->input_belief_states;
@@ -577,17 +577,17 @@ meetStopCriteria( AlphaList prev_alpha_list,
                     return;
                  }
 
-                 fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->v[0] );
+                 fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->b[0] );
                  for (k = 1; k < gNumStates; k++) {
                     fprintf(stdout, " ");
-                    fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->v[k] );
+                    fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->b[k] );
                  }  /* for k */
                     fprintf(stdout, "]\n");
 
 
 
-                initial_function_value = bestVectorValue( param->initial_policy, temp->v, NULL, 0.0 ) ;
-                current_function_value = bestVectorValue( cur_alpha_list, temp->v, NULL, 0.0 ) ;
+                initial_function_value = bestVectorValue( param->initial_policy, temp->b, NULL, 0.0 ) ;
+                current_function_value = bestVectorValue( cur_alpha_list, temp->b, NULL, 0.0 ) ;
                 if(current_function_value > initial_function_value){
                   printf("Current function is better than initial at belief point ");
 
@@ -596,10 +596,10 @@ meetStopCriteria( AlphaList prev_alpha_list,
                         return;
                   }
 
-                  fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->v[0] );
+                  fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->b[0] );
                   for (k = 1; k < gNumStates; k++) {
                     fprintf(stdout, " ");
-                    fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->v[k] );
+                    fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->b[k] );
                   }  /* for k */
                     fprintf(stdout, "]\n");
                     return(TRUE);
