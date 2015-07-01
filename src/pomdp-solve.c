@@ -549,8 +549,21 @@ meetStopCriteria( AlphaList prev_alpha_list,
                 initial_function_value = bestVectorValue( param->initial_policy, temp->v, NULL, 0.0 ) ;
                 current_function_value = bestVectorValue( cur_alpha_list, temp->v, NULL, 0.0 ) ;
                 if(current_function_value > initial_function_value){
-                  printf("Current function is better than initial at belief point %d", temp->v);
-                  return(TRUE);
+                  printf("Current function is better than initial at belief point ");
+                  int k;
+
+                 if ( temp->v == NULL) {
+                    fprintf( stdout, "<NULL>");
+                    return;
+                 }
+
+                 fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->v[0] );
+                 for (k = 1; k < gNumStates; k++) {
+                    fprintf(stdout, " ");
+                    fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->v[k] );
+                 }  /* for k */
+                    fprintf(stdout, "]\n");
+                                return(TRUE);
                 }
           } /* while( node != NULL) */
       } /* if(param->input_belief_states != NULL) */
