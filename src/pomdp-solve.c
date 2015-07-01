@@ -166,21 +166,23 @@ initPomdpSolve( PomdpSolveParams param )
      }
      else{
       printf("Read belief list:\n");
-      DoubleVectorNode temp = param->input_belief_states;
+      BeliefList temp = param->input_belief_states;
       fprintf(stdout, "Testing functions against beliefs:\n");
-                 if ( temp->v == NULL) {
+            while(temp != NULL){
+                 if ( temp->b == NULL) {
                     fprintf( stdout, "<NULL>");
-
                  }
                  else{
                          int k;
-                         fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->v[0] );
+                         fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->b[0] );
                          for (k = 1; k < gNumStates; k++) {
                             fprintf(stdout, " ");
-                            fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->v[k] );
+                            fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->b[k] );
                          }  /* for k */
                             fprintf(stdout, "]\n");
                 }
+                temp = temp->next;
+            }
 
      }
    }
