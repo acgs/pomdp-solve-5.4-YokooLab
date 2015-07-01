@@ -550,7 +550,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
                 node = node->next;
 
                 /*We don't care what the vector is, just its value. We also use epsilon = 0.0 because we want strict dominance. */
-                fprintf(stdout, "Testing functions against beliefs:\n")
+                fprintf(stdout, "Testing functions against beliefs:\n");
                  if ( temp->v == NULL) {
                     fprintf( stdout, "<NULL>");
                     return;
@@ -563,7 +563,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
                  }  /* for k */
                     fprintf(stdout, "]\n");
                                 return(TRUE);
-                }
+                
 
 
                 initial_function_value = bestVectorValue( param->initial_policy, temp->v, NULL, 0.0 ) ;
