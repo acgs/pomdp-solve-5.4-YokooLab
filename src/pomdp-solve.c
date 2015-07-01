@@ -153,7 +153,7 @@ initPomdpSolve( PomdpSolveParams param )
    }
 
    /* Victor Szczepanski */
-   if ( param->input_belief_states_filename[0] != NULL_CHAR ) {
+   if ( param->opts->input_belief_states_filename[0] != NULL_CHAR ) {
      if (( param->input_belief_states
            = readBeliefList( param->input_belief_states_filename,
                             -1 )) == NULL) {
@@ -166,7 +166,7 @@ initPomdpSolve( PomdpSolveParams param )
      }
    }
    else{
-    printf("No input_beleif_states_file");
+    printf("No input_beleif_states_file\n");
    }
 
    /* Do the right initialization for whichever algorithm was chosen.
