@@ -819,7 +819,7 @@ struct PomdpSolveProgOptionsStruct {
 #define POMDP_SOLVE_OPTS_ARG_WITNESS_POINTS_STR "-witness_points"
 
 /* Victor Szczepanski added command line parameters */
- #define POMDP_SOLVE_OPTS_ARG_BELIEF_STATES "-belief_states"
+ #define POMDP_SOLVE_OPTS_ARG_BELIEF_STATES "belief_states"
 
 /*
  * String arrays for cmd line parameters.
