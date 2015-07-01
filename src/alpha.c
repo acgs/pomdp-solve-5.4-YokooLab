@@ -738,9 +738,9 @@ bestVectorValuePrimed( AlphaList list,
     /* Get dot product value */
     cur_value = 0.0;
     for ( i = 0; i < gNumStates; i++)
-      printf("Getting value at state %d\n", i);
-      printf("Belief State %f\n", belief_state[i]);
-      printf("Alpha %f\n", list->alpha[i]);
+      //printf("Getting value at state %d\n", i);
+      //printf("Belief State %f\n", belief_state[i]);
+      //printf("Alpha %f\n", list->alpha[i]);
       cur_value += belief_state[i] * list->alpha[i];
 
     /* We must break ties in the values by using the lexicographic
@@ -1213,9 +1213,9 @@ saveAlphaList( AlphaList list, char *filename )
              filename);
      return;
    }
-
+   Assert(file != NULL, "File handle is NULL before writeAlphaList");
    writeAlphaList( file, list );
-
+   Assert(file != NULL, "File handle is NULL after writeAlphaList");
    fclose( file );
 }  /* saveAlphaList */
 /**********************************************************************/

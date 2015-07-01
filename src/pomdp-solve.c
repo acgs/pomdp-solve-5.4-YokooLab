@@ -524,6 +524,44 @@ weakBound( AlphaList cur_alpha_list,
 
    return ( max_p_x );
 }  /* weakBound */
+
+
+/**********************************************************************/
+double bestValue(BeliefList belief_state, AlphaList function)
+{
+	/*Finds the maximal value at belief_state in AlphaList function. Note that this function does not
+	find the action associated with that value. */
+	Assert(belief_state != NULL, "provided belief_state is NULL.");
+	Assert(function != NULL, "provided function is NULL.");
+
+	double cur_value;
+	double cur_best_value = worstPossibleValue();
+	int i;
+	
+	AlphaList alpha_ptr = function->head;
+	while(alpha_ptr != NULL){
+		showAlpha(alpha_ptr->alpha);	
+		/*Get the dot product value */
+		cur_value = 0.0;
+		for(i = 0; i < gNumStates; i++){
+			double belief = belief_state->b[i];
+			double alpha = alpha_ptr->alpha[i];
+			cur_value += belief * alpha;	
+		}
+	
+		if(cur_value > cur_best_value){
+			cur_best_value = cur_value;
+		}
+
+		alpha_ptr = alpha_ptr->next;
+	}
+	return cur_best_value;
+
+}
+
+
+
+
 /**********************************************************************/
 int
 meetStopCriteria( AlphaList prev_alpha_list,
@@ -559,39 +597,26 @@ meetStopCriteria( AlphaList prev_alpha_list,
       Victor Szczepanski addition. We stop if there are any belief states where the current function dominates the initial function.
       */
       //iterate over belief states from param
-      double initial_function_value = 0.0;
-      double current_function_value = 0.0;
-      int k;
-      BeliefList node, temp;
-      if(param->input_belief_states != NULL){
-          printf("Testing current function against initial function for stopping condition.");
-          node = param->input_belief_states;
-          while( node != NULL ) {
-                temp = node;
-                node = node->next;
-
+	      
+	double initial_function_value = 0.0;
+      	double current_function_value = 0.0;
+      	int k;
+      	BeliefList temp = param->input_belief_states;
+      	if(param->input_belief_states != NULL){
+          	printf("Testing current function against initial function for stopping condition.");
+	
                 /*We don't care what the vector is, just its value. We also use epsilon = 0.0 because we want strict dominance. */
-                fprintf(stdout, "Testing functions against beliefs:\n");
-                 if ( temp->b == NULL) {
-                    fprintf( stdout, "<NULL>");
-                    return;
-                 }
-
-                 fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->b[0] );
-                 for (k = 1; k < gNumStates; k++) {
-                    fprintf(stdout, " ");
-                    fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->b[k] );
-                 }  /* for k */
-                    fprintf(stdout, "]\n");
-
-
+	while(temp != NULL) {
+		
                 Assert(param->initial_policy != NULL, "Initial Policy is NULL!");
-                AlphaList *best; //Just to see if bestVectorValue needs a proper pointer.
+      		AlphaList tempInitial = duplicateAlphaList(param->initial_policy);          
 		   printf("Number of states: %d\n",gNumStates);
-                initial_function_value = bestVectorValue( param->initial_policy, temp->b, best, 0.0 ) ;
+                initial_function_value = bestValue(temp, tempInitial ) ;
+		destroyAlphaList(tempInitial);
                 Assert(cur_alpha_list != NULL, "Current Alpha List is NULL!");
-                current_function_value = bestVectorValue( cur_alpha_list, temp->b, best, 0.0 ) ;
-                if(current_function_value > initial_function_value){
+                current_function_value = bestValue(temp, cur_alpha_list) ;
+                
+		if(current_function_value > initial_function_value){
                   printf("Current function is better than initial at belief point ");
 
                   if ( temp->b == NULL) {
@@ -603,12 +628,19 @@ meetStopCriteria( AlphaList prev_alpha_list,
                   for (k = 1; k < gNumStates; k++) {
                     fprintf(stdout, " ");
                     fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->b[k] );
-                  }  /* for k */
+                  }  // for k 
                     fprintf(stdout, "]\n");
-                    return(TRUE);
-                 }
-          } /* while( node != NULL) */
-      } /* if(param->input_belief_states != NULL) */
+                  
+		   return(TRUE);
+                 }//if currentvalue > initialvalue
+        	printf("Moving temp to next node...");
+		temp = temp->next;  
+		printf("Done.\n");
+	}  
+        printf("Done checking for Yokoo stopping condition\n");
+	} // if(param->input_belief_states != NULL) 
+	
+	
 
 
 
@@ -1263,7 +1295,7 @@ solvePomdp( PomdpSolveParams param )
        abnormal termination will leave the lastest epoch's
        solution.  This will allow you to start it with the last
        solution and not have to re-run it. */
-    saveAlphaList( next_alpha_list, param->backup_file );
+    //saveAlphaList( next_alpha_list, param->backup_file );
 
     /* If we are using a variation on value iteration, then we may
        need to adjust some parameters (epsilon) after an epoch.
