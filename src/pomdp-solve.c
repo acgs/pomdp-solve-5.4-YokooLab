@@ -155,13 +155,13 @@ initPomdpSolve( PomdpSolveParams param )
    /* Victor Szczepanski */
    if ( param->opts->input_belief_states_filename[0] != NULL_CHAR ) {
      if (( param->input_belief_states
-           = readBeliefList( param->input_belief_states_filename,
+           = readBeliefList( param->opts->input_belief_states_filename,
                             -1 )) == NULL) {
 
        sprintf
          ( msg,
            "Cannot open belief states file name: %s.\n\t(Not comparing initial for overlap.)",
-           param->input_belief_states_filename );
+           param->opts->input_belief_states_filename );
        Warning( msg );
      }
    }
