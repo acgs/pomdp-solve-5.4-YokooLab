@@ -539,6 +539,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
       double current_function_value = 0.0;
       DoubleVectorNode node, temp;
       if(param->input_belief_states != NULL){
+          printf("Testing current function against initial function for stopping condition.");
           node = param->input_belief_states;
           while( node != NULL ) {
                 temp = node;
@@ -548,6 +549,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
                 initial_function_value = bestVectorValue( param->initial_policy, temp->v, NULL, 0.0 ) ;
                 current_function_value = bestVectorValue( cur_alpha_list, temp->v, NULL, 0.0 ) ;
                 if(current_function_value > initial_function_value){
+                  printf("Current function is better than initial at belief point %d", temp->v);
                   return(TRUE);
                 }
           } /* while( node != NULL) */
