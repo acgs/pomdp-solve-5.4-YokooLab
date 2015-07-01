@@ -768,7 +768,7 @@ struct PomdpSolveProgOptionsStruct {
 #define POMDP_SOLVE_OPTS_CFG_WITNESS_POINTS_STR "witness_points"
 
 /* Victor Szczepanski added config file parameters */
- #define POMDP_SOLVE_OPTS_CFG_BELIEF_STATES "-belief_states"
+ #define POMDP_SOLVE_OPTS_CFG_BELIEF_STATES "belief_states"
 
 /*
  * Strings for cmd line parameters.
