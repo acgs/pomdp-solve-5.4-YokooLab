@@ -585,8 +585,9 @@ meetStopCriteria( AlphaList prev_alpha_list,
                     fprintf(stdout, "]\n");
 
 
-
+                Assert(param->initial_policy != NULL, "Initial Policy is NULL!");
                 initial_function_value = bestVectorValue( param->initial_policy, temp->b, NULL, 0.0 ) ;
+                Assert(cur_alpha_list != NULL, "Current Alpha List is NULL!");
                 current_function_value = bestVectorValue( cur_alpha_list, temp->b, NULL, 0.0 ) ;
                 if(current_function_value > initial_function_value){
                   printf("Current function is better than initial at belief point ");
