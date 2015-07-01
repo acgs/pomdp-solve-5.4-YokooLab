@@ -572,7 +572,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
 
                 /*We don't care what the vector is, just its value. We also use epsilon = 0.0 because we want strict dominance. */
                 fprintf(stdout, "Testing functions against beliefs:\n");
-                 if ( temp->v == NULL) {
+                 if ( temp->b == NULL) {
                     fprintf( stdout, "<NULL>");
                     return;
                  }
@@ -591,7 +591,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
                 if(current_function_value > initial_function_value){
                   printf("Current function is better than initial at belief point ");
 
-                  if ( temp->v == NULL) {
+                  if ( temp->b == NULL) {
                         fprintf( stdout, "<NULL>");
                         return;
                   }
