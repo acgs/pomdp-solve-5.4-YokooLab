@@ -540,6 +540,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
       //iterate over belief states from param
       double initial_function_value = 0.0;
       double current_function_value = 0.0;
+      int k;
       DoubleVectorNode node, temp;
       if(param->input_belief_states != NULL){
           printf("Testing current function against initial function for stopping condition.");
@@ -549,12 +550,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
                 node = node->next;
 
                 /*We don't care what the vector is, just its value. We also use epsilon = 0.0 because we want strict dominance. */
-                initial_function_value = bestVectorValue( param->initial_policy, temp->v, NULL, 0.0 ) ;
-                current_function_value = bestVectorValue( cur_alpha_list, temp->v, NULL, 0.0 ) ;
-                if(current_function_value > initial_function_value){
-                  printf("Current function is better than initial at belief point ");
-                  int k;
-
+                fprintf(stdout, "Testing functions against beliefs:\n")
                  if ( temp->v == NULL) {
                     fprintf( stdout, "<NULL>");
                     return;
@@ -568,6 +564,26 @@ meetStopCriteria( AlphaList prev_alpha_list,
                     fprintf(stdout, "]\n");
                                 return(TRUE);
                 }
+
+
+                initial_function_value = bestVectorValue( param->initial_policy, temp->v, NULL, 0.0 ) ;
+                current_function_value = bestVectorValue( cur_alpha_list, temp->v, NULL, 0.0 ) ;
+                if(current_function_value > initial_function_value){
+                  printf("Current function is better than initial at belief point ");
+
+                  if ( temp->v == NULL) {
+                        fprintf( stdout, "<NULL>");
+                        return;
+                  }
+
+                  fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->v[0] );
+                  for (k = 1; k < gNumStates; k++) {
+                    fprintf(stdout, " ");
+                    fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->v[k] );
+                  }  /* for k */
+                    fprintf(stdout, "]\n");
+                                return(TRUE);
+                 }
           } /* while( node != NULL) */
       } /* if(param->input_belief_states != NULL) */
 
