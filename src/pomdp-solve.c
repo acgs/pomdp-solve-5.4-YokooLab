@@ -164,6 +164,23 @@ initPomdpSolve( PomdpSolveParams param )
            param->opts->input_belief_states_filename );
        Warning( msg );
      }
+     else{
+      printf("Read belief list:\n");
+      DoubleVectorNode temp = param->input_belief_states;
+      fprintf(stdout, "Testing functions against beliefs:\n");
+                 if ( temp->v == NULL) {
+                    fprintf( stdout, "<NULL>");
+                    return;
+                 }
+
+                 fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->v[0] );
+                 for (k = 1; k < gNumStates; k++) {
+                    fprintf(stdout, " ");
+                    fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->v[k] );
+                 }  /* for k */
+                    fprintf(stdout, "]\n");
+
+     }
    }
    else{
     printf("No input_beleif_states_file\n");
@@ -562,8 +579,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
                     fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->v[k] );
                  }  /* for k */
                     fprintf(stdout, "]\n");
-                                return(TRUE);
-                
+
 
 
                 initial_function_value = bestVectorValue( param->initial_policy, temp->v, NULL, 0.0 ) ;
@@ -582,7 +598,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
                     fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->v[k] );
                   }  /* for k */
                     fprintf(stdout, "]\n");
-                                return(TRUE);
+                    return(TRUE);
                  }
           } /* while( node != NULL) */
       } /* if(param->input_belief_states != NULL) */
