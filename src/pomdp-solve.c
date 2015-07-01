@@ -165,6 +165,9 @@ initPomdpSolve( PomdpSolveParams param )
        Warning( msg );
      }
    }
+   else{
+    printf("No input_beleif_states_file");
+   }
 
    /* Do the right initialization for whichever algorithm was chosen.
       We really want to only call appropriate initialization, but we
