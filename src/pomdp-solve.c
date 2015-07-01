@@ -170,15 +170,17 @@ initPomdpSolve( PomdpSolveParams param )
       fprintf(stdout, "Testing functions against beliefs:\n");
                  if ( temp->v == NULL) {
                     fprintf( stdout, "<NULL>");
-                    return;
-                 }
 
-                 fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->v[0] );
-                 for (k = 1; k < gNumStates; k++) {
-                    fprintf(stdout, " ");
-                    fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->v[k] );
-                 }  /* for k */
-                    fprintf(stdout, "]\n");
+                 }
+                 else{
+                         int k;
+                         fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->v[0] );
+                         for (k = 1; k < gNumStates; k++) {
+                            fprintf(stdout, " ");
+                            fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->v[k] );
+                         }  /* for k */
+                            fprintf(stdout, "]\n");
+                }
 
      }
    }
