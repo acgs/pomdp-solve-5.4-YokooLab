@@ -537,7 +537,7 @@ double bestValue(BeliefList belief_state, AlphaList function)
 	double cur_value;
 	double cur_best_value = worstPossibleValue();
 	int i;
-	
+	printf("\n");
 	AlphaList alpha_ptr = function->head;
 	while(alpha_ptr != NULL){
 		showAlpha(alpha_ptr->alpha);	
@@ -604,8 +604,10 @@ meetStopCriteria( AlphaList prev_alpha_list,
       	BeliefList temp = param->input_belief_states;
       	if(param->input_belief_states != NULL){
           	printf("Testing current function against initial function for stopping condition.");
-	
-                /*We don't care what the vector is, just its value. We also use epsilon = 0.0 because we want strict dominance. */
+		if(similarAlphaList(param->initial_policy, cur_alpha_list, 0.0001)){
+			printf("current function is identical to initial function. Not checking for dominance.\n");
+			temp = NULL; //setting temp to NULL ensures we don't enter the while loop
+		}
 	while(temp != NULL) {
 		
                 Assert(param->initial_policy != NULL, "Initial Policy is NULL!");
@@ -617,19 +619,22 @@ meetStopCriteria( AlphaList prev_alpha_list,
                 current_function_value = bestValue(temp, cur_alpha_list) ;
                 
 		if(current_function_value > initial_function_value){
-                  printf("Current function is better than initial at belief point ");
+                  printf("Current function is better than initial at belief state ");
 
                   if ( temp->b == NULL) {
                         fprintf( stdout, "<NULL>");
                         return;
                   }
 
-                  fprintf( stdout, "[%.*lf", NUM_DECIMAL_DISPLAY, temp->b[0] );
+                  fprintf( stdout, "[%f", temp->b[0] );
                   for (k = 1; k < gNumStates; k++) {
                     fprintf(stdout, " ");
-                    fprintf( stdout, "%.*lf", NUM_DECIMAL_DISPLAY, temp->b[k] );
+                    fprintf( stdout, "%f", temp->b[k] );
                   }  // for k 
                     fprintf(stdout, "]\n");
+
+		   printf("Current value: %f", current_function_value);
+		   printf("Initial value: %f", initial_function_value);
                   
 		   return(TRUE);
                  }//if currentvalue > initialvalue
