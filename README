@@ -1,12 +1,17 @@
 **********************************************************************
 |                          POMDP Solve                               |
 |                                                                    |
-|                          version 5.1                               |
+|                          version 5.4                               |
 |                    by Anthony R. Cassandra                         |
+|           modified by Victor Szczepanski for Yokoo Lab             |
 **********************************************************************
 
 Program for performing value iteration on partially observable Markov
-decision processes (POMDPs).
+decision processes (POMDPs). 
+
+Additional stopping condition for using POMDP Solve as an equilibrium
+tester for repeated game strategies is implemented for the Yokoo Lab.
+POMDP Solve is minimally modified for this purpose.
 
 Contents:
 
