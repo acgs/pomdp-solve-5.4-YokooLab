@@ -568,7 +568,7 @@ int dominance(BeliefList bl, AlphaList initial_function, AlphaList current_funct
 
     if(temp != NULL){
 
-        if(similarAlphaList(initial_function, cur_alpha_list, 0.0001)){
+        if(similarAlphaList(initial_function, current_function, 0.0001)){
             printf("current function is identical to initial function. Not checking for dominance.\n");
             return(FALSE);
         }
@@ -578,7 +578,7 @@ int dominance(BeliefList bl, AlphaList initial_function, AlphaList current_funct
             Assert(initial_function != NULL, "Initial Policy is NULL!");
             initial_function_value = bestValue(temp, initial_function ) ;
 
-            Assert(cur_alpha_list != NULL, "Current Alpha List is NULL!");
+            Assert(current_function != NULL, "Current Alpha List is NULL!");
             current_function_value = bestValue(temp, current_function) ;
 
             if(current_function_value > initial_function_value){
@@ -609,7 +609,7 @@ int dominance(BeliefList bl, AlphaList initial_function, AlphaList current_funct
 
         } //while(temp != NULL)
         printf("Done checking for Yokoo stopping condition\n");
-    } // if(param->input_belief_states != NULL)
+    } // if(temp != NULL)
     return(FALSE);
 }
 
@@ -654,7 +654,7 @@ meetStopCriteria( AlphaList prev_alpha_list,
          /*
          Victor Szczepanski addition. We stop if there are any belief states where the current function dominates the initial function.
          */
-         if(dominance(param->initial_belief_states, param->initial_policy, cur_alpha_list)){
+         if(dominance(param->input_belief_states, param->initial_policy, cur_alpha_list)){
                return(TRUE);
          }
 
