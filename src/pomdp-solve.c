@@ -540,15 +540,15 @@ double bestValue(BeliefList belief_state, AlphaList function)
 	printf("\n");
 	AlphaList alpha_ptr = function->head;
 	while(alpha_ptr != NULL){
-		showAlpha(alpha_ptr->alpha);	
+		showAlpha(alpha_ptr->alpha);
 		/*Get the dot product value */
 		cur_value = 0.0;
 		for(i = 0; i < gNumStates; i++){
 			double belief = belief_state->b[i];
 			double alpha = alpha_ptr->alpha[i];
-			cur_value += belief * alpha;	
+			cur_value += belief * alpha;
 		}
-	
+
 		if(cur_value > cur_best_value){
 			cur_best_value = cur_value;
 		}
@@ -559,7 +559,59 @@ double bestValue(BeliefList belief_state, AlphaList function)
 
 }
 
+int dominance(BeliefList bl, AlphaList initial_function, AlphaList current_function)
+{
+    double initial_function_value = 0.0;
+    double current_function_value = 0.0;
+    int k;
+    BeliefList temp = bl;
 
+    if(temp != NULL){
+
+        if(similarAlphaList(initial_function, cur_alpha_list, 0.0001)){
+            printf("current function is identical to initial function. Not checking for dominance.\n");
+            return(FALSE);
+        }
+
+        while(temp != NULL) {
+
+            Assert(initial_function != NULL, "Initial Policy is NULL!");
+            initial_function_value = bestValue(temp, initial_function ) ;
+
+            Assert(cur_alpha_list != NULL, "Current Alpha List is NULL!");
+            current_function_value = bestValue(temp, current_function) ;
+
+            if(current_function_value > initial_function_value){
+                printf("Current function is better than initial at belief state ");
+
+                if ( temp->b == NULL) {
+                    printf("<NULL>");
+                 }
+                 else
+                 {
+                    //print belief state where current function dominates.
+                    printf("[%f", temp->b[0] );
+
+                    for (k = 1; k < gNumStates; k++) {
+                         printf(" ");
+                         printf("%f", temp->b[k] );
+                    }  // for k
+
+                    printf("]\n");
+                }//else
+
+                printf("Current value: %f", current_function_value);
+                printf("Initial value: %f", initial_function_value);
+
+                return(TRUE);
+             }//if currentvalue > initialvalue
+            temp = temp->next;
+
+        } //while(temp != NULL)
+        printf("Done checking for Yokoo stopping condition\n");
+    } // if(param->input_belief_states != NULL)
+    return(FALSE);
+}
 
 
 /**********************************************************************/
@@ -589,75 +641,25 @@ meetStopCriteria( AlphaList prev_alpha_list,
     }
 
   /* Else select from exact stopping criteria setting. */
-  else
+    else
     {
 
+        /* The exact stopping criteria is sensitive to the ordering of the
+         vectors.  Thus, we will sort the current solution before doing
+         this comparison.  We will assume that the previous  soltuion is
+         already sorted as a result of the previous call to this routine
+         when it would have been the "current" solution. */
+        sortAlphaList( cur_alpha_list );
 
-      /*
-      Victor Szczepanski addition. We stop if there are any belief states where the current function dominates the initial function.
-      */
-      //iterate over belief states from param
-	      
-	double initial_function_value = 0.0;
-      	double current_function_value = 0.0;
-      	int k;
-      	BeliefList temp = param->input_belief_states;
-      	if(param->input_belief_states != NULL){
-          	printf("Testing current function against initial function for stopping condition.");
-		if(similarAlphaList(param->initial_policy, cur_alpha_list, 0.0001)){
-			printf("current function is identical to initial function. Not checking for dominance.\n");
-			temp = NULL; //setting temp to NULL ensures we don't enter the while loop
-		}
-	while(temp != NULL) {
-		
-                Assert(param->initial_policy != NULL, "Initial Policy is NULL!");
-      		AlphaList tempInitial = duplicateAlphaList(param->initial_policy);          
-		   printf("Number of states: %d\n",gNumStates);
-                initial_function_value = bestValue(temp, tempInitial ) ;
-		destroyAlphaList(tempInitial);
-                Assert(cur_alpha_list != NULL, "Current Alpha List is NULL!");
-                current_function_value = bestValue(temp, cur_alpha_list) ;
-                
-		if(current_function_value > initial_function_value){
-                  printf("Current function is better than initial at belief state ");
-
-                  if ( temp->b == NULL) {
-                        fprintf( stdout, "<NULL>");
-                        return;
-                  }
-
-                  fprintf( stdout, "[%f", temp->b[0] );
-                  for (k = 1; k < gNumStates; k++) {
-                    fprintf(stdout, " ");
-                    fprintf( stdout, "%f", temp->b[k] );
-                  }  // for k 
-                    fprintf(stdout, "]\n");
-
-		   printf("Current value: %f", current_function_value);
-		   printf("Initial value: %f", initial_function_value);
-                  
-		   return(TRUE);
-                 }//if currentvalue > initialvalue
-        	printf("Moving temp to next node...");
-		temp = temp->next;  
-		printf("Done.\n");
-	}  
-        printf("Done checking for Yokoo stopping condition\n");
-	} // if(param->input_belief_states != NULL) 
-	
-	
-
-
+         /*
+         Victor Szczepanski addition. We stop if there are any belief states where the current function dominates the initial function.
+         */
+         if(dominance(param->initial_belief_states, param->initial_policy, cur_alpha_list)){
+               return(TRUE);
+         }
 
 	 switch( param->opts->stop_criteria ) {
 	 case POMDP_SOLVE_OPTS_Stop_Criteria_exact:
-
-	   /* The exact stopping criteria is sensitive to the ordering of the
-		 vectors.  Thus, we will sort the current solution before doing
-  		 this comparison.  We will assume that the previous  soltuion is
-		 already sorted as a result of the previous call to this routine
-		 when it would have been the "current" solution. */
-	   sortAlphaList( cur_alpha_list );
 
 	   if ( sameAlphaList( prev_alpha_list,
 					   cur_alpha_list,
