@@ -1,5 +1,5 @@
 **********************************************************************
-|                          POMDP Solve                               |
+|                      Rational POMDP Solve                          |
 |                                                                    |
 |                          version 5.4                               |
 |                    by Anthony R. Cassandra                         |
@@ -11,7 +11,10 @@ decision processes (POMDPs).
 
 Additional stopping condition for using POMDP Solve as an equilibrium
 tester for repeated game strategies is implemented for the Yokoo Lab.
-POMDP Solve is minimally modified for this purpose.
+POMDP Solve is minimally modified for this purpose. 
+
+To fully enable equilibrium testing, we modify POMDP solve to use 
+the GMP library for rational numbers. This process is currently underway.
 
 Contents:
 
