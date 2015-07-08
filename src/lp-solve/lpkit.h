@@ -14,6 +14,10 @@
 #include <math.h>
 #include "hash.h"
 
+/* Victor Szczepanski  Add gmp to define REAL type as mpq_t*/
+#include <gmp.h>
+
+
 #ifndef NULL
 #define NULL 	0
 #endif
@@ -89,7 +93,7 @@
 #define PREJ          1e-3  /* pivot reject (try others first) */
 
 #ifndef REAL /* to allow -DREAL=<float type> while compiling */
-#define REAL double
+#define REAL mpq_t*
 #endif
 
 #define ETA_START_SIZE 10000 /* start size of array Eta. Realloced if needed */

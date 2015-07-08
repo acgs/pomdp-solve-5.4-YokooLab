@@ -23,11 +23,17 @@
 #include "laspack/rtc.h"
 #include "laspack/copyrght.h"
 
+/*Victor Szczepanski. Addition of GMP for rational number support. */
+#include <gmp.h>
+
+
+
 /* number of GMRES steps bevore restart */
 static int GMRESSteps = 10;
 
 Vector *JacobiIter(QMatrix *A, Vector *x, Vector *b, int MaxIter,
-            PrecondProcType Dummy, double Omega)
+            PrecondProcType Dummy, double Omega) /*Victor Szczepanski. Do not need to change JacobiIter,
+ * since it is a converging algorithm - we can define a non-rational fixed-floating point Omega for convergance. */
 {
     int Iter;
     double bNorm;
@@ -76,7 +82,8 @@ Vector *JacobiIter(QMatrix *A, Vector *x, Vector *b, int MaxIter,
 }
 
 Vector *SORForwIter(QMatrix *A, Vector *x, Vector *b, int MaxIter,
-            PrecondProcType Dummy, double Omega)
+            PrecondProcType Dummy, double Omega)/*Victor Szczepanski. Do not need to change SORForwIter,
+ * since it is a converging algorithm - we can define a non-rational fixed-floating point Omega for convergence. */
 {
     int Iter;
     double bNorm;

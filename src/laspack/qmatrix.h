@@ -23,6 +23,8 @@
 #include "laspack/vector.h"
 #include "laspack/copyrght.h"
 
+/*Victor Szczepanski. Add gmp so that QMatrix uses rationals instead of fixed-floating points. */
+
 typedef struct QMatrixType {
     char *Name;
     size_t Dim;
@@ -40,11 +42,11 @@ typedef struct QMatrixType {
     Boolean *DiagElAlloc;
     ElType **DiagEl;
     Boolean *ZeroInDiag;
-    Real *InvDiagEl;
+    Real *InvDiagEl; /* Change here */
     Boolean UnitRightKer;
-    Real *RightKerCmp;
+    Real *RightKerCmp; /* Change here */
     Boolean UnitLeftKer;
-    Real *LeftKerCmp;
+    Real *LeftKerCmp; /* Change here */
     void *EigenvalInfo;
     Boolean *ILUExists;
     struct QMatrixType *ILU;

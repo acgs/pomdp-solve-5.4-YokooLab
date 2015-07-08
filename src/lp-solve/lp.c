@@ -26,7 +26,7 @@ static const char yysccsid[] = "@(#)yaccpar	1.9 (Berkeley) 02/21/93";
 char Last_var[NAMELEN];
 char Constraint_name[NAMELEN];
 int Lin_term_count;
-REAL f;
+/*double f = 0.0; /*VS We explicitly define f as double here for parsing, but it will be transformed into a rational * /*/
 int x;
 int Sign;
 int isign; 	/* internal_sign variable to make sure nothing goes wrong */
@@ -546,9 +546,9 @@ case 31:
 	{
   if (    (isign || make_neg)
       && !(isign && make_neg)) /* but not both! */
-    var_store(Last_var, Rows, (REAL) -1);
+    var_store(Last_var, Rows, (double) -1);
   else
-    var_store(Last_var, Rows, (REAL) 1);
+    var_store(Last_var, Rows, (double) 1);
   isign = 0;
 }
 break;

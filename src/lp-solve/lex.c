@@ -503,7 +503,7 @@ char *yytext;
 extern char Last_var[];
 extern char Constraint_name[];
 extern int Lin_term_count;
-extern REAL f;
+extern double f;
 extern int x;
 extern int isign;
 extern int make_neg;

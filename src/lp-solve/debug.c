@@ -22,15 +22,19 @@ void debug_print_solution(lprec *lp)
   int i;
 
   if(lp->debug)
-    for (i = lp->rows + 1; i <= lp->sum; i++)
+      for (i = lp->rows + 1; i <= lp->sum; i++)
       {
-	print_indent();
-        if (lp->names_used)
-	  fprintf(stderr, "%-10s%16.5g\n", lp->col_name[i - lp->rows],
-		(double)lp->solution[i]);
-        else 
-          fprintf(stderr, "Var[%5d]   %16.5g\n", i - lp->rows,
-		  (double)lp->solution[i]);
+          print_indent();
+          if (lp->names_used) {
+              fprintf(stderr, "%-10s", lp->col_name[i - lp->rows]);
+              mpq_out_str(stderr, 10, *lp->solution[i]);
+              fprintf(stderr, "\n");
+          }
+          else{
+              fprintf(stderr, "Var[%5d]   ", i - lp->rows);
+              mpq_out_str(stderr, 10, *lp->solution[i]);
+              fprintf(stderr, "\n");
+          }
       }
 } /* debug_print_solution */
 
@@ -40,40 +44,53 @@ void debug_print_bounds(lprec *lp, REAL *upbo, REAL *lowbo)
   int i;
 
   if(lp->debug)
-    for(i = lp->rows + 1; i <= lp->sum; i++)
+      for(i = lp->rows + 1; i <= lp->sum; i++)
       {
-	if(lowbo[i] == upbo[i])
-	  {
-	    print_indent();
-	    if (lp->names_used)
-	      fprintf(stderr, "%s = %10.3g\n", lp->col_name[i - lp->rows],
-		      (double)lowbo[i]);
-            else
-              fprintf(stderr, "Var[%5d]  = %10.3g\n", i - lp->rows,
-		      (double)lowbo[i]);
+          if(lowbo[i] == upbo[i])
+          {
+              print_indent();
+              if (lp->names_used) {
+                  fprintf(stderr, "%s = ", lp->col_name[i - lp->rows]);
+                  mpq_out_str(stderr, 10, *lowbo[i]);
+                  fprintf(stderr, "\n");
+              }
+            else {
+                  fprintf(stderr, "Var[%5d]  = ", i - lp->rows);
+                  mpq_out_str(stderr, 10, *lowbo[i]);
+                  fprintf(stderr, "\n");
+            }
+
 	  }
 	else
 	  {
-	    if(lowbo[i] != 0)
-	      {
-		print_indent();
-		if (lp->names_used)
-		  fprintf(stderr, "%s > %10.3g\n", lp->col_name[i - lp->rows],
-			  (double)lowbo[i]);
-		else
-		  fprintf(stderr, "Var[%5d]  > %10.3g\n", i - lp->rows,
-			  (double)lowbo[i]);
+	    if(lowbo[i] != 0) /* VS - change comparison to use mpq */
+        {
+		    print_indent();
+		    if (lp->names_used) {
+                fprintf(stderr, "%s > ", lp->col_name[i - lp->rows]);
+                mpq_out_str(stderr, 10, *lowbo[i]);
+                fprintf(stderr, "\n");
+            }
+		    else {
+                fprintf(stderr, "Var[%5d]  > ", i - lp->rows);
+                mpq_out_str(stderr, 10, *lowbo[i]);
+                fprintf(stderr, "\n");
+            }
 	      }
 	    if(upbo[i] != lp->infinite)
-	      {
-		print_indent();
-		if (lp->names_used)
-		  fprintf(stderr, "%s < %10.3g\n", lp->col_name[i - lp->rows],
-			  (double)upbo[i]);
-		else
-		  fprintf(stderr, "Var[%5d]  < %10.3g\n", i - lp->rows,
-			  (double)upbo[i]);
-	      }
+        {
+		    print_indent();
+		    if (lp->names_used) {
+                fprintf(stderr, "%s < ", lp->col_name[i - lp->rows]);
+                mpq_out_str(stderr, 10, *upbo[i]);
+                fprintf(stderr, "\n");
+            }
+		    else {
+                fprintf(stderr, "Var[%5d]  < %10.3g\n", i - lp->rows);
+                mpq_out_str(stderr, 10, *upbo[i]);
+                fprintf(stderr, "\n");
+            }
+        }
 	  }
       }
 } /* debug_print_bounds */
