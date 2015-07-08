@@ -38,8 +38,7 @@ Vector *SSORIter(QMatrix *A, Vector *x, Vector *b, int NoIter,
 
 /* semi-iterative methods */
 
-Vector *ChebyshevIter(QMatrix *A, Vector *x, Vector *b, int MaxIter,
-            PrecondProcType PrecondProc, double OmegaPrecond);
+
 
 /* CG and CG-like methods */
 
