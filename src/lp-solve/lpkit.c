@@ -1191,13 +1191,14 @@ REAL mat_elm(lprec *lp, int row, int column)
 
 void get_row(lprec *lp, int row_nr, REAL *row)
 {
+    /* VS - get_row expects the array at *row has been allocated memory, but not initialized its mpqs (REALs) */
     int i, j;
 
     if(row_nr <0 || row_nr > lp->rows)
         error("Row nr. out of range in get_row");
     for(i = 1; i <= lp->columns; i++)
     {
-        mpq_set_ui(*row[i], 0, 1);//row[i]=0;
+        mpq_init(*row[i]);//row[i]=0;
         for(j=lp->col_end[i-1]; j < lp->col_end[i]; j++)
             if(lp->mat[j].row_nr==row_nr)
                 mpq_set(*row[i], *lp->mat[j].value);//row[i]=lp->mat[j].value;
@@ -1272,11 +1273,15 @@ void get_reduced_costs(lprec *lp, REAL *rc)
                 mpq_mul(*temp, *rc[lp->mat[j].row_nr], *lp->mat[j].value);
                 mpq_add(*f, *f, *temp);
             }
+            mpq_clear(*f);
+            mpq_clear(*temp); //TODO: Allocating and deallocating memory for f and temp is slow - maybe just allocate for f and temp outside of loop?
             mpq_set(*rc[varnr], *f);//rc[varnr] = f;
         }
     }
-    for(i = 1; i <= lp->sum; i++)
+    /* VS - I don't think we need to round here, since we're using REAL/Rationals */
+    /*for(i = 1; i <= lp->sum; i++)
         my_round(rc[i], lp->epsd);
+    */
 }
 
 short is_feasible(lprec *lp, REAL *values)
@@ -1381,7 +1386,7 @@ short column_in_lp(lprec *lp, REAL *testcolumn)
                 mpq_set(*value, *lp->mat[j].value);//value = lp->mat[j].value;
                 if(lp->ch_sign[lp->mat[j].row_nr])
                     mpq_neg(*value, *value);//value = -value;
-                mpq_div(*value, *value, *lp->scale[rows+i]);//value /= lp->scale[lp->rows+i];
+                mpq_div(*value, *value, *lp->scale[lp->rows+i]);//value /= lp->scale[lp->rows+i];
                 mpq_div(*value, *value, *lp->scale[lp->mat[j].row_nr]);//value /= lp->scale[lp->mat[j].row_nr];
                 mpq_sub(*value, *value, *testcolumn[lp->mat[j].row_nr]);//value -= testcolumn[lp->mat[j].row_nr];
 
@@ -1473,7 +1478,7 @@ void print_lp(lprec *lp)
             }
             else
                 mpq_out_str(stdout, 10, *fatmat[j*(lp->rows+1)+i]);//printf("% 8.2f ", fatmat[j*(lp->rows+1)+i]);
-        if(mpq_sgn(lp->orig_upbo[i]) != 0){//lp->orig_upbo[i] != 0) {
+        if(mpq_sgn(*lp->orig_upbo[i]) != 0){//lp->orig_upbo[i] != 0) {
             if(lp->ch_sign[i])
                 printf(">= ");
             else
@@ -1493,7 +1498,7 @@ void print_lp(lprec *lp)
                    //lp->orig_lowbo[i]);
             mpq_out_str(stdout, 10, *lp->orig_lowbo[i]);
         }
-        if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) != 0 && mpq_sgn(lp->orig_upbo[i]) != 0){//(lp->orig_upbo[i]!=lp->infinite) && (lp->orig_upbo[i]!=0.0)) {
+        if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) != 0 && mpq_sgn(*lp->orig_upbo[i]) != 0){//(lp->orig_upbo[i]!=lp->infinite) && (lp->orig_upbo[i]!=0.0)) {
             printf("  %s=", (lp->ch_sign[i]) ? "upbo" : "lowbo");//printf("  %s=%8.2f", (lp->ch_sign[i]) ? "upbo" : "lowbo",
                    //lp->orig_upbo[i]);
             mpq_out_str(stdout, 10, *lp->orig_upbo[i]);
@@ -1588,7 +1593,20 @@ static REAL minmax_to_scale(REAL min, REAL max)
         return (scale);
     }
 
-    mpq_set_d(*scale,(1 / pow(10, (log10(min) + log10(max)) / 2)));//scale = 1 / pow(10, (log10(min) + log10(max)) / 2);
+    //scale = 1 / pow(10, (log10(min) + log10(max)) / 2);
+    /*VS - no exact algorithm exists for calculating logarithm, so we have to convert min and max to doubles
+     * We could implement a Taylor series approximation with Rationals,
+     * but it still would be approximate - better to use a faster approximation?
+     */
+    mpq_init(*scale);
+    mpq_mul(*scale, *min, *max); //we use the logarithm identity log(x) + log(y) = log(x*y)
+    mpq_set_d(*scale, (log10(mpq_get_d(*scale)))); //have to convert to double here.
+    mpq_div_2exp(*scale, *scale, 1); //divide by 2
+    mpq_set_d(*scale, pow(10, mpq_get_d(*scale))); //also convert to double here. Maybe we don't need to?
+    mpq_inv(*scale, *scale);
+
+
+
     return(scale);
 }
 
@@ -1604,14 +1622,14 @@ void unscale_columns(lprec *lp)
     /* unscale bounds as well */
     for(i = lp->rows + 1; i <= lp->sum; i++) /* was < */ /* changed by PN */
     {
-        if(mpq_sgn(lp->orig_lowbo[i]) != 0)//lp->orig_lowbo[i] != 0)
-            mpq_mul(*lp->orig_lowbo[i], *lp->orig_lowbo[i], lp->scale[i]);//lp->orig_lowbo[i] *= lp->scale[i];
+        if(mpq_sgn(*lp->orig_lowbo[i]) != 0)//lp->orig_lowbo[i] != 0)
+            mpq_mul(*lp->orig_lowbo[i], *lp->orig_lowbo[i], *lp->scale[i]);//lp->orig_lowbo[i] *= lp->scale[i];
         if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite))//lp->orig_upbo[i] != lp->infinite)
             mpq_mul(*lp->orig_upbo[i], *lp->orig_upbo[i], *lp->scale[i]);//lp->orig_upbo[i] *= lp->scale[i];
     }
 
     for(i=lp->rows+1; i<= lp->sum; i++)
-        mpq_set_ui(*lp->scale, 1, 1);//lp->scale[i]=1;
+        mpq_set_ui(*lp->scale[i], 1, 1);//lp->scale[i]=1;
     lp->columns_scaled=FALSE;
     lp->eta_valid=FALSE;
 }
@@ -1631,7 +1649,7 @@ void unscale(lprec *lp)
         /* unscale bounds */
         for(i = lp->rows + 1; i <= lp->sum; i++) /* was < */ /* changed by PN */
         {
-            if(mpq_sgn(lp->orig_lowbo[i]) != 0)//lp->orig_lowbo[i] != 0)
+            if(mpq_sgn(*lp->orig_lowbo[i]) != 0)//lp->orig_lowbo[i] != 0)
                 mpq_mul(*lp->orig_lowbo[i], *lp->orig_lowbo[i], *lp->scale[i]);//lp->orig_lowbo[i] *= lp->scale[i];
             if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) != 0)//lp->orig_upbo[i] != lp->infinite)
                 mpq_mul(*lp->orig_upbo[i], *lp->orig_upbo[i], *lp->scale[i]);//lp->orig_upbo[i] *= lp->scale[i];
@@ -1668,13 +1686,18 @@ void unscale(lprec *lp)
 void auto_scale(lprec *lp)
 {
     int i, j, row_nr, IntUsed;
-    REAL *row_max, *row_min, *scalechange, absval;
+    REAL *row_max;
+    REAL *row_min;
+    REAL *scalechange;
+    REAL absval;
 
     if(!lp->scaling_used)
     {
         MALLOC(lp->scale, lp->sum_alloc + 1);
-        for(i = 0; i <= lp->sum; i++)
-            lp->scale[i] = 1;
+        for(i = 0; i <= lp->sum; i++) {
+            mpq_init(*lp->scale[i]);//lp->scale[i] = 1;
+            mpq_set_ui(*lp->scale[i], 1, 1);
+        }
     }
 
     MALLOC(row_max, lp->rows + 1);
@@ -1684,45 +1707,55 @@ void auto_scale(lprec *lp)
     /* initialise min and max values */
     for(i = 0; i <= lp->rows; i++)
     {
-        row_max[i] = 0;
-        row_min[i] = lp->infinite;
+        mpq_init(*row_max[i]);//row_max[i] = 0;
+        mpq_init(*row_min[i]);//row_min[i] = lp->infinite;
+        mpq_set(*row_min[i], *lp->infinite);
+
+        mpq_init(*scalechange[i]);
     }
 
     /* calculate min and max absolute values of rows */
+    mpq_init(*absval);
     for(j = 1; j <= lp->columns; j++)
         for(i = lp->col_end[j - 1]; i < lp->col_end[j]; i++)
         {
             row_nr = lp->mat[i].row_nr;
-            absval = my_abs(lp->mat[i].value);
-            if(absval != 0)
+            mpq_abs(*absval, (*lp->mat[i].value));//absval = my_abs(lp->mat[i].value);
+            if(mpq_sgn(*absval) != 0)//absval != 0)
             {
-                row_max[row_nr] = my_max(row_max[row_nr], absval);
-                row_min[row_nr] = my_min(row_min[row_nr], absval);
+                mpq_set(*row_max[row_nr], *(my_mpq_max(row_max[row_nr], absval)));//row_max[row_nr] = my_mpq_max(row_max[row_nr], absval);
+                mpq_set(*row_min[row_nr], *(my_mpq_min(row_min[row_nr], absval)));//row_min[row_nr] = my_mpq_min(row_min[row_nr], absval);
             }
         }
     /* calculate scale factors for rows */
     for(i = 0; i <= lp->rows; i++)
     {
-        scalechange[i] = minmax_to_scale(row_min[i], row_max[i]);
-        lp->scale[i] *= scalechange[i];
+        mpq_set(*scalechange[i], *minmax_to_scale(row_min[i], row_max[i]));//scalechange[i] = minmax_to_scale(row_min[i], row_max[i]);
+        mpq_mul(*lp->scale[i], *lp->scale[i], *scalechange[i]);//lp->scale[i] *= scalechange[i];
+        /* VS - since we don't need row_max or row_min anymore, we'll deallocate memory for their mpqs. */
+        mpq_clear(*row_min[i]);
+        mpq_clear(*row_max[i]);
     }
 
     /* now actually scale the matrix */
     for(j = 1; j <= lp->columns; j++)
         for(i = lp->col_end[j - 1]; i < lp->col_end[j]; i++)
-            lp->mat[i].value *= scalechange[lp->mat[i].row_nr];
+            mpq_mul(*lp->mat[i].value, *lp->mat[i].value, *scalechange[lp->mat[i].row_nr]);//lp->mat[i].value *= scalechange[lp->mat[i].row_nr];
 
     /* and scale the rhs and the row bounds (RANGES in MPS!!) */
     for(i = 0; i <= lp->rows; i++)
     {
-        lp->orig_rh[i] *= scalechange[i];
+        mpq_mul(*lp->orig_rh[i], *lp->orig_rh[i], *scalechange[i]);//lp->orig_rh[i] *= scalechange[i];
 
-        if((lp->orig_upbo[i] < lp->infinite) && (lp->orig_upbo[i] != 0))
-            lp->orig_upbo[i] *= scalechange[i];
+        if((mpq_cmp(*lp->orig_upbo[i], *lp->infinite) < 0) && (mpq_sgn(*lp->orig_upbo[i]) != 0))//(lp->orig_upbo[i] < lp->infinite) && (lp->orig_upbo[i] != 0))
+            mpq_mul(*lp->orig_upbo[i], *lp->orig_upbo[i], *scalechange[i]);//lp->orig_upbo[i] *= scalechange[i];
 
-        if(lp->orig_lowbo[i] != 0) /* can this happen? what would it mean? */
-            lp->orig_lowbo[i] *= scalechange[i];
+        if(mpq_sgn(*lp->orig_lowbo[i]) != 0)//lp->orig_lowbo[i] != 0) /* can this happen? what would it mean? */
+            mpq_mul(*lp->orig_lowbo[i], *lp->orig_lowbo[i], *scalechange[i]);//lp->orig_lowbo[i] *= scalechange[i];
+
     }
+
+
 
     free(row_max);
     free(row_min);
@@ -1732,37 +1765,45 @@ void auto_scale(lprec *lp)
 
     if(!IntUsed)
     {
-        REAL col_max, col_min;
-
+        REAL col_max;
+        REAL col_min;
+        REAL temp;
+        mpq_init(*col_max);
+        mpq_init(*col_min);
+        mpq_init(*temp);
         /* calculate column scales */
         for(j = 1; j <= lp->columns; j++)
         {
-            col_max = 0;
-            col_min = lp->infinite;
+            mpq_set_ui(*col_max, 0, 1);//col_max = 0;
+            mpq_set(*col_min, *lp->infinite);//col_min = lp->infinite;
             for(i = lp->col_end[j - 1]; i < lp->col_end[j]; i++)
             {
-                if(lp->mat[i].value!=0)
+                if(mpq_sgn(*lp->mat[i].value) != 0)//lp->mat[i].value!=0)
                 {
-                    col_max = my_max(col_max, my_abs(lp->mat[i].value));
-                    col_min = my_min(col_min, my_abs(lp->mat[i].value));
+                    mpq_abs(*temp, *lp->mat[i].value);
+                    mpq_set(*col_max, *(my_mpq_max(col_max, temp)));//col_max = my_max(col_max, my_abs(lp->mat[i].value));
+                    mpq_set(*col_min, *(my_mpq_min(col_min, temp)));//col_min = my_min(col_min, my_abs(lp->mat[i].value));
                 }
             }
-            scalechange[lp->rows + j]  = minmax_to_scale(col_min, col_max);
-            lp->scale[lp->rows + j] *= scalechange[lp->rows + j];
+            mpq_set(*scalechange[lp->rows + j], *(minmax_to_scale(col_min, col_max)));//scalechange[lp->rows + j]  = minmax_to_scale(col_min, col_max);
+            mpq_mul(*lp->scale[lp->rows + j], *lp->scale[lp->rows + j], *scalechange[lp->rows + j]);//lp->scale[lp->rows + j] *= scalechange[lp->rows + j];
         }
 
         /* scale mat */
         for(j = 1; j <= lp->columns; j++)
             for(i = lp->col_end[j - 1]; i < lp->col_end[j]; i++)
-                lp->mat[i].value *= scalechange[lp->rows + j];
+                mpq_mul(*lp->mat[i].value, *lp->mat[i].value, *scalechange[lp->rows + j]);//lp->mat[i].value *= scalechange[lp->rows + j];
 
         /* scale bounds as well */
         for(i = lp->rows + 1; i <= lp->sum; i++) /* was < */ /* changed by PN */
         {
-            if(lp->orig_lowbo[i] != 0)
-                lp->orig_lowbo[i] /= scalechange[i];
-            if(lp->orig_upbo[i] != lp->infinite)
-                lp->orig_upbo[i] /= scalechange[i];
+            if(mpq_sgn(*lp->orig_lowbo[i]) != 0)//lp->orig_lowbo[i] != 0)
+                mpq_div(*lp->orig_lowbo[i], *lp->orig_lowbo[i], *scalechange[i]);//lp->orig_lowbo[i] /= scalechange[i];
+            if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) != 0)//lp->orig_upbo[i] != lp->infinite)
+                mpq_div(*lp->orig_upbo[i], *lp->orig_upbo[i], *scalechange[i]);//lp->orig_upbo[i] /= scalechange[i];
+
+            /*VS - Since we don't use scalechange[i] anymore, clear the mpq */
+            mpq_clear(*scalechange[i]);
         }
         lp->columns_scaled=TRUE;
     }
@@ -1787,29 +1828,42 @@ void write_solution(lprec *lp, FILE *stream )
 {
     int i;
 
-    fprintf(stream, "Value of objective function: %16.10g\n",
-            (double)lp->best_solution[0]);
+    /*fprintf(stream, "Value of objective function: %16.10g\n",
+            (double)lp->best_solution[0]);*/
+    fprintf(stream, "Value of objective function: ");
+    mpq_str_out(stream, 10, *lp->best_solution[0]);
+    fprintf(stream, "\n");
 
     /* print normal variables */
-    for(i = 1; i <= lp->columns; i++)
-        if(lp->names_used)
-            fprintf(stream, "%-10s%16.5g\n", lp->col_name[i],
-                    (double)lp->best_solution[lp->rows+i]);
+    for(i = 1; i <= lp->columns; i++) {
+        if (lp->names_used)
+            /*fprintf(stream, "%-10s%16.5g\n", lp->col_name[i],
+                    (double)lp->best_solution[lp->rows+i]);*/
+            fprintf(stream, "%-10s", lp->col_name[i]);
         else
-            fprintf(stream, "Var [%4d]  %16.5g\n", i,
-                    (double)lp->best_solution[lp->rows+i]);
+            /*fprintf(stream, "Var [%4d]  %16.5g\n", i,
+                    (double)lp->best_solution[lp->rows+i]);*/
+            fprintf(stream, "Var [%4d]  ", i);
+        mpq_str_out(stream, 10, *lp->best_solution[lp->rows+i]);
+        fprintf(stream, "\n");
+    }
 
     /* print achieved constraint values */
     if(lp->verbose)
     {
         fprintf(stream, "\nActual values of the constraints:\n");
-        for(i = 1; i <= lp->rows; i++)
-            if(lp->names_used)
-                fprintf(stream, "%-10s%16.5g\n", lp->row_name[i],
-                        (double)lp->best_solution[i]);
+        for(i = 1; i <= lp->rows; i++) {
+            if (lp->names_used)
+                /*fprintf(stream, "%-10s%16.5g\n", lp->row_name[i],
+                        (double)lp->best_solution[i]);*/
+                fprintf(stream, "%-10s", lp->row_name[i]);
             else
-                fprintf(stream, "Row [%4d]  %16.5g\n", i,
-                        (double)lp->best_solution[i]);
+                /*fprintf(stream, "Row [%4d]  %16.5g\n", i,
+                        (double) lp->best_solution[i]);*/
+                fprintf(stream, "Row [%4d]  ", i);
+            mpq_str_out(stream, 10, *lp->best_solution[i]);
+            fprintf(stream, "\n");
+        }
     }
 
     if((lp->verbose || lp->print_duals))
@@ -1819,12 +1873,17 @@ void write_solution(lprec *lp, FILE *stream )
                     "These are the duals from the node that gave the optimal solution.\n");
         else
             fprintf(stream, "\nDual values:\n");
-        for(i = 1; i <= lp->rows; i++)
-            if(lp->names_used)
-                fprintf(stream, "%-10s%16.5g\n", lp->row_name[i],
-                        (double)lp->duals[i]);
+        for(i = 1; i <= lp->rows; i++) {
+            if (lp->names_used)
+                /*fprintf(stream, "%-10s%16.5g\n", lp->row_name[i],
+                        (double)lp->duals[i]);*/
+                fprintf(stream, "%-10s", lp->row_name[i]);
             else
-                fprintf(stream, "Row [%4d]  %16.5g\n", i, (double)lp->duals[i]);
+                /*fprintf(stream, "Row [%4d]  %16.5g\n", i, (double)lp->duals[i]);*/
+                fprintf(stream, "Row [%4d]  ", i);
+            mpq_str_out(stream, 10, *lp->duals[i]);
+            fprintf(stream, "\n");
+        }
     }
     fflush(stream);
 } /* write_solution */
@@ -1843,7 +1902,14 @@ void write_LP(lprec *lp, FILE *output)
 {
     int i, j;
     REAL *row;
-
+    REAL neg_one;
+    REAL pos_one; //neg_one and pos_one only used for comparisons
+    REAL temp;
+    mpq_init(*neg_one);
+    mpq_set_si(*neg_one, -1, 1);
+    mpq_init(*pos_one);
+    mpq_set_ui(*pos_one, 1, 1);
+    mpq_init(*temp);
     MALLOC(row, lp->columns+1);
     if(lp->maximise)
         fprintf(output, "max:");
@@ -1852,14 +1918,16 @@ void write_LP(lprec *lp, FILE *output)
 
     get_row(lp, 0, row);
     for(i = 1; i <= lp->columns; i++)
-        if(row[i] != 0)
+        if(mpq_sgn(*row[i]) != 0)
         {
-            if(row[i] == -1)
+            if(mpq_cmp(*row[i], *neg_one) == 0)//row[i] == -1)
                 fprintf(output, " -");
-            else if(row[i] == 1)
+            else if(mpq_cmp(*row[i], *pos_one))//row[i] == 1)
                 fprintf(output, " +");
-            else
-                fprintf(output, " %+g ", row[i]);
+            else {
+                fprintf(output, " ");
+                mpq_str_out(output, 10, *row[i]);//fprintf(output, " %+g ", row[i]);
+            }
             if(lp->names_used)
                 fprintf(output, "%s", lp->col_name[i]);
             else
@@ -1872,49 +1940,77 @@ void write_LP(lprec *lp, FILE *output)
         if(lp->names_used)
             fprintf(output, "%s:", lp->row_name[j]);
         get_row(lp, j, row);
-        for(i = 1; i <= lp->columns; i++)
-            if(row[i] != 0)
-            {
-                if(row[i] == -1)
+        for(i = 1; i <= lp->columns; i++) {
+            if (mpq_sgn(*row[i]) != 0) {
+                if (mpq_cmp(*row[i], *neg_one) == 0)//row[i] == -1)
                     fprintf(output, " -");
-                else if(row[i] == 1)
+                else if (mpq_cmp(*row[i], *pos_one))//row[i] == 1)
                     fprintf(output, " +");
-                else
-                    fprintf(output, " %+g ", row[i]);
-                if(lp->names_used)
+                else {
+                    fprintf(output, " ");
+                    mpq_str_out(output, 10, *row[i]);//fprintf(output, " %+g ", row[i]);
+                }
+                if (lp->names_used)
                     fprintf(output, "%s", lp->col_name[i]);
                 else
                     fprintf(output, "x%d", i);
             }
-        if(lp->orig_upbo[j] == 0)
+            /* VS - don't need row[i] anymore, so deallocate it. */
+            mpq_clear(*row[i]);
+        }
+        if(mpq_sgn(*lp->orig_upbo[j]) == 0)
             fprintf(output, " =");
         else if(lp->ch_sign[j])
             fprintf(output, " >");
         else
             fprintf(output, " <");
-        if(lp->ch_sign[j])
-            fprintf(output, " %g;\n",-lp->orig_rh[j]);
-        else
-            fprintf(output, " %g;\n", lp->orig_rh[j]);
+        if(lp->ch_sign[j]) {
+            //fprintf(output, " %g;\n", -lp->orig_rh[j]);
+            fprintf(output, " ");
+            mpq_neg(*temp, *lp->orig_rh[j]);
+            mpq_str_out(output, 10, *temp);
+            fprintf(output, ";\n");
+        }
+        else {
+            //fprintf(output, " %g;\n", lp->orig_rh[j]);
+            fprintf(output, " ");
+            mpq_str_out(output, 10, *lp->orig_rh[j]);
+            fprintf(output, ";\n");
+        }
     }
     for(i = lp->rows+1; i <= lp->sum; i++)
     {
-        if(lp->orig_lowbo[i] != 0)
+        if(mpq_sgn(*lp->orig_lowbo[i]) != 0)
         {
-            if(lp->names_used)
-                fprintf(output, "%s > %g;\n", lp->col_name[i - lp->rows],
-                        lp->orig_lowbo[i]);
-            else
-                fprintf(output, "x%d > %g;\n", i - lp->rows,
-                        lp->orig_lowbo[i]);
+            if(lp->names_used) {
+                //fprintf(output, "%s > %g;\n", lp->col_name[i - lp->rows],
+                        //lp->orig_lowbo[i]);
+                fprintf(output, "%s > ", lp->col_name[i - lp->rows]);
+                mpq_str_out(output, 10, *lp->orig_lowbo[i]);
+                fprintf(output, ";\n");
+            }
+            else {
+                //fprintf(output, "x%d > %g;\n", i - lp->rows,
+                        //lp->orig_lowbo[i]);
+                fprintf(output, "x%d > ", i - lp->rows);
+                mpq_str_out(output, 10, *lp->orig_lowbo[i]);
+                fprintf(output, ";\n");
+            }
         }
-        if(lp->orig_upbo[i] != lp->infinite)
+        if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) != 0)
         {
-            if(lp->names_used)
-                fprintf(output, "%s < %g;\n", lp->col_name[i - lp->rows],
-                        lp->orig_upbo[i]);
-            else
-                fprintf(output, "x%d < %g;\n", i - lp->rows, lp->orig_upbo[i]);
+            if(lp->names_used) {
+                //fprintf(output, "%s < %g;\n", lp->col_name[i - lp->rows],
+                        //lp->orig_upbo[i]);
+                fprintf(output, "%s < ", lp->col_name[i - lp->rows]);
+                mpq_str_out(output, 10, *lp->orig_upbo[i]);
+                fprintf(output, ";\n");
+            }
+            else {
+                //fprintf(output, "x%d < %g;\n", i - lp->rows, lp->orig_upbo[i]);
+                fprintf(output, "x%d < ", i - lp->rows);
+                mpq_str_out(output, 10, *lp->orig_upbo[i]);
+            }
         }
     }
 
@@ -1938,6 +2034,12 @@ void write_LP(lprec *lp, FILE *output)
             }
         fprintf(output, ";\n");
     }
+
+    mpq_clear(*temp);
+    mpq_clear(*neg_one);
+    mpq_clear(*pos_one);
+
+
     free(row);
 }
 
@@ -1947,7 +2049,11 @@ void write_LP(lprec *lp, FILE *output)
 void write_MPS(lprec *lp, FILE *output)
 {
     int i, j, marker, putheader;
-    REAL *column, a;
+    REAL *column;
+    REAL a;
+    REAL temp;
+    mpq_init(*a);
+    mpq_init(*temp);
 
 
     MALLOC(column, lp->rows+1);
@@ -1993,40 +2099,66 @@ void write_MPS(lprec *lp, FILE *output)
         }
         get_column(lp, i, column);
         j=0;
-        if(lp->maximise)
+        if(lp->maximise) //TODO: Can probably clean up this big if/else. No reason for so much repeated code.
         {
-            if(column[j] != 0)
+            if(mpq_sgn(*column[j]) != 0)//column[j] != 0)
             {
-                if(lp->names_used)
-                    fprintf(output, "    %-8s  %-8s  %g\n", lp->col_name[i],
-                            lp->row_name[j], -column[j]);
-                else
-                    fprintf(output, "    var_%-4d  r_%-6d  %g\n", i, j,
-                            -column[j]);
+                mpq_neg(*temp, *column[j]); //since both cases below use -column[j]
+                if(lp->names_used) {
+                    //fprintf(output, "    %-8s  %-8s  %g\n", lp->col_name[i],
+                    //lp->row_name[j], -column[j]);
+                    fprintf(output, "    %-8s  %-8s  ", lp->col_name[i], lp->row_name[j]);
+                    mpq_str_out(output, 10, *temp);
+                    fprintf(output, "\n");
+                }
+                else {
+                    //fprintf(output, "    var_%-4d  r_%-6d  %g\n", i, j,
+                            //-column[j]);
+                    fprintf(output,"    var_%-4d  r_%-6d ", i, j);
+                    mpq_str_out(output, 10, *temp);
+                    fprintf(output, "\n");
+                }
             }
         }
         else
         {
-            if(column[j] != 0)
+            if(mpq_sgn(*column[j]) != 0)//column[j] != 0)
             {
-                if(lp->names_used)
-                    fprintf(output, "    %-8s  %-8s  %g\n", lp->col_name[i],
-                            lp->row_name[j], column[j]);
-                else
-                    fprintf(output, "    var_%-4d  r_%-6d  %g\n", i, j,
-                            column[j]);
+                if(lp->names_used) {
+                    //fprintf(output, "    %-8s  %-8s  %g\n", lp->col_name[i],
+                            //lp->row_name[j], column[j]);
+                    fprintf(output, "    %-8s  %-8s ", lp->col_name[i], lp->row_name[j]);
+                    mpq_str_out(output, 10, *column[j]);
+                    fprintf(output, "\n");
+                }
+                else {
+                    //fprintf(output, "    var_%-4d  r_%-6d  %g\n", i, j,
+                        //column[j]);
+                    fprintf(output, "    var_%-4d  r_%-6d ", i, j);
+                    mpq_str_out(output, 10, *column[j]);
+                    fprintf(output, "\n");
+                }
+
             }
         }
-        for(j=1; j <= lp->rows; j++)
-            if(column[j] != 0)
-            {
-                if(lp->names_used)
-                    fprintf(output, "    %-8s  %-8s  %g\n", lp->col_name[i],
-                            lp->row_name[j], column[j]);
-                else
-                    fprintf(output, "    var_%-4d  r_%-6d  %g\n", i, j,
-                            column[j]);
+        for(j=1; j <= lp->rows; j++) {
+            if (column[j] != 0) {
+                if (lp->names_used) {
+                    //fprintf(output, "    %-8s  %-8s  %g\n", lp->col_name[i],
+                    //lp->row_name[j], column[j]);
+                    fprintf(output, "    %-8s  %-8s ", lp->col_name[i], lp->row_name[j]);
+                }
+                else {
+                    //fprintf(output, "    var_%-4d  r_%-6d  %g\n", i, j,
+                    //column[j]);
+                    fprintf(output, "    var_%-4d  r_%-6d ", i, j);
+                }
+                mpq_str_out(output, 10, *column[j]);
+                fprintf(output, "\n");
             }
+            /* VS - clear column[j] here since we won't use it again.*/
+            mpq_clear(*column[j]);
+        }
     }
     if((marker % 2) ==1)
     {
@@ -2038,139 +2170,188 @@ void write_MPS(lprec *lp, FILE *output)
     fprintf(output, "RHS\n");
     for(i = 1; i <= lp->rows; i++)
     {
-        a = lp->orig_rh[i];
+        mpq_set(*a, *lp->orig_rh[i]);//a = lp->orig_rh[i];
         if(lp->scaling_used)
-            a /= lp->scale[i];
+            mpq_div(*a, *a, *lp->scale[i]);//a /= lp->scale[i];
 
         if(lp->ch_sign[i])
         {
+            mpq_neg(*temp, *a);
             if(lp->names_used)
-                fprintf(output, "    RHS       %-8s  %g\n", lp->row_name[i],
-                        (double)-a);
+                //fprintf(output, "    RHS       %-8s  %g\n", lp->row_name[i],
+                        //(double)-a);
+                fprintf(output, "    RHS       %-8s  ", lp->row_name[i]);
             else
-                fprintf(output, "    RHS       r_%-6d  %g\n", i,
-                        (double)-a);
+                //fprintf(output, "    RHS       r_%-6d  %g\n", i,
+                        //(double)-a);
+                fprintf(output, "    RHS       r_%-6d  ", i);
+            mpq_str_out(output, 10, *temp);
+            fprintf(output, "\n");
         }
         else
         {
             if(lp->names_used)
-                fprintf(output, "    RHS       %-8s  %g\n", lp->row_name[i],
-                        (double)a);
+                //fprintf(output, "    RHS       %-8s  %g\n", lp->row_name[i],
+                        //(double)a);
+                fprintf(output, "    RHS       %-8s  ", lp->row_name[i]);
             else
-                fprintf(output, "    RHS       r_%-6d  %g\n", i,
-                        (double)a);
+                //fprintf(output, "    RHS       r_%-6d  %g\n", i,
+                        //(double)a);
+                fprintf(output, "    RHS       r_%-6d  ", i);
+            mpq_str_out(output, 10, *a);
+            fprintf(output, "\n");
         }
     }
 
     putheader = TRUE;
     for(i = 1; i <= lp->rows; i++)
-        if((lp->orig_upbo[i] != lp->infinite) && (lp->orig_upbo[i] != 0.0)) {
+        if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) != 0 && mpq_sgn(*lp->orig_upbo[i]) != 0) {//(lp->orig_upbo[i] != lp->infinite) && (lp->orig_upbo[i] != 0.0)) {
             if(putheader)
             {
                 fprintf(output, "RANGES\n");
                 putheader = FALSE;
             }
-            a = lp->orig_upbo[i];
+            mpq_set(*a, *lp->orig_upbo[i]);//a = lp->orig_upbo[i];
             if(lp->scaling_used)
-                a /= lp->scale[i];
+                mpq_div(*a, *a, *lp->scale[i]);//a /= lp->scale[i];
             if(lp->names_used)
-                fprintf(output, "    RGS       %-8s  %g\n", lp->row_name[i],
-                        (double)a);
+                /*fprintf(output, "    RGS       %-8s  %g\n", lp->row_name[i],
+                        (double)a);*/
+                fprintf(output, "    RGS       %-8s  ", lp->row_name[i]);
             else
-                fprintf(output, "    RGS       r_%-6d  %g\n", i,
-                        (double)a);
+                /*fprintf(output, "    RGS       r_%-6d  %g\n", i,
+                        (double)a);*/
+                fprintf(output, "    RGS       r_%-6d  ", i);
+            mpq_str_out(output, 10, *a);
+            fprintf(output, "\n");
         }
-        else if((lp->orig_lowbo[i] != 0.0)) {
+        else if(mpq_sgn(*lp->orig_lowbo[i]) != 0){//(lp->orig_lowbo[i] != 0.0)) {
             if(putheader)
             {
                 fprintf(output, "RANGES\n");
                 putheader = FALSE;
             }
-            a = lp->orig_lowbo[i];
+            mpq_set(*a, *lp->orig_lowbo[i]);//a = lp->orig_lowbo[i];
             if(lp->scaling_used)
-                a /= lp->scale[i];
+                mpq_div(*a, *a, *lp->scale[i]);//a /= lp->scale[i];
+
+            mpq_neg(*temp, *a); //since both cases below use -a
             if(lp->names_used)
-                fprintf(output, "    RGS       %-8s  %g\n", lp->row_name[i],
-                        (double)-a);
+                //fprintf(output, "    RGS       %-8s  %g\n", lp->row_name[i],
+                        //(double)-a);
+                fprintf(output, "    RGS       %-8s  ", lp->row_name[i]);
             else
-                fprintf(output, "    RGS       r_%-6d  %g\n", i,
-                        (double)-a);
+                //fprintf(output, "    RGS       r_%-6d  %g\n", i,
+                        //(double)-a);
+                fprintf(output, "    RGS       r_%-6d  ", i);
+            mpq_str_out(output, 10, *temp);
+            fprintf(output, "\n");
         }
 
     fprintf(output, "BOUNDS\n");
     if(lp->names_used)
         for(i = lp->rows + 1; i <= lp->sum; i++)
         {
-            if((lp->orig_lowbo[i] != 0) && (lp->orig_upbo[i] < lp->infinite) &&
-               (lp->orig_lowbo[i] == lp->orig_upbo[i]))
+            if(mpq_sgn(*lp->orig_lowbo[i]) != 0 && mpq_cmp(*lp->orig_upbo[i], *lp->infinite) < 0 &&//(lp->orig_lowbo[i] != 0) && (lp->orig_upbo[i] < lp->infinite) &&
+                (mpq_equal(*lp->orig_lowbo[i], *lp->orig_upbo[i])))//(lp->orig_lowbo[i] == lp->orig_upbo[i]))
             {
-                a = lp->orig_upbo[i];
+                mpq_set(*a, *lp->orig_upbo[i]);//a = lp->orig_upbo[i];
                 if(lp->scaling_used)
-                    a *= lp->scale[i];
-                fprintf(output, " FX BND       %-8s  %g\n",
-                        lp->col_name[i- lp->rows], (double)a);
+                    mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+
+                //fprintf(output, " FX BND       %-8s  %g\n",
+                        //lp->col_name[i- lp->rows], (double)a);
+                fprintf(output, " FX BND       %-8s  ", lp->col_name[i - lp->rows]);
+                mpq_str_out(output, 10, *a);
+                fprintf(output, "\n");
             }
             else
             {
-                if(lp->orig_upbo[i] < lp->infinite) {
-                    a = lp->orig_upbo[i];
+                if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) < 0){//lp->orig_upbo[i] < lp->infinite) {
+                    mpq_set(*a, *lp->orig_upbo[i]);//a = lp->orig_upbo[i];
+
                     if(lp->scaling_used)
-                        a *= lp->scale[i];
-                    fprintf(output, " UP BND       %-8s  %g\n",
-                            lp->col_name[i- lp->rows], (double)a);
+                        mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+
+                    //fprintf(output, " UP BND       %-8s  %g\n",
+                            //lp->col_name[i- lp->rows], (double)a);
+                    fprintf(output, " UP BND       %-8s  ", lp->col_name[i - lp->rows]);
+                    mpq_str_out(output, 10, *a);
                 }
-                if(lp->orig_lowbo[i] != 0) {
-                    a = lp->orig_lowbo[i];
+                if(mpq_sgn(*lp->orig_lowbo[i]) != 0) {//lp->orig_lowbo[i] != 0) {
+                    mpq_set(*a, *lp->orig_lowbo[i]);//a = lp->orig_lowbo[i];
                     if(lp->scaling_used)
-                        a *= lp->scale[i];
-                    fprintf(output, " LO BND       %-8s  %g\n",
-                            lp->col_name[i- lp->rows], (double)lp->orig_lowbo[i]);
+                        mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+
+                    //fprintf(output, " LO BND       %-8s  %g\n",
+                            //lp->col_name[i- lp->rows], (double)lp->orig_lowbo[i]);
+                    fprintf(output, " LO BND       %-8s  ", lp->col_name[i - lp->rows]);
+                    mpq_str_out(output, 10, *lp->orig_lowbo[i]);
                 }
             }
         }
     else
         for(i = lp->rows + 1; i <= lp->sum; i++)
         {
-            if((lp->orig_lowbo[i] != 0) && (lp->orig_upbo[i] < lp->infinite) &&
-               (lp->orig_lowbo[i] == lp->orig_upbo[i]))
+            if(mpq_sgn(*lp->orig_lowbo[i]) != 0 && mpq_cmp(*lp->orig_upbo[i], *lp->infinite) < 0 &&//(lp->orig_lowbo[i] != 0) && (lp->orig_upbo[i] < lp->infinite) &&
+                    mpq_equal(*lp->orig_lowbo[i], *lp->orig_upbo[i]))//(lp->orig_lowbo[i] == lp->orig_upbo[i]))
             {
-                a = lp->orig_upbo[i];
+                mpq_set(*a, *lp->orig_upbo[i]);//a = lp->orig_upbo[i];
                 if(lp->scaling_used)
-                    a *= lp->scale[i];
-                fprintf(output, " FX BND       %-8s  %g\n",
-                        lp->col_name[i- lp->rows], (double)a);
+                    mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+                //fprintf(output, " FX BND       %-8s  %g\n",
+                        //lp->col_name[i- lp->rows], (double)a);
+                fprintf(output, " FX BND       %-8s  ", lp->col_name[i - lp->rows]);
+                mpq_str_out(output, 10, *a);
+                fprintf(output, "\n");
             }
             else
             {
-                if(lp->orig_upbo[i] < lp->infinite) {
-                    a = lp->orig_upbo[i];
+                if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) < 0){//lp->orig_upbo[i] < lp->infinite) {
+                    mpq_set(*a, *lp->orig_upbo[i]);//a = lp->orig_upbo[i];
                     if(lp->scaling_used)
-                        a *= lp->scale[i];
-                    fprintf(output, " UP BND       var_%-4d  %g\n",
-                            i - lp->rows, (double)a);
+                        mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+
+                    //fprintf(output, " UP BND       var_%-4d  %g\n",
+                            //i - lp->rows, (double)a);
+                    fprintf(output, " UP BND       var_%-4d  ", i - lp->rows);
+                    mpq_str_out(output, 10, *a);
+                    fprintf(output, "\n");
                 }
-                if(lp->orig_lowbo[i] != 0) {
-                    a = lp->orig_lowbo[i];
+                if(mpq_sgn(*lp->orig_lowbo[i]) != 0){//lp->orig_lowbo[i] != 0) {
+                    mpq_set(*a, *lp->orig_lowbo[i]);//a = lp->orig_lowbo[i];
                     if(lp->scaling_used)
-                        a *= lp->scale[i];
-                    fprintf(output, " LO BND       var_%-4d  %g\n", i - lp->rows,
-                            (double)a);
+                        mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+
+                    //fprintf(output, " LO BND       var_%-4d  %g\n", i - lp->rows,
+                            //(double)a);
+                    fprintf(output, " LO BND       var_%-4d  ", i - lp->rows);
+                    mpq_str_out(output, 10, *a);
+                    fprintf(output, "\n");
                 }
             }
         }
     fprintf(output, "ENDATA\n");
+    mpq_clear(*a);
+    mpq_clear(*temp);
+    //column already cleared, can just free it.
     free(column);
 }
 
 void print_duals(lprec *lp)
 {
     int i;
-    for(i = 1; i <= lp->rows; i++)
-        if(lp->names_used)
-            fprintf(stdout, "%10s [%3d] % 10.4f\n", lp->row_name[i], i,
-                    lp->duals[i]);
+    for(i = 1; i <= lp->rows; i++) {
+        if (lp->names_used)
+            //fprintf(stdout, "%10s [%3d] % 10.4f\n", lp->row_name[i], i,
+               //lp->duals[i]);
+            fprintf(stdout, "%10s [%3d] ", lp->row_name[i], i);
         else
-            fprintf(stdout, "Dual       [%3d] % 10.4f\n", i, lp->duals[i]);
+            //fprintf(stdout, "Dual       [%3d] % 10.4f\n", i, lp->duals[i]);
+            fprintf(stdout, "Dual       [%3d] ", i);
+        mpq_str_out(stdout, 10, *lp->duals[i]);
+        fprintf(stdout, "\n");
+    }
 }
 
 void print_scales(lprec *lp)
@@ -2178,10 +2359,30 @@ void print_scales(lprec *lp)
     int i;
     if(lp->scaling_used)
     {
-        for(i = 0; i <= lp->rows; i++)
-            fprintf(stdout, "Row[%3d]    scaled at % 10.6f\n", i, lp->scale[i]);
-        for(i = 1; i <= lp->columns; i++)
-            fprintf(stdout, "Column[%3d] scaled at % 10.6f\n", i,
-                    lp->scale[lp->rows + i]);
+        for(i = 0; i <= lp->rows; i++) {
+            //fprintf(stdout, "Row[%3d]    scaled at % 10.6f\n", i, lp->scale[i]);
+            fprintf(stdout, "Row[%3d]    scaled at ", i);
+            mpq_str_out(stdout, 10, *lp->scale[i]);
+        }
+        for(i = 1; i <= lp->columns; i++) {
+            //fprintf(stdout, "Column[%3d] scaled at % 10.6f\n", i,
+                    //lp->scale[lp->rows + i]);
+            fprintf(stdout, "Column[%3d] scaled at ", i);
+            mpq_str_out(stdout, 10, *lp->scale[lp->rows + i]);
+        }
     }
+}
+
+REAL my_mpq_min(REAL x, REAL y)
+{
+    if(mpq_cmp(*x, *y) < 0)
+        return x;
+    return y;
+}
+
+REAL my_mpq_max(REAL x, REAL y)
+{
+    if(mpq_cmp(*x, *y) > 0)
+        return x;
+    return y;
 }

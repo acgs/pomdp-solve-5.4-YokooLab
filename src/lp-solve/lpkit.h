@@ -53,6 +53,7 @@
 #define my_min(x, y)    ((x) < (y) ? (x) : (y))
 #define my_max(x, y)    ((x) > (y) ? (x) : (y))
 
+
 #define MAX_WARN_COUNT 20
 
 #ifdef CHECK
@@ -471,4 +472,7 @@ void lp_solve_btran(lprec *lp, REAL *row);
 void invert(lprec *lp);
 void lp_solve_presolve(lprec *lp);
 
+/* VS min/max functions for Rationals */
+REAL my_mpq_min(REAL x, REAL y);
+REAL my_mpq_max(REAL x, REAL y);
 #endif
