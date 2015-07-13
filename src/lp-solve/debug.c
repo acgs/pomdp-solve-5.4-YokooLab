@@ -46,7 +46,7 @@ void debug_print_bounds(lprec *lp, REAL *upbo, REAL *lowbo)
   if(lp->debug)
       for(i = lp->rows + 1; i <= lp->sum; i++)
       {
-          if(lowbo[i] == upbo[i])
+          if(mpq_equal(*lowbo[i], *upbo[i]))//lowbo[i] == upbo[i])
           {
               print_indent();
               if (lp->names_used) {
@@ -63,7 +63,7 @@ void debug_print_bounds(lprec *lp, REAL *upbo, REAL *lowbo)
 	  }
 	else
 	  {
-	    if(lowbo[i] != 0) /* VS - change comparison to use mpq */
+	    if(mpq_sgn(*lowbo[i]) != 0)//lowbo[i] != 0) /* VS - change comparison to use mpq */
         {
 		    print_indent();
 		    if (lp->names_used) {
@@ -86,7 +86,7 @@ void debug_print_bounds(lprec *lp, REAL *upbo, REAL *lowbo)
                 fprintf(stderr, "\n");
             }
 		    else {
-                fprintf(stderr, "Var[%5d]  < %10.3g\n", i - lp->rows);
+                fprintf(stderr, "Var[%5d]  < ", i - lp->rows);
                 mpq_out_str(stderr, 10, *upbo[i]);
                 fprintf(stderr, "\n");
             }
