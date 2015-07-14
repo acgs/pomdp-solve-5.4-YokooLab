@@ -2008,14 +2008,14 @@ static int milpsolve(lprec *lp,
                 //fprintf(stderr, "level %3d OPT     value %f\n", Level,
                         //(double) lp->solution[0]);
                 fprintf(stderr, "level %3d OPT     value \n", Level);
-                mpq_out_str(stderr, 10, *lp->solution[0]);
+                mpq_out_str(stderr, 10, lp->solution[0]);
                 fprintf(stderr, "\n");
             }
             else {
                 //fprintf(stderr, "level %3d OPT INT value %f\n", Level,
                         //(double) lp->solution[0]);
                 fprintf(stderr, "level %3d OPT INT value ", Level);
-                mpq_out_str(stderr, 10, *lp->solution[0]);
+                mpq_out_str(stderr, 10, lp->solution[0]);
                 fprintf(stderr, "\n");
             }
         }
@@ -2031,8 +2031,8 @@ static int milpsolve(lprec *lp,
             int    *new_bas;
             int     resone, restwo;
 
-            mpq_init(*new_bound);
-            mpq_init(*temp);
+            mpq_init(new_bound);
+            mpq_init(temp);
 
             /* allocate room for them */
             MALLOC(new_upbo,  lp->sum + 1);
@@ -2040,8 +2040,8 @@ static int milpsolve(lprec *lp,
             MALLOC(new_lower, lp->sum + 1);
             MALLOC(new_basis, lp->sum + 1);
             MALLOC(new_bas,   lp->rows + 1);
-            memcpy(new_upbo,  upbo,      (lp->sum + 1)  * sizeof(mpq_t));
-            memcpy(new_lowbo, lowbo,     (lp->sum + 1)  * sizeof(mpq_t));
+            memcpy(new_upbo,  upbo,      (lp->sum + 1)  * sizeof(REAL));
+            memcpy(new_lowbo, lowbo,     (lp->sum + 1)  * sizeof(REAL));
             memcpy(new_lower, lp->lower, (lp->sum + 1)  * sizeof(short));
             memcpy(new_basis, lp->basis, (lp->sum + 1)  * sizeof(short));
             memcpy(new_bas,   lp->bas,   (lp->rows + 1) * sizeof(int));
@@ -2054,7 +2054,7 @@ static int milpsolve(lprec *lp,
                             //(double) lp->solution[notint]);
                if(lp->debug){
                    fprintf(stderr, "not enough ints. Selecting var %s, val: ", lp->col_name[notint - lp->rows]);
-                   mpq_out_str(stderr, 10, *lp->solution[notint]);
+                   mpq_out_str(stderr, 10, lp->solution[notint]);
                    fprintf(stderr, "\n");
                }
             }
@@ -2064,7 +2064,7 @@ static int milpsolve(lprec *lp,
                             //notint, (double) lp->solution[notint]);
                 if(lp->debug){
                     fprintf(stderr, "not enough ints. Selecting Var [%5d], val: ", notint);
-                    mpq_out_str(stderr, 10, *lp->solution[notint]);
+                    mpq_out_str(stderr, 10, lp->solution[notint]);
                     fprintf(stderr, "\n");
                 }
             }
@@ -2074,19 +2074,19 @@ static int milpsolve(lprec *lp,
             if(lp->floor_first)
             {
                 //new_bound = ceil(lp->solution[notint]) - 1;
-                mpq_set_d(*new_bound, ceil(mpq_get_d(*lp->solution[notint])) - 1);
+                mpq_set_d(new_bound, ceil(mpq_get_d(lp->solution[notint])) - 1);
 
                 /* this bound might conflict */
-                if(mpq_cmp(*new_bound, *lowbo[notint]) < 0)//new_bound < lowbo[notint])
+                if(mpq_cmp(new_bound, lowbo[notint]) < 0)//new_bound < lowbo[notint])
                 {
                     //debug_print(lp,
                                 //"New upper bound value %g conflicts with old lower bound %g\n",
                                 //(double)new_bound, (double)lowbo[notint]);
                     if(lp->debug){
                         fprintf(stderr, "New upper bound value ");
-                        mpq_out_str(stderr, 10, *new_bound);
+                        mpq_out_str(stderr, 10, new_bound);
                         fprintf(stderr, " confilicts with old lower bound ");
-                        mpq_out_str(stderr, 10, *lowbo[notint]);
+                        mpq_out_str(stderr, 10, lowbo[notint]);
                         fprintf(stderr, "\n");
                     }
 
@@ -2095,7 +2095,7 @@ static int milpsolve(lprec *lp,
                 else /* bound feasible */
                 {
                     check_if_less(new_bound, upbo[notint], lp->solution[notint]);
-                    mpq_set(*new_upbo[notint], *new_bound);//new_upbo[notint] = new_bound;
+                    mpq_set(new_upbo[notint], new_bound);//new_upbo[notint] = new_bound;
                     debug_print(lp, "starting first subproblem with bounds:");
                     debug_print_bounds(lp, new_upbo, lowbo);
                     lp->eta_valid = FALSE;
@@ -2104,16 +2104,16 @@ static int milpsolve(lprec *lp,
                     lp->eta_valid = FALSE;
                 }
                 new_bound += 1;
-                if(mpq_cmp(*new_bound, *upbo[notint]) > 0)//new_bound > upbo[notint])
+                if(mpq_cmp(new_bound, upbo[notint]) > 0)//new_bound > upbo[notint])
                 {
                     //debug_print(lp,
                                 //"New lower bound value %g conflicts with old upper bound %g\n",
                                 //(double)new_bound, (double)upbo[notint]);
                     if(lp->debug){
                         fprintf(stderr, "New lower bound value ");
-                        mpq_out_str(stderr, 10, *new_bound);
+                        mpq_out_str(stderr, 10, new_bound);
                         fprintf(stderr, " conflicts with old upper bound ");
-                        mpq_out_str(stderr, 10, *upbo[notint]);
+                        mpq_out_str(stderr, 10, upbo[notint]);
                         fprintf(stderr, "\n");
                     }
 
@@ -2123,7 +2123,7 @@ static int milpsolve(lprec *lp,
                 {
                     check_if_less(lowbo[notint], new_bound,
                                   lp->solution[notint]);
-                    mpq_set(*new_lowbo[notint], *new_bound);//new_lowbo[notint] = new_bound;
+                    mpq_set(new_lowbo[notint], new_bound);//new_lowbo[notint] = new_bound;
                     debug_print(lp, "starting second subproblem with bounds:");
                     debug_print_bounds(lp, upbo, new_lowbo);
                     lp->eta_valid = FALSE;
@@ -2135,18 +2135,18 @@ static int milpsolve(lprec *lp,
             else /* take ceiling first */
             {
                 /*VS - not sure if we need to be taking the ceiling here, but lp solver may need integers */
-                mpq_set_d(*new_bound, ceil(mpq_get_d(*lp->solution[notint])));//new_bound = ceil(lp->solution[notint]);
+                mpq_set_d(new_bound, ceil(mpq_get_d(lp->solution[notint])));//new_bound = ceil(lp->solution[notint]);
                 /* this bound might conflict */
-                if(mpq_cmp(*new_bound, *upbo[notint]) > 0) //new_bound > upbo[notint])
+                if(mpq_cmp(new_bound, upbo[notint]) > 0) //new_bound > upbo[notint])
                 {
                     //debug_print(lp,
                                 //"New lower bound value %g conflicts with old upper bound %g\n",
                                 //(double)new_bound, (double)upbo[notint]);
                     if(lp->debug){
                         fprintf(stderr, "New lower bound value ");
-                        mpq_out_str(stderr, 10, *new_bound);
+                        mpq_out_str(stderr, 10, new_bound);
                         fprintf(stderr, " conflicts with old upper bound ");
-                        mpq_out_str(stderr, 10, *upbo[notint]);
+                        mpq_out_str(stderr, 10, upbo[notint]);
                         fprintf(stderr, "\n");
                     }
 
@@ -2157,7 +2157,7 @@ static int milpsolve(lprec *lp,
                 {
                     check_if_less(lowbo[notint], new_bound,
                                   lp->solution[notint]);
-                    new_lowbo[notint] = new_bound;
+                    mpq_set(new_lowbo[notint], new_bound);//new_lowbo[notint] = new_bound;
                     debug_print(lp, "starting first subproblem with bounds:");
                     debug_print_bounds(lp, upbo, new_lowbo);
                     lp->eta_valid = FALSE;
@@ -2165,18 +2165,18 @@ static int milpsolve(lprec *lp,
                                        new_bas, TRUE);
                     lp->eta_valid = FALSE;
                 }
-                mpq_set_ui(*temp, 1, 1);
-                mpq_sub(*new_bound, *new_bound, *temp);//new_bound -= 1;
-                if(mpq_cmp(*new_bound, *lowbo[notint]) < 0)//new_bound < lowbo[notint])
+                mpq_set_ui(temp, 1, 1);
+                mpq_sub(new_bound, new_bound, temp);//new_bound -= 1;
+                if(mpq_cmp(new_bound, lowbo[notint]) < 0)//new_bound < lowbo[notint])
                 {
                     //debug_print(lp,
                                 //"New upper bound value %g conflicts with old lower bound %g\n",
                                 //(double)new_bound, (double)lowbo[notint]);
                     if(lp->debug){
                         fprintf(stderr, "New upper bound value ");
-                        mpq_out_str(stderr, 10, *new_bound);
+                        mpq_out_str(stderr, 10, new_bound);
                         fprintf(stderr, " conflicts with old lower bound ");
-                        mpq_out_str(stderr, 10, *lowbo[notint]);
+                        mpq_out_str(stderr, 10, lowbo[notint]);
                         fprintf(stderr, "\n");
                     }
                     restwo = MILP_FAIL;
@@ -2184,7 +2184,7 @@ static int milpsolve(lprec *lp,
                 else /* bound feasible */
                 {
                     check_if_less(new_bound, upbo[notint], lp->solution[notint]);
-                    mpq_set(*new_upbo[notint], *new_bound);//new_upbo[notint] = new_bound;
+                    mpq_set(new_upbo[notint], new_bound);//new_upbo[notint] = new_bound;
                     debug_print(lp, "starting second subproblem with bounds:");
                     debug_print_bounds(lp, new_upbo, lowbo);
                     lp->eta_valid = FALSE;
@@ -2200,8 +2200,8 @@ static int milpsolve(lprec *lp,
 
 
             for(i = 0; i <= lp->sum; i++){
-                mpq_clear(*new_upbo[i]);
-                mpq_clear(*new_lowbo[i]);
+                mpq_clear(new_upbo[i]);
+                mpq_clear(new_lowbo[i]);
             }
 
             free(new_upbo);
@@ -2215,9 +2215,9 @@ static int milpsolve(lprec *lp,
             debug_print(lp, "--> valid solution found");
 
             if(lp->maximise)
-                is_worse = (mpq_cmp(*lp->solution[0], *lp->best_solution[0]) < 0);//lp->solution[0] < lp->best_solution[0];
+                is_worse = (mpq_cmp(lp->solution[0], lp->best_solution[0]) < 0);//lp->solution[0] < lp->best_solution[0];
             else
-                is_worse = (mpq_cmp(*lp->solution[0], *lp->best_solution[0]) > 0);//lp->solution[0] > lp->best_solution[0];
+                is_worse = (mpq_cmp(lp->solution[0], lp->best_solution[0]) > 0);//lp->solution[0] > lp->best_solution[0];
 
             if(!is_worse) /* Current solution better */
             {
@@ -2226,9 +2226,9 @@ static int milpsolve(lprec *lp,
                             //"*** new best solution: old: %g, new: %g ***\n",
                             //(double) lp->best_solution[0], (double) lp->solution[0]);
                     fprintf(stderr, "*** new best solution: old: ");
-                    mpq_out_str(stderr, 10, *lp->best_solution[0]);
+                    mpq_out_str(stderr, 10, lp->best_solution[0]);
                     fprintf(stderr, ", new: ");
-                    mpq_out_str(stderr, 10, *lp->solution[0]);
+                    mpq_out_str(stderr, 10, lp->solution[0]);
                     fprintf(stderr, " ***\n");
                 }
                 memcpy(lp->best_solution, lp->solution,
@@ -2240,10 +2240,10 @@ static int milpsolve(lprec *lp,
 
                 if(lp->break_at_int)
                 {
-                    if(lp->maximise && mpq_cmp(*lp->best_solution[0], *lp->break_value) > 0)//(lp->best_solution[0] > lp->break_value))
+                    if(lp->maximise && mpq_cmp(lp->best_solution[0], lp->break_value) > 0)//(lp->best_solution[0] > lp->break_value))
                         Break_bb = TRUE;
 
-                    if(!lp->maximise && mpq_cmp(*lp->best_solution[0], *lp->break_value) < 0)//(lp->best_solution[0] < lp->break_value))
+                    if(!lp->maximise && mpq_cmp(lp->best_solution[0], lp->break_value) < 0)//(lp->best_solution[0] < lp->break_value))
                         Break_bb = TRUE;
                 }
             }
@@ -2254,9 +2254,9 @@ static int milpsolve(lprec *lp,
 
     /* failure can have the values OPTIMAL, UNBOUNDED and INFEASIBLE. */
 
-    mpq_clear(*theta);
-    mpq_clear(*tmpreal);
-    mpq_clear(*temp);
+    mpq_clear(theta);
+    mpq_clear(tmpreal);
+    mpq_clear(temp);
     mpz_clear(tmpInt);
 
     return(failure);
@@ -2268,8 +2268,8 @@ int solve(lprec *lp)
     int result, i;
 
     REAL temp;
-    mpq_init(*temp);
-    mpq_neg(*temp, *lp->infinite); //set up for comparison below
+    mpq_init(temp);
+    mpq_neg(temp, lp->infinite); //set up for comparison below
 
     lp->total_iter  = 0;
     lp->max_level   = 1;
@@ -2277,12 +2277,12 @@ int solve(lprec *lp)
 
     if(isvalid(lp))
     {
-        if(lp->maximise && mpq_equal(*lp->obj_bound, *lp->infinite))//lp->obj_bound == lp->infinite)
-            mpq_neg(*lp->best_solution[0], *lp->infinite);//lp->best_solution[0] = -lp->infinite;
-        else if(!lp->maximise && mpq_equal(*lp->obj_bound, *temp))//lp->obj_bound == -lp->infinite)
-            mpq_set(*lp->best_solution[0], *lp->infinite);//lp->best_solution[0] = lp->infinite;
+        if(lp->maximise && mpq_equal(lp->obj_bound, lp->infinite))//lp->obj_bound == lp->infinite)
+            mpq_neg(lp->best_solution[0], lp->infinite);//lp->best_solution[0] = -lp->infinite;
+        else if(!lp->maximise && mpq_equal(lp->obj_bound, temp))//lp->obj_bound == -lp->infinite)
+            mpq_set(lp->best_solution[0], lp->infinite);//lp->best_solution[0] = lp->infinite;
         else
-            mpq_set(*lp->best_solution[0], *lp->obj_bound);//lp->best_solution[0] = lp->obj_bound;
+            mpq_set(lp->best_solution[0], lp->obj_bound);//lp->best_solution[0] = lp->obj_bound;
 
         Level = 0;
 
@@ -2307,13 +2307,13 @@ int solve(lprec *lp)
         Break_bb      = FALSE;
         result        = milpsolve(lp, lp->orig_upbo, lp->orig_lowbo, lp->basis,
                                   lp->lower, lp->bas, FALSE);
-        mpq_clear(*temp);
+        mpq_clear(temp);
         return(result);
     }
 
     /* if we get here, isvalid(lp) failed. I suggest we return FAILURE */
     fprintf(stderr, "Error, the current LP seems to be invalid\n");
-    mpq_clear(*temp);
+    mpq_clear(temp);
     return(FAILURE);
 } /* solve */
 
@@ -2338,16 +2338,16 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
     int   *old_bas;
     short *old_lower;
 
-    mpq_init(*Zub);
-    mpq_init(*Zlb);
-    mpq_init(*Ztmp);
-    mpq_init(*pie);
-    mpq_init(*rhsmod);
-    mpq_init(*Step);
-    mpq_init(*SqrsumSubGrad);
-    mpq_init(*temp);
-    mpq_init(*point95);
-    mpq_init(*onepoint05);
+    mpq_init(Zub);
+    mpq_init(Zlb);
+    mpq_init(Ztmp);
+    mpq_init(pie);
+    mpq_init(rhsmod);
+    mpq_init(Step);
+    mpq_init(SqrsumSubGrad);
+    mpq_init(temp);
+    mpq_init(point95);
+    mpq_init(onepoint05);
 
     /* allocate mem */
     MALLOC(OrigObj, lp->columns + 1);
@@ -2359,39 +2359,39 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
 
     /*Allocate REALs */
     for(i = 0; i <= lp->columns; i++){
-        mpq_init(*OrigObj[i]);
-        mpq_init(*ModObj[i]);
+        mpq_init(OrigObj[i]);
+        mpq_init(ModObj[i]);
     }
     for(i = 0; i < lp->nr_lagrange; i++)
-        mpq_init(*SubGrad[i]);
+        mpq_init(SubGrad[i]);
 
     for(i = 0; i <= lp->sum; i++)
-        mpq_init(*BestFeasSol[i]);
+        mpq_init(BestFeasSol[i]);
 
     get_row(lp, 0, OrigObj);
 
-    mpq_set_d(*pie, 2.0);//pie = 2;
-    mpq_set_d(*point95, 0.95);
-    mpq_set_d(*onepoint05, 1.95);
+    mpq_set_d(pie, 2.0);//pie = 2;
+    mpq_set_d(point95, 0.95);
+    mpq_set_d(onepoint05, 1.95);
 
     if(lp->maximise)
     {
-        mpq_set_d(*Zub, DEF_INFINITE);//Zub = DEF_INFINITE;
-        mpq_set(*Zlb, *start_bound);//Zlb = start_bound;
+        mpq_set_d(Zub, DEF_INFINITE);//Zub = DEF_INFINITE;
+        mpq_set(Zlb, start_bound);//Zlb = start_bound;
     }
     else
     {
-        mpq_set_d(*Zlb, -DEF_INFINITE);//Zlb = -DEF_INFINITE;
-        mpq_set(*Zub, *start_bound);//Zub = start_bound;
+        mpq_set_d(Zlb, -DEF_INFINITE);//Zlb = -DEF_INFINITE;
+        mpq_set(Zub, start_bound);//Zub = start_bound;
     }
     status   = RUNNING;
-    mpq_set_ui(*Step, 1, 1); //Step     = 1;
+    mpq_set_ui(Step, 1, 1); //Step     = 1;
     OrigFeas = FALSE;
     AnyFeas  = FALSE;
     citer    = 0;
 
     for(i = 0 ; i < lp->nr_lagrange; i++)
-        mpq_set_ui(*lp->lambda[i], 0, 1);//lp->lambda[i] = 0;
+        mpq_set_ui(lp->lambda[i], 0, 1);//lp->lambda[i] = 0;
 
     while(status == RUNNING)
     {
@@ -2399,18 +2399,18 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
 
         for(i = 1; i <= lp->columns; i++)
         {
-            mpq_set(*ModObj[i], *OrigObj[i]);//ModObj[i] = OrigObj[i];
+            mpq_set(ModObj[i], OrigObj[i]);//ModObj[i] = OrigObj[i];
             for(j = 0; j < lp->nr_lagrange; j++)
             {
                 if(lp->maximise) {
                     //ModObj[i] -= lp->lambda[j] * lp->lag_row[j][i];
-                    mpq_mul(*temp, *lp->lambda[j], *lp->lag_row[j][i]);
-                    mpq_sub(*ModObj[i], *ModObj[i], *temp);
+                    mpq_mul(temp, lp->lambda[j], lp->lag_row[j][i]);
+                    mpq_sub(ModObj[i], ModObj[i], temp);
                 }
                 else {
                     //ModObj[i] += lp->lambda[j] * lp->lag_row[j][i];
-                    mpq_mul(*temp, *lp->lambda[j], *lp->lag_row[j][i]);
-                    mpq_add(*ModObj[i], *ModObj[i], *temp);
+                    mpq_mul(temp, lp->lambda[j], lp->lag_row[j][i]);
+                    mpq_add(ModObj[i], ModObj[i], temp);
                 }
             }
         }
@@ -2422,13 +2422,13 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
         for(i = 0; i < lp->nr_lagrange; i++)
             if(lp->maximise) {
                 //rhsmod += lp->lambda[i] * lp->lag_rhs[i];
-                mpq_mul(*temp, *lp->lambda[i], *lp->lag_rhs[i]);
-                mpq_add(*rhsmod, *rhsmod, *temp);
+                mpq_mul(temp, lp->lambda[i], lp->lag_rhs[i]);
+                mpq_add(rhsmod, rhsmod, temp);
             }
             else {
                 //rhsmod -= lp->lambda[i] * lp->lag_rhs[i];
-                mpq_mul(*temp, *lp->lambda[i], *lp->lag_rhs[i]);
-                mpq_sub(*rhsmod, *rhsmod, *temp);
+                mpq_mul(temp, lp->lambda[i], lp->lag_rhs[i]);
+                mpq_sub(rhsmod, rhsmod, temp);
             }
 
 
@@ -2438,13 +2438,13 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
                     //(double)Zub, (double)Zlb, (double)Step, (double)pie,
                     //OrigFeas);
             fprintf(stderr, "Zub: ");
-            mpq_out_str(stderr, 10, *Zub);
+            mpq_out_str(stderr, 10, Zub);
             fprintf(stderr, " Zlb: ");
-            mpq_out_str(stderr, 10, *Zlb);
+            mpq_out_str(stderr, 10, Zlb);
             fprintf(stderr, " Step: ");
-            mpq_out_str(stderr, 10, *Step);
+            mpq_out_str(stderr, 10, Step);
             fprintf(stderr, " pie: ");
-            mpq_out_str(stderr, 10, *pie);
+            mpq_out_str(stderr, 10, pie);
             fprintf(stderr, " Feas %d\n", OrigFeas);
 
             for(i = 0; i < lp->nr_lagrange; i++) {
@@ -2452,9 +2452,9 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
                         //(double) SubGrad[i], (double) lp->lambda[i]);
 
                 fprintf(stderr, "%3d SubGrad ", i);
-                mpq_out_str(stderr, 10, *SubGrad[i]);
+                mpq_out_str(stderr, 10, SubGrad[i]);
                 fprintf(stderr, " lambda ");
-                mpq_out_str(stderr, 10, *lp->lambda[i]);
+                mpq_out_str(stderr, 10, lp->lambda[i]);
                 fprintf(stderr, "\n");
 
             }
@@ -2487,7 +2487,7 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
         {
             memcpy(old_lower, lp->lower, (lp->sum+1) * sizeof(short));
             memcpy(old_bas, lp->bas, (lp->rows+1) * sizeof(int));
-            mpq_mul(*pie, *pie, *point95);//pie *= 0.95;
+            mpq_mul(pie, pie, point95);//pie *= 0.95;
         }
 
         if(verbose)
@@ -2496,7 +2496,7 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
         if(result == UNBOUNDED)
         {
             for(i = 1; i <= lp->columns; i++)
-                mpq_out_str(stderr, 10, *ModObj[i]);//fprintf(stderr, "%5f ", (double)ModObj[i]);
+                mpq_out_str(stderr, 10, ModObj[i]);//fprintf(stderr, "%5f ", (double)ModObj[i]);
             exit(EXIT_FAILURE);
         }
 
@@ -2506,99 +2506,99 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
         if(result == INFEASIBLE)
             status = INFEASIBLE;
 
-        mpq_set_ui(*SqrsumSubGrad, 0, 1);//SqrsumSubGrad = 0;
+        mpq_set_ui(SqrsumSubGrad, 0, 1);//SqrsumSubGrad = 0;
         for(i = 0; i < lp->nr_lagrange; i++)
         {
-            mpq_neg(*SubGrad[i], *lp->lag_rhs[i]);//SubGrad[i]= -lp->lag_rhs[i];
+            mpq_neg(SubGrad[i], lp->lag_rhs[i]);//SubGrad[i]= -lp->lag_rhs[i];
             for(j = 1; j <= lp->columns; j++) {
                 //SubGrad[i] += lp->best_solution[lp->rows + j] * lp->lag_row[i][j];
-                mpq_mul(*temp, *lp->best_solution[lp->rows + j], *lp->lag_row[i][j]);
-                mpq_add(*SubGrad[i], *SubGrad[i], *temp);
+                mpq_mul(temp, lp->best_solution[lp->rows + j], lp->lag_row[i][j]);
+                mpq_add(SubGrad[i], SubGrad[i], temp);
             }
             //SqrsumSubGrad += SubGrad[i] * SubGrad[i];
-            mpq_mul(*temp, *SubGrad[i], *SubGrad[i]);
-            mpq_add(*SqrsumSubGrad, *SqrsumSubGrad, *temp);
+            mpq_mul(temp, SubGrad[i], SubGrad[i]);
+            mpq_add(SqrsumSubGrad, SqrsumSubGrad, temp);
         }
 
         OrigFeas = TRUE;
         for(i = 0; i < lp->nr_lagrange; i++)
             if(lp->lag_con_type[i])
             {
-                mpq_abs(*temp, *SubGrad[i]);
-                if(mpq_cmp(*temp, *lp->epsb) > 0)//my_abs(SubGrad[i]) > lp->epsb)
+                mpq_abs(temp, SubGrad[i]);
+                if(mpq_cmp(temp, lp->epsb) > 0)//my_abs(SubGrad[i]) > lp->epsb)
                     OrigFeas = FALSE;
             }
-            else if(mpq_cmp(*SubGrad[i], *lp->epsb) > 0)//SubGrad[i] > lp->epsb)
+            else if(mpq_cmp(SubGrad[i], lp->epsb) > 0)//SubGrad[i] > lp->epsb)
                 OrigFeas = FALSE;
 
         if(OrigFeas)
         {
             AnyFeas = TRUE;
-            mpq_set_ui(*Ztmp, 0, 1); //Ztmp = 0;
+            mpq_set_ui(Ztmp, 0, 1); //Ztmp = 0;
             for(i = 1; i <= lp->columns; i++) {
                 //Ztmp += lp->best_solution[lp->rows + i] * OrigObj[i];
-                mpq_mul(*temp, *lp->best_solution[lp->rows + i], *OrigObj[i]);
-                mpq_add(*Ztmp, *Ztmp, *temp);
+                mpq_mul(temp, lp->best_solution[lp->rows + i], OrigObj[i]);
+                mpq_add(Ztmp, Ztmp, temp);
             }
-            if((lp->maximise) && (mpq_cmp(*Ztmp, *Zlb) > 0))//(Ztmp > Zlb))
+            if((lp->maximise) && (mpq_cmp(Ztmp, Zlb) > 0))//(Ztmp > Zlb))
             {
-                mpq_set(*Zlb, *Ztmp);//Zlb = Ztmp;
+                mpq_set(Zlb, Ztmp);//Zlb = Ztmp;
                 for(i = 1; i <= lp->sum; i++)
-                    mpq_set(*BestFeasSol[i], *lp->best_solution[i]);//BestFeasSol[i] = lp->best_solution[i];
-                mpq_set(*BestFeasSol[0], *Zlb);//BestFeasSol[0] = Zlb;
+                    mpq_set(BestFeasSol[i], lp->best_solution[i]);//BestFeasSol[i] = lp->best_solution[i];
+                mpq_set(BestFeasSol[0], Zlb);//BestFeasSol[0] = Zlb;
                 if(verbose) {
                    //fprintf(stderr, "Best feasible solution: %f\n", (double) Zlb);
                     fprintf(stderr, "Best feasible solution: ");
-                    mpq_out_str(stderr, 10, *Zlb);
+                    mpq_out_str(stderr, 10, Zlb);
                     fprintf(stderr, "\n");
                 }
             }
-            else if(mpq_cmp(*Ztmp, *Zub) < 0) //Ztmp < Zub)
+            else if(mpq_cmp(Ztmp, Zub) < 0) //Ztmp < Zub)
             {
-                mpq_set(*Zub, *Ztmp); //Zub = Ztmp;
+                mpq_set(Zub, Ztmp); //Zub = Ztmp;
                 for(i = 1; i <= lp->sum; i++)
-                    mpq_set(*BestFeasSol[i], *lp->best_solution[i]);//BestFeasSol[i] = lp->best_solution[i];
-                mpq_set(*BestFeasSol[0], *Zub);//BestFeasSol[0] = Zub;
+                    mpq_set(BestFeasSol[i], lp->best_solution[i]);//BestFeasSol[i] = lp->best_solution[i];
+                mpq_set(BestFeasSol[0], Zub);//BestFeasSol[0] = Zub;
                 if(verbose) {
                     //fprintf(stderr, "Best feasible solution: %f\n", (double) Zub);
                     fprintf(stderr, "Best feasible solution: ");
-                    mpq_out_str(stderr, 10, *Zub);
+                    mpq_out_str(stderr, 10, Zub);
                     fprintf(stderr, "\n");
                 }
             }
         }
 
         if(lp->maximise) {
-            mpq_add(*temp, *rhsmod, *lp->best_solution[0]);
-            mpq_set(*Zub, *(my_mpq_min(Zub, temp)));//Zub = my_min(Zub, rhsmod + lp->best_solution[0]);
+            mpq_add(temp, rhsmod, lp->best_solution[0]);
+            mpq_set(Zub, *(my_mpq_min(Zub, temp)));//Zub = my_min(Zub, rhsmod + lp->best_solution[0]);
         }
         else {
             //Zlb = my_max(Zlb, rhsmod + lp->best_solution[0]);
-            mpq_add(*temp, *rhsmod, *lp->best_solution[0]);
-            mpq_set(*Zlb, *(my_mpq_max(Zlb, temp)));
+            mpq_add(temp, rhsmod, lp->best_solution[0]);
+            mpq_set(Zlb, *(my_mpq_max(Zlb, temp)));
         }
 
-        mpq_sub(*temp, *Zub, *Zlb);
-        mpq_abs(*temp, *temp);
+        mpq_sub(temp, Zub, Zlb);
+        mpq_abs(temp, temp);
         //if(my_abs(Zub-Zlb)<0.001)
-        if(mpq_get_d(*temp) < 0.001) /*VS - ugly constant. Why this number? */
+        if(mpq_get_d(temp) < 0.001) /*VS - ugly constant. Why this number? */
         {
             status = OPTIMAL;
         }
         //Step = pie * ((1.05*Zub) - Zlb) / SqrsumSubGrad;
-        mpq_mul(*temp, *onepoint05, *Zub); // (1.05 * Zub)
-        mpq_sub(*temp, *temp, *Zlb); //(1.05 * Zub) - Zlb
-        mpq_mul(*temp, *pie, *temp); // pie * ((1.05 * Zub) - Zlb)
-        mpq_div(*Step, *temp, *SqrsumSubGrad);
+        mpq_mul(temp, onepoint05, Zub); // (1.05 * Zub)
+        mpq_sub(temp, temp, Zlb); //(1.05 * Zub) - Zlb
+        mpq_mul(temp, pie, temp); // pie * ((1.05 * Zub) - Zlb)
+        mpq_div(Step, temp, SqrsumSubGrad);
 
         for(i = 0; i < lp->nr_lagrange; i++)
         {
             //lp->lambda[i] += Step * SubGrad[i];
-            mpq_mul(*temp, *Step, *SubGrad[i]);
-            mpq_add(*lp->lambda[i], *lp->lambda[i], *temp);
+            mpq_mul(temp, Step, SubGrad[i]);
+            mpq_add(lp->lambda[i], lp->lambda[i], temp);
 
-            if(!lp->lag_con_type[i] && mpq_sgn(*lp->lambda[i]) < 0)//lp->lambda[i] < 0)
-                mpq_set_ui(*lp->lambda[i], 0, 1);//lp->lambda[i] = 0;
+            if(!lp->lag_con_type[i] && mpq_sgn(lp->lambda[i]) < 0)//lp->lambda[i] < 0)
+                mpq_set_ui(lp->lambda[i], 0, 1);//lp->lambda[i] = 0;
         }
 
         if(citer == num_iter && status==RUNNING) {
@@ -2610,38 +2610,38 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
     }
 
     for(i = 0; i <= lp->sum; i++)
-        mpq_set(*lp->best_solution[i], *BestFeasSol[i]);//lp->best_solution[i] = BestFeasSol[i];
+        mpq_set(lp->best_solution[i], BestFeasSol[i]);//lp->best_solution[i] = BestFeasSol[i];
 
     for(i = 1; i <= lp->columns; i++)
         set_mat(lp, 0, i, OrigObj[i]);
 
     if(lp->maximise)
-        mpq_set(*lp->lag_bound, *Zub);//lp->lag_bound = Zub;
+        mpq_set(lp->lag_bound, *ub);//lp->lag_bound = Zub;
     else
-        mpq_set(*lp->lag_bound, *Zlb);//lp->lag_bound = Zlb;
+        mpq_set(lp->lag_bound, *lb);//lp->lag_bound = Zlb;
 
 
-    mpq_clear(*Zub);
-    mpq_clear(*Zlb);
-    mpq_clear(*Ztmp);
-    mpq_clear(*pie);
-    mpq_clear(*rhsmod);
-    mpq_clear(*Step);
-    mpq_clear(*SqrsumSubGrad);
-    mpq_clear(*temp);
-    mpq_clear(*point95);
-    mpq_clear(*onepoint05);
+    mpq_clear(Zub);
+    mpq_clear(Zlb);
+    mpq_clear(Ztmp);
+    mpq_clear(pie);
+    mpq_clear(rhsmod);
+    mpq_clear(Step);
+    mpq_clear(SqrsumSubGrad);
+    mpq_clear(temp);
+    mpq_clear(point95);
+    mpq_clear(onepoint05);
 
 
     for(i = 0; i <= lp->columns; i++){
-        mpq_clear(*OrigObj[i]);
-        mpq_clear(*ModObj[i]);
+        mpq_clear(OrigObj[i]);
+        mpq_clear(ModObj[i]);
     }
     for(i = 0; i < lp->nr_lagrange; i++)
-        mpq_clear(*SubGrad[i]);
+        mpq_clear(SubGrad[i]);
 
     for(i = 0; i <= lp->sum; i++)
-        mpq_clear(*BestFeasSol[i]);
+        mpq_clear(BestFeasSol[i]);
 
     free(BestFeasSol);
     free(SubGrad);

@@ -94,7 +94,7 @@
 #define PREJ          1e-3  /* pivot reject (try others first) */
 
 #ifndef REAL /* to allow -DREAL=<float type> while compiling */
-#define REAL mpq_t*
+#define REAL mpq_t /*VS - We define REAL to be mpq_t. Maybe we should change name to RATIONAL*/
 #endif
 
 #define ETA_START_SIZE 10000 /* start size of array Eta. Realloced if needed */
@@ -415,7 +415,7 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose);
 void reset_basis(lprec *lp);
 /* Reset the basis of a problem, can be usefull in case of degeneracy - JD */
 
-REAL mat_elm(lprec *lp, int row, int column);
+REAL* mat_elm(lprec *lp, int row, int column);
 /* get a single element from the matrix */
 
 void get_row(lprec *lp, int row_nr, REAL *row);
@@ -473,6 +473,6 @@ void invert(lprec *lp);
 void lp_solve_presolve(lprec *lp);
 
 /* VS min/max functions for Rationals */
-REAL my_mpq_min(REAL x, REAL y);
-REAL my_mpq_max(REAL x, REAL y);
+REAL* my_mpq_min(REAL x, REAL y);
+REAL* my_mpq_max(REAL x, REAL y);
 #endif

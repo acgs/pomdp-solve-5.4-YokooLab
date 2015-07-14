@@ -545,13 +545,17 @@ LP_loadLpSolveLP( LP lp )
     int i, col, lpi;
     lprec *lp_solve_lp;
     //double obj_sign, row_sign; /*VS - we'll just use REALs, since that's what LP is written with now */
+    mpq_t obj_sign_t;
     REAL obj_sign;
     REAL row_sign;
     REAL temp;
-
-    mpq_init(*obj_sign);
+    fprintf(stderr, "Initalizing obj_sign, row_sign, temp...");
+    mpq_init(obj_sign_t);
+    fprintf(stderr, "Made obj_sign_t. Making row_sign...");
+    obj_sign = &obj_sign_t;
     mpq_init(*row_sign);
     mpq_init(*temp);
+    fprintf(stderr, "Done initializing.\n");
 
     Assert( lp != NULL, "LP is NULL." );
 
@@ -561,17 +565,21 @@ LP_loadLpSolveLP( LP lp )
        number of non-zero entries in CPLEX plus the number of objective
        coefficeints.  Since CPLEX doesn't store the objective function
        sparsely, this is just the number of columns. */
+    fprintf(stderr, "Making lp...");
     lp_solve_lp = LP_make_lp( lp->rows, lp->cols,
                               lp->matspace + lp->cols  );
+    fprintf(stderr, "Done.\n");
 
     /* lp_solve only does MIN. To get MAX it multiplies the objective
        coefs by '-1', sets ch_sgn[0] = TRUE and lp->maximise = TRUE.
        Because we do not want to mess with such things, we will do the
        conversion ourselves. */
+    fprintf(stderr, "Setting obj_sign...");
     if ( lp->objsen == MAXIMIZE )
         mpq_set_si(*obj_sign, -1, 1);//obj_sign = -1.0;
     else
         mpq_set_ui(*obj_sign, 1, 1); //obj_sign = 1.0;
+    fprintf(stderr, "Done.\n");
 
     /* This copies both the non-zero matrices and their corresponding
        row numbers. Unfortunately, the big pain here is that lp_solve

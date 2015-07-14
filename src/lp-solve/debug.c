@@ -27,12 +27,12 @@ void debug_print_solution(lprec *lp)
           print_indent();
           if (lp->names_used) {
               fprintf(stderr, "%-10s", lp->col_name[i - lp->rows]);
-              mpq_out_str(stderr, 10, *lp->solution[i]);
+              mpq_out_str(stderr, 10, lp->solution[i]);
               fprintf(stderr, "\n");
           }
           else{
               fprintf(stderr, "Var[%5d]   ", i - lp->rows);
-              mpq_out_str(stderr, 10, *lp->solution[i]);
+              mpq_out_str(stderr, 10, lp->solution[i]);
               fprintf(stderr, "\n");
           }
       }
@@ -46,34 +46,34 @@ void debug_print_bounds(lprec *lp, REAL *upbo, REAL *lowbo)
   if(lp->debug)
       for(i = lp->rows + 1; i <= lp->sum; i++)
       {
-          if(mpq_equal(*lowbo[i], *upbo[i]))//lowbo[i] == upbo[i])
+          if(mpq_equal(lowbo[i], upbo[i]))//lowbo[i] == upbo[i])
           {
               print_indent();
               if (lp->names_used) {
                   fprintf(stderr, "%s = ", lp->col_name[i - lp->rows]);
-                  mpq_out_str(stderr, 10, *lowbo[i]);
+                  mpq_out_str(stderr, 10, lowbo[i]);
                   fprintf(stderr, "\n");
               }
             else {
                   fprintf(stderr, "Var[%5d]  = ", i - lp->rows);
-                  mpq_out_str(stderr, 10, *lowbo[i]);
+                  mpq_out_str(stderr, 10, lowbo[i]);
                   fprintf(stderr, "\n");
             }
 
 	  }
 	else
 	  {
-	    if(mpq_sgn(*lowbo[i]) != 0)//lowbo[i] != 0) /* VS - change comparison to use mpq */
+	    if(mpq_sgn(lowbo[i]) != 0)//lowbo[i] != 0) /* VS - change comparison to use mpq */
         {
 		    print_indent();
 		    if (lp->names_used) {
                 fprintf(stderr, "%s > ", lp->col_name[i - lp->rows]);
-                mpq_out_str(stderr, 10, *lowbo[i]);
+                mpq_out_str(stderr, 10, lowbo[i]);
                 fprintf(stderr, "\n");
             }
 		    else {
                 fprintf(stderr, "Var[%5d]  > ", i - lp->rows);
-                mpq_out_str(stderr, 10, *lowbo[i]);
+                mpq_out_str(stderr, 10, lowbo[i]);
                 fprintf(stderr, "\n");
             }
 	      }
@@ -82,12 +82,12 @@ void debug_print_bounds(lprec *lp, REAL *upbo, REAL *lowbo)
 		    print_indent();
 		    if (lp->names_used) {
                 fprintf(stderr, "%s < ", lp->col_name[i - lp->rows]);
-                mpq_out_str(stderr, 10, *upbo[i]);
+                mpq_out_str(stderr, 10, upbo[i]);
                 fprintf(stderr, "\n");
             }
 		    else {
                 fprintf(stderr, "Var[%5d]  < ", i - lp->rows);
-                mpq_out_str(stderr, 10, *upbo[i]);
+                mpq_out_str(stderr, 10, upbo[i]);
                 fprintf(stderr, "\n");
             }
         }
