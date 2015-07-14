@@ -400,9 +400,6 @@ void set_row_name(lprec *lp, int row, nstring new_name);
 void set_col_name(lprec *lp, int column, nstring new_name);
 /* Set the name of a varaible column, make sure that the name has < 25 characters */
 
-void auto_scale(lprec *lp);
-/* Automatic scaling of the problem */
-
 void unscale(lprec *lp);
 /* Remove all scaling from the problem */
 
