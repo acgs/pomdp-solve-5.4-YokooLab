@@ -47,15 +47,15 @@ static void ftran(lprec *lp, REAL *pcol)
     REAL *valuep;
     REAL temp;
 
-    mpq_init(*theta);
-    mpq_init(*temp);
+    mpq_init(theta);
+    mpq_init(temp);
 
     for(i = 1; i <= lp->eta_size; i++)
     {
         k = lp->eta_col_end[i] - 1;
         r = lp->eta_row_nr[k];
-        mpq_set(*theta, *pcol[r]);//theta = pcol[r];
-        if(mpq_sgn(*theta) != 0)//theta != 0)
+        mpq_set(theta, pcol[r]);//theta = pcol[r];
+        if(mpq_sgn(theta) != 0)//theta != 0)
         {
             j = lp->eta_col_end[i - 1];
 
@@ -64,11 +64,11 @@ static void ftran(lprec *lp, REAL *pcol)
                 j < k;
                 j++, rowp++, valuep++) {
                 //pcol[*rowp] += theta * *valuep;
-                mpq_mul(*temp, *theta, **valuep); /*VS - Want to make sure the point arithmetic is working properly.*/
-                mpq_add(*pcol[*rowp], *pcol[*rowp], *temp);
+                mpq_mul(temp, theta, *valuep); /*VS - Want to make sure the point arithmetic is working properly.*/
+                mpq_add(pcol[*rowp], pcol[*rowp], temp);
             }
 
-            mpq_mul(*pcol[r], *pcol[r], *lp->eta_value[k]);//pcol[r] *= lp->eta_value[k];
+            mpq_mul(pcol[r], pcol[r], lp->eta_value[k]);//pcol[r] *= lp->eta_value[k];
         }
     }
 
@@ -87,12 +87,12 @@ void lp_solve_btran(lprec *lp, REAL *row)
     REAL f;
     REAL *valuep;
     REAL temp;
-    mpq_init(*f);
-    mpq_init(*temp);
+    mpq_init(f);
+    mpq_init(temp);
 
     for(i = lp->eta_size; i >= 1; i--)
     {
-        f = 0;
+        mpq_set_ui(f, 0, 1);//f = 0;
         k = lp->eta_col_end[i] - 1;
         j = lp->eta_col_end[i - 1];
 
@@ -100,15 +100,15 @@ void lp_solve_btran(lprec *lp, REAL *row)
             j <= k;
             j++, rowp++, valuep++) {
             //f += row[*rowp] * *valuep;
-            mpq_mul(*temp, *row[*rowp], **valuep);
-            mpq_add(*f, *f, *temp);
+            mpq_mul(temp, row[*rowp], *valuep);
+            mpq_add(f, f, temp);
         }
         /*VS - we don't need to round, since f is a rational */
         //my_round(f, lp->epsel);
-        mpq_set(*row[lp->eta_row_nr[k]], *f);//row[lp->eta_row_nr[k]] = f;
+        mpq_set(row[lp->eta_row_nr[k]], f);//row[lp->eta_row_nr[k]] = f;
     }
-    mpq_clear(*f);
-    mpq_clear(*temp);
+    mpq_clear(f);
+    mpq_clear(temp);
 } /* lp_solve_btran */
 
 
@@ -200,15 +200,15 @@ static void condensecol(lprec *lp,
         resize_eta(lp);
 
     for(i = 0; i <= lp->rows; i++)
-        if(i != row_nr && pcol[i] != 0)
+        if(i != row_nr && mpq_sgn(pcol[i]) != 0)//pcol[i] != 0)
         {
             lp->eta_row_nr[elnr] = i;
-            mpq_set(*lp->eta_value[elnr], *pcol[i]);//lp->eta_value[elnr] = pcol[i];
+            mpq_set(lp->eta_value[elnr], pcol[i]);//lp->eta_value[elnr] = pcol[i];
             elnr++;
         }
 
     lp->eta_row_nr[elnr] = row_nr;
-    mpq_set(*lp->eta_value[elnr], *pcol[row_nr]);//lp->eta_value[elnr] = pcol[row_nr];
+    mpq_set(lp->eta_value[elnr], pcol[row_nr]);//lp->eta_value[elnr] = pcol[row_nr];
     elnr++;
     lp->eta_col_end[lp->eta_size + 1] = elnr;
 } /* condensecol */
@@ -218,17 +218,17 @@ static void addetacol(lprec *lp)
 {
     int  i, j, k;
     REAL theta;
-    mpq_init(*theta);
+    mpq_init(theta);
 
     j = lp->eta_col_end[lp->eta_size];
     lp->eta_size++;
     k = lp->eta_col_end[lp->eta_size] - 1;
-    mpq_inv(*theta, *lp->eta_value[k]);//theta = 1 / (REAL) lp->eta_value[k];
-    mpq_set(*lp->eta_value[k], *theta);//lp->eta_value[k] = theta;
+    mpq_inv(theta, lp->eta_value[k]);//theta = 1 / (REAL) lp->eta_value[k];
+    mpq_set(lp->eta_value[k], theta);//lp->eta_value[k] = theta;
     //Just set theta to -theta
-    mpq_neg(*theta, *theta);
+    mpq_neg(theta, theta);
     for(i = j; i < k; i++)
-        mpq_mul(*lp->eta_value[i], *lp->eta_value[i], *theta);//lp->eta_value[i] *= -theta;
+        mpq_mul(lp->eta_value[i], lp->eta_value[i], theta);//lp->eta_value[i] *= -theta;
     JustInverted = FALSE;
 } /* addetacol */
 
@@ -241,7 +241,7 @@ static void setpivcol(lprec *lp,
     int  i, colnr;
 
     for(i = 0; i <= lp->rows; i++)
-        mpq_set_ui(*pcol[i], 0, 1);//pcol[i] = 0;
+        mpq_set_ui(pcol[i], 0, 1);//pcol[i] = 0;
 
     if(lower)
     {
@@ -249,11 +249,11 @@ static void setpivcol(lprec *lp,
         {
             colnr = varin - lp->rows;
             for(i = lp->col_end[colnr - 1]; i < lp->col_end[colnr]; i++)
-                mpq_set(*pcol[lp->mat[i].row_nr], *lp->mat[i].value);//pcol[lp->mat[i].row_nr] = lp->mat[i].value;
-            mpq_sub(*pcol[0], *pcol[0], *Extrad);//pcol[0] -= Extrad;
+                mpq_set(pcol[lp->mat[i].row_nr], lp->mat[i].value);//pcol[lp->mat[i].row_nr] = lp->mat[i].value;
+            mpq_sub(pcol[0], pcol[0], Extrad);//pcol[0] -= Extrad;
         }
         else
-            mpq_set_ui(*pcol[varin], 1, 1);//pcol[varin] = 1;
+            mpq_set_ui(pcol[varin], 1, 1);//pcol[varin] = 1;
     }
     else /* !lower */
     {
@@ -261,11 +261,11 @@ static void setpivcol(lprec *lp,
         {
             colnr = varin - lp->rows;
             for(i = lp->col_end[colnr - 1]; i < lp->col_end[colnr]; i++)
-                mpq_neg(*pcol[lp->mat[i].row_nr], *lp->mat[i].value);//pcol[lp->mat[i].row_nr] = -lp->mat[i].value;
-            mpq_add(*pcol[0], *pcol[0], *Extrad);//pcol[0] += Extrad;
+                mpq_neg(pcol[lp->mat[i].row_nr], lp->mat[i].value);//pcol[lp->mat[i].row_nr] = -lp->mat[i].value;
+            mpq_add(pcol[0], pcol[0], Extrad);//pcol[0] += Extrad;
         }
         else
-            mpq_set_si(*pcol[varin], -1, 1);//pcol[varin] = -1;
+            mpq_set_si(pcol[varin], -1, 1);//pcol[varin] = -1;
     }
 
     ftran(lp, pcol);
@@ -280,19 +280,19 @@ static void minoriteration(lprec *lp,
     REAL piv;
     REAL theta;
     REAL temp;
-    mpq_init(*piv);
-    mpq_init(*theta);
-    mpq_init(*temp);
+    mpq_init(piv);
+    mpq_init(theta);
+    mpq_init(temp);
 
     varin = colnr + lp->rows;
     elnr = lp->eta_col_end[lp->eta_size];
     wk = elnr;
     lp->eta_size++;
 
-    if(mpq_sgn(*Extrad) != 0)//Extrad != 0)
+    if(mpq_sgn(Extrad) != 0)//Extrad != 0)
     {
         lp->eta_row_nr[elnr] = 0;
-        mpq_neg(*lp->eta_value[elnr], *Extrad);//lp->eta_value[elnr] = -Extrad;
+        mpq_neg(lp->eta_value[elnr], Extrad);//lp->eta_value[elnr] = -Extrad;
         elnr++;
     }
 
@@ -300,27 +300,27 @@ static void minoriteration(lprec *lp,
     {
         k = lp->mat[j].row_nr;
 
-        if(k == 0 && mpq_sgn(*Extrad) != 0)//Extrad != 0)
-            mpq_add(*lp->eta_value[lp->eta_col_end[lp->eta_size -1]], *lp->eta_value[lp->eta_col_end[lp->eta_size -1]], *lp->mat[j].value);//lp->eta_value[lp->eta_col_end[lp->eta_size -1]] += lp->mat[j].value;
+        if(k == 0 && mpq_sgn(Extrad) != 0)//Extrad != 0)
+            mpq_add(lp->eta_value[lp->eta_col_end[lp->eta_size -1]], lp->eta_value[lp->eta_col_end[lp->eta_size -1]], lp->mat[j].value);//lp->eta_value[lp->eta_col_end[lp->eta_size -1]] += lp->mat[j].value;
         else if(k != row_nr)
         {
             lp->eta_row_nr[elnr] = k;
-            mpq_set(*lp->eta_value[elnr], *lp->mat[j].value);//lp->eta_value[elnr] = lp->mat[j].value;
+            mpq_set(lp->eta_value[elnr], lp->mat[j].value);//lp->eta_value[elnr] = lp->mat[j].value;
             elnr++;
         }
         else
-            mpq_set(*piv, *lp->mat[j].value);//piv = lp->mat[j].value;
+            mpq_set(piv, lp->mat[j].value);//piv = lp->mat[j].value;
     }
 
     lp->eta_row_nr[elnr] = row_nr;
-    mpq_inv(*lp->eta_value[elnr], *piv);//lp->eta_value[elnr] = 1 / piv;
-    mpq_div(*theta, *lp->rhs[row_nr], *piv);//theta = lp->rhs[row_nr] / piv;
-    mpq_set(*lp->rhs[row_nr], *theta);//lp->rhs[row_nr] = theta;
+    mpq_inv(lp->eta_value[elnr], piv);//lp->eta_value[elnr] = 1 / piv;
+    mpq_div(theta, lp->rhs[row_nr], piv);//theta = lp->rhs[row_nr] / piv;
+    mpq_set(lp->rhs[row_nr], theta);//lp->rhs[row_nr] = theta;
 
     for(i = wk; i < elnr; i++) {
         //lp->rhs[lp->eta_row_nr[i]] -= theta * lp->eta_value[i];
-        mpq_mul(*temp, *theta, *lp->eta_value[i]);
-        mpq_sub(*lp->rhs[lp->eta_row_nr[i]], *lp->rhs[lp->eta_row_nr[i]], *temp);
+        mpq_mul(temp, theta, lp->eta_value[i]);
+        mpq_sub(lp->rhs[lp->eta_row_nr[i]], lp->rhs[lp->eta_row_nr[i]], temp);
     }
 
     varout = lp->bas[row_nr];
@@ -329,15 +329,15 @@ static void minoriteration(lprec *lp,
     lp->basis[varin] = TRUE;
 
     //set piv = -piv, since we use -piv throughout next loop
-    mpq_neg(*piv, *piv);
+    mpq_neg(piv, piv);
     for(i = wk; i < elnr; i++)
-        mpq_div(*lp->eta_value[i], *lp->eta_value[i], *piv);//lp->eta_value[i] /= -piv;
+        mpq_div(lp->eta_value[i], lp->eta_value[i], piv);//lp->eta_value[i] /= -piv;
 
     lp->eta_col_end[lp->eta_size] = elnr + 1;
 
-    mpq_clear(*piv);
-    mpq_clear(*theta);
-    mpq_clear(*temp);
+    mpq_clear(piv);
+    mpq_clear(theta);
+    mpq_clear(temp);
 } /* minoriteration */
 
 
@@ -348,7 +348,7 @@ static void rhsmincol(lprec *lp,
 {
     int  i, j, k, varout;
     REAL f;
-    mpq_init(*f);
+    mpq_init(f);
 
     if(row_nr > lp->rows + 1)
     {
@@ -363,21 +363,21 @@ static void rhsmincol(lprec *lp,
     for(i = j; i < k; i++)
     {
         //f = lp->rhs[lp->eta_row_nr[i]] - theta * lp->eta_value[i];
-        mpq_mul(*f, *theta, *lp->eta_value[i]);
-        mpq_sub(*f, *lp->rhs[lp->eta_row_nr[i]], *f);
+        mpq_mul(f, theta, lp->eta_value[i]);
+        mpq_sub(f, lp->rhs[lp->eta_row_nr[i]], f);
 
 
         /*VS - don't need to round *///my_round(f, lp->epsb);
-        mpq_set(*lp->rhs[lp->eta_row_nr[i]], *f);//lp->rhs[lp->eta_row_nr[i]] = f;
+        mpq_set(lp->rhs[lp->eta_row_nr[i]], f);//lp->rhs[lp->eta_row_nr[i]] = f;
     }
 
-    mpq_set(*lp->rhs[row_nr], *theta);//lp->rhs[row_nr] = theta;
+    mpq_set(lp->rhs[row_nr], theta);//lp->rhs[row_nr] = theta;
     varout = lp->bas[row_nr];
     lp->bas[row_nr] = varin;
     lp->basis[varout] = FALSE;
     lp->basis[varin] = TRUE;
 
-    mpq_clear(*f);
+    mpq_clear(f);
 
 } /* rhsmincol */
 
@@ -393,8 +393,8 @@ void invert(lprec *lp)
     int    *rownum, *col, *row;
     int    *colnum;
 
-    mpq_init(*theta);
-    mpq_init(*temp);
+    mpq_init(theta);
+    mpq_init(temp);
 
     /* Added 1/1//99 by A. R. Cassandra to prevent the program from
        exiting when there is an inversion problem.  Below this is now
@@ -405,8 +405,8 @@ void invert(lprec *lp)
         //fprintf(stderr, "Start Invert iter %7d eta_size %4d rhs[0] %16.4f \n",
                 //lp->iter, lp->eta_size, (double) - lp->rhs[0]);
         fprintf(stderr, "Start Invert iter %7d eta_size %4d rhs[0] ", lp->iter, lp->eta_size);
-        mpq_neg(*temp, *lp->rhs[0]);
-        mpq_out_str(stderr, 10, *temp);
+        mpq_neg(temp, lp->rhs[0]);
+        mpq_out_str(stderr, 10, temp);
     }
 
     CALLOC(rownum, lp->rows + 1);
@@ -418,7 +418,7 @@ void invert(lprec *lp)
     CALLOC(colnum, lp->columns + 1);
 
     for(i = 0; i <= lp->rows; i++)
-        mpq_init(*pcol[i]);
+        mpq_init(pcol[i]);
 
     for(i = 0; i <= lp->rows; i++)
         frow[i] = TRUE;
@@ -460,25 +460,25 @@ void invert(lprec *lp)
         lp->basis[i + lp->rows] = FALSE;
 
     for(i = 0; i <= lp->rows; i++)
-        lp->rhs[i] = lp->rh[i];
+        mpq_set(lp->rhs[i], lp->rh[i]);//lp->rhs[i] = lp->rh[i];
 
     for(i = 1; i <= lp->columns; i++)
     {
         varnr = lp->rows + i;
         if(!lp->lower[varnr])
         {
-            mpq_set(*theta, *lp->upbo[varnr]);//theta = lp->upbo[varnr];
+            mpq_set(theta, lp->upbo[varnr]);//theta = lp->upbo[varnr];
             for(j = lp->col_end[i - 1]; j < lp->col_end[i]; j++) {
                 //lp->rhs[lp->mat[j].row_nr] -= theta * lp->mat[j].value;
-                mpq_mul(*temp, *theta, *lp->mat[j].value);
-                mpq_sub(*lp->rhs[lp->mat[j].row_nr], *lp->rhs[lp->mat[j].row_nr], *temp);
+                mpq_mul(temp, theta, lp->mat[j].value);
+                mpq_sub(lp->rhs[lp->mat[j].row_nr], lp->rhs[lp->mat[j].row_nr], temp);
             }
         }
     }
 
     for(i = 1; i <= lp->rows; i++)
         if(!lp->lower[i])
-            mpq_sub(*lp->rhs[i], *lp->rhs[i], *lp->upbo[i]);//lp->rhs[i] -= lp->upbo[i];
+            mpq_sub(lp->rhs[i], lp->rhs[i], lp->upbo[i]);//lp->rhs[i] -= lp->upbo[i];
 
     lp->eta_size = 0;
     v = 0;
@@ -572,14 +572,14 @@ void invert(lprec *lp)
             */
             if(row_nr > lp->rows) {
                 gInversionProblem = TRUE;
-                mpq_clear(*theta);
-                mpq_clear(*temp);
+                mpq_clear(theta);
+                mpq_clear(temp);
                 return;
             } /* if inversion problem */
 
             frow[row_nr] = FALSE;
             condensecol(lp, row_nr, pcol);
-            mpq_div(*theta, *lp->rhs[row_nr], *pcol[row_nr]);//theta = lp->rhs[row_nr] / (REAL) pcol[row_nr];
+            mpq_div(theta, lp->rhs[row_nr], pcol[row_nr]);//theta = lp->rhs[row_nr] / (REAL) pcol[row_nr];
             rhsmincol(lp, theta, row_nr, lp->rows + j);
             addetacol(lp);
         }
@@ -591,14 +591,14 @@ void invert(lprec *lp)
         varin = colnr + lp->rows;
 
         for(j = 0; j <= lp->rows; j++)
-            mpq_set_ui(*pcol[j], 0, 1);//pcol[j] = 0;
+            mpq_set_ui(pcol[j], 0, 1);//pcol[j] = 0;
 
         for(j = lp->col_end[colnr - 1]; j < lp->col_end[colnr]; j++)
-            mpq_set(*pcol[lp->mat[j].row_nr], *lp->mat[j].value);//pcol[lp->mat[j].row_nr] = lp->mat[j].value;
+            mpq_set(pcol[lp->mat[j].row_nr], lp->mat[j].value);//pcol[lp->mat[j].row_nr] = lp->mat[j].value;
 
-        mpq_sub(*pcol[0], *pcol[0], *Extrad);//pcol[0] -= Extrad;
+        mpq_sub(pcol[0], pcol[0], Extrad);//pcol[0] -= Extrad;
         condensecol(lp, row_nr, pcol);
-        mpq_div(*theta, *lp->rhs[row_nr], *pcol[row_nr]);//theta = lp->rhs[row_nr] / (REAL) pcol[row_nr];
+        mpq_div(theta, lp->rhs[row_nr], pcol[row_nr]);//theta = lp->rhs[row_nr] / (REAL) pcol[row_nr];
         rhsmincol(lp, theta, row_nr, varin);
         addetacol(lp);
     }
@@ -614,18 +614,18 @@ void invert(lprec *lp)
             //"End Invert                eta_size %4d rhs[0] %16.4f\n",
             //lp->eta_size, (double) - lp->rhs[0]);
         fprintf(stderr, "End Invert                eta_size %4d rhs[0] ", lp->eta_size);
-        mpq_neg(*temp, *lp->rhs[0]);
-        mpq_out_str(stderr, 10, *temp);
+        mpq_neg(temp, lp->rhs[0]);
+        mpq_out_str(stderr, 10, temp);
     }
 
     JustInverted = TRUE;
     DoInvert = FALSE;
 
-    mpq_clear(*temp);
-    mpq_clear(*theta);
+    mpq_clear(temp);
+    mpq_clear(theta);
 
     for(i = 0; i <= lp->rows; i++)
-        mpq_clear(*pcol[i]);
+        mpq_clear(pcol[i]);
 
     free(rownum);
     free(col);
@@ -647,32 +647,32 @@ static short colprim(lprec *lp,
     REAL temp;
 
     //dpiv = -lp->epsd;
-    mpq_init(*dpiv);
-    mpq_neg(*dpiv, *lp->epsd);
+    mpq_init(dpiv);
+    mpq_neg(dpiv, lp->epsd);
 
-    mpq_init(*f);
-    mpq_init(*temp);
+    mpq_init(f);
+    mpq_init(temp);
 
     (*colnr) = 0;
     if(!minit)
     {
         for(i = 1; i <= lp->sum; i++)
-            mpq_init(*drow[i]);//drow[i] = 0;
-        mpq_set_ui(*drow[0], 1, 1);//drow[0] = 1;
+            mpq_init(drow[i]);//drow[i] = 0;
+        mpq_set_ui(drow[0], 1, 1);//drow[0] = 1;
         lp_solve_btran(lp, drow);
         for(i = 1; i <= lp->columns; i++)
         {
             varnr = lp->rows + i;
             if(!lp->basis[varnr])
-            if(mpq_sgn(*lp->upbo[varnr]) > 0)//lp->upbo[varnr] > 0)
+            if(mpq_sgn(lp->upbo[varnr]) > 0)//lp->upbo[varnr] > 0)
             {
-                mpq_set_ui(*f, 0, 1);//f = 0;
+                mpq_set_ui(f, 0, 1);//f = 0;
                 for(j = lp->col_end[i - 1]; j < lp->col_end[i]; j++) {
                     //f += drow[lp->mat[j].row_nr] * lp->mat[j].value;
-                    mpq_mul(*temp, *drow[lp->mat[j].row_nr], *lp->mat[j].value);
-                    mpq_add(*f, *f, *temp);
+                    mpq_mul(temp, drow[lp->mat[j].row_nr], lp->mat[j].value);
+                    mpq_add(f, f, temp);
                 }
-                mpq_set(*drow[varnr], *f);//drow[varnr] = f;
+                mpq_set(drow[varnr], f);//drow[varnr] = f;
             }
         }
         /*VS - No need to round */
@@ -681,15 +681,15 @@ static short colprim(lprec *lp,
     }
     for(i = 1; i <= lp->sum; i++)
         if(!lp->basis[i])
-        if(mpq_sgn(*lp->upbo[i]) > 0)//lp->upbo[i] > 0)
+        if(mpq_sgn(lp->upbo[i]) > 0)//lp->upbo[i] > 0)
         {
             if(lp->lower[i])
-                mpq_set(*f, *drow[i]);//f = drow[i];
+                mpq_set(f, drow[i]);//f = drow[i];
             else
-                mpq_neg(*f, *drow[i]);//f = -drow[i];
-            if(mpq_cmp(*f, *dpiv) < 0)//f < dpiv)
+                mpq_neg(f, drow[i]);//f = -drow[i];
+            if(mpq_cmp(f, dpiv) < 0)//f < dpiv)
             {
-                mpq_set(*dpiv, *f);//dpiv = f;
+                mpq_set(dpiv, f);//dpiv = f;
                 (*colnr) = i;
             }
         }
@@ -698,7 +698,7 @@ static short colprim(lprec *lp,
             //fprintf(stderr, "col_prim:%7d, reduced cost: % 18.10f\n",
                     //(*colnr), (double)dpiv);
             fprintf(stderr,"col_prim:%7d, reduced cost: ", (*colnr) );
-            mpq_out_str(stderr, 10, *dpiv);
+            mpq_out_str(stderr, 10, dpiv);
             fprintf(stderr, "\n");
         }
         else
@@ -712,9 +712,9 @@ static short colprim(lprec *lp,
         Status   = OPTIMAL;
     }
 
-    mpq_clear(*temp);
-    mpq_clear(*f);
-    mpq_clear(*dpiv);
+    mpq_clear(temp);
+    mpq_clear(f);
+    mpq_clear(dpiv);
 
     return((*colnr) > 0);
 } /* colprim */
@@ -731,47 +731,47 @@ static short rowprim(lprec *lp,
     REAL quot;
     REAL temp;
 
-    mpq_init(*f);
-    mpq_init(*quot);
-    mpq_init(*temp);
-    mpq_set_ui(*f, 1, 1);
+    mpq_init(f);
+    mpq_init(quot);
+    mpq_init(temp);
+    mpq_set_ui(f, 1, 1);
 
     (*row_nr) = 0;
-    mpq_set(**theta, *lp->infinite);//(*theta) = lp->infinite;
+    mpq_set(*theta, lp->infinite);//(*theta) = lp->infinite;
     for(i = 1; i <= lp->rows; i++)
     {
-        mpq_set(*f, *pcol[i]);//f = pcol[i];
-        if(mpq_sgn(*f) != 0)//f != 0)
+        mpq_set(f, pcol[i]);//f = pcol[i];
+        if(mpq_sgn(f) != 0)//f != 0)
         {
-            mpq_abs(*temp, *f);
-            if(mpq_cmp(*temp, *Trej) < 0)//my_abs(f) < Trej)
+            mpq_abs(temp, f);
+            if(mpq_cmp(temp, Trej) < 0)//my_abs(f) < Trej)
             {
                 //debug_print(lp, "pivot %g rejected, too small (limit %g)\n",
                             //(double)f, (double)Trej);
                 if(lp->debug){
                     fprintf(stderr, "pivot ");
-                    mpq_out_str(stderr, 10, *f);
+                    mpq_out_str(stderr, 10, f);
                     fprintf(stderr, " rejected, too small (limit ");
-                    mpq_out_str(stderr, 10, *Trej);
+                    mpq_out_str(stderr, 10, Trej);
                     fprintf(stderr, ")\n");
                 }
             }
             else /* pivot alright */
             {
                 /*VS- using mul_2exp, following equation becomes quot = lp->inifinie * 2^1 */ //quot = 2 * lp->infinite;
-                mpq_mul_2exp(*quot, *lp->infinite, 1);
-                if(mpq_sgn(*f) > 0)//f > 0)
-                    mpq_div(*quot, *lp->rhs[i], *f);//quot = lp->rhs[i] / (REAL) f;
-                else if(mpq_cmp(*lp->upbo[lp->bas[i]], *lp->infinite) < 0)//lp->upbo[lp->bas[i]] < lp->infinite)
+                mpq_mul_2exp(quot, lp->infinite, 1);
+                if(mpq_sgn(f) > 0)//f > 0)
+                    mpq_div(quot, lp->rhs[i], f);//quot = lp->rhs[i] / (REAL) f;
+                else if(mpq_cmp(lp->upbo[lp->bas[i]], lp->infinite) < 0)//lp->upbo[lp->bas[i]] < lp->infinite)
                 {
                     //quot = (lp->rhs[i] - lp->upbo[lp->bas[i]]) / (REAL) f;
-                    mpq_sub(*temp, *lp->rhs[i], *lp->upbo[lp->bas[i]]);
-                    mpq_div(*quot, *temp, *f);
+                    mpq_sub(temp, lp->rhs[i], lp->upbo[lp->bas[i]]);
+                    mpq_div(quot, temp, f);
                 }
                 /*VS - don't need to round */ //my_round(quot, lp->epsel);
-                if(mpq_cmp(*quot, **theta) < 0)//quot < (*theta))
+                if(mpq_cmp(quot, *theta) < 0)//quot < (*theta))
                 {
-                    mpq_set(**theta, *quot);//(*theta) = quot;
+                    mpq_set(*theta, quot);//(*theta) = quot;
                     (*row_nr) = i;
                 }
             }
@@ -780,29 +780,29 @@ static short rowprim(lprec *lp,
     if((*row_nr) == 0)
         for(i = 1; i <= lp->rows; i++)
         {
-            mpq_set(*f, *pcol[i]);//f = pcol[i];
-            if(mpq_sgn(*f) != 0)//f != 0)
+            mpq_set(f, pcol[i]);//f = pcol[i];
+            if(mpq_sgn(f) != 0)//f != 0)
             {
                 /*VS- using mul_2exp, following equation becomes quot = lp->inifinie * 2^1 */ //quot = 2 * lp->infinite;
-                mpq_mul_2exp(*quot, *lp->infinite, 1);
-                if(mpq_sgn(*f) > 0)//f > 0)
-                    mpq_div(*quot, *lp->rhs[i], *f);//quot = lp->rhs[i] / (REAL) f;
+                mpq_mul_2exp(quot, lp->infinite, 1);
+                if(mpq_sgn(f) > 0)//f > 0)
+                    mpq_div(quot, lp->rhs[i], f);//quot = lp->rhs[i] / (REAL) f;
                 else
-                    if(mpq_cmp(*lp->upbo[lp->bas[i]], *lp->infinite) < 0) {//lp->upbo[lp->bas[i]] < lp->infinite)
+                    if(mpq_cmp(lp->upbo[lp->bas[i]], lp->infinite) < 0) {//lp->upbo[lp->bas[i]] < lp->infinite)
                         //quot = (lp->rhs[i] - lp->upbo[lp->bas[i]]) / (REAL) f;
-                        mpq_sub(*temp, *lp->rhs[i], *lp->upbo[lp->bas[i]]);
-                        mpq_div(*quot, *temp, *f);
+                        mpq_sub(temp, lp->rhs[i], lp->upbo[lp->bas[i]]);
+                        mpq_div(quot, temp, f);
                     }
                 /* VS - don't need to round */ //my_round(quot, lp->epsel);
-                if(mpq_cmp(*quot, **theta) < 0)//quot < (*theta))
+                if(mpq_cmp(quot, *theta) < 0)//quot < (*theta))
                 {
-                    mpq_set(**theta, *quot);//(*theta) = quot;
+                    mpq_set(*theta, quot);//(*theta) = quot;
                     (*row_nr) = i;
                 }
             }
         }
 
-    if(mpq_sgn(**theta) < 0)//(*theta) < 0)
+    if(mpq_sgn(*theta) < 0)//(*theta) < 0)
     {
         /* Added by A. R. Cassandra on 8/12/98 to allow disabling and
            counting of the instability messages. */
@@ -811,23 +811,23 @@ static short rowprim(lprec *lp,
             //fprintf(stderr, "Warning: Numerical instability, qout = %f\n",
                     //(double)(*theta));
             fprintf(stderr, "Warning: Numerical instability, qout = ");
-            mpq_out_str(stderr, 10, **theta);
+            mpq_out_str(stderr, 10, *theta);
 
             //fprintf(stderr, "pcol[%d] = % 18.10f, rhs[%d] = % 18.8f , upbo = % f\n",
                     //(*row_nr), (double)f, (*row_nr), (double)lp->rhs[(*row_nr)],
                     //(double)lp->upbo[lp->bas[(*row_nr)]]);
             fprintf(stderr, "pcol[%d] = ", (*row_nr));
-            mpq_out_str(stderr, 10, *f);
+            mpq_out_str(stderr, 10, f);
             fprintf(stderr, ", rhs[%d] = ", (*row_nr));
-            mpq_out_str(stderr, 10, *lp->rhs[*row_nr]);
+            mpq_out_str(stderr, 10, lp->rhs[*row_nr]);
             fprintf(stderr, ", upbo = ");
-            mpq_out_str(stderr, 10, *lp->upbo[lp->bas[*row_nr]]);
+            mpq_out_str(stderr, 10, lp->upbo[lp->bas[*row_nr]]);
             fprintf(stderr, "\n");
         }
     }
     if((*row_nr) == 0)
     {
-        if(mpq_equal(*lp->upbo[colnr], *lp->infinite))//lp->upbo[colnr] == lp->infinite)
+        if(mpq_equal(lp->upbo[colnr], lp->infinite))//lp->upbo[colnr] == lp->infinite)
         {
             Doiter   = FALSE;
             DoInvert = FALSE;
@@ -836,18 +836,18 @@ static short rowprim(lprec *lp,
         else
         {
             i = 1;
-            while(mpq_sgn(*pcol[i]) >= 0 && i <= lp->rows)//pcol[i] >= 0 && i <= lp->rows)
+            while(mpq_sgn(pcol[i]) >= 0 && i <= lp->rows)//pcol[i] >= 0 && i <= lp->rows)
                 i++;
             if(i > lp->rows) /* empty column with upperbound! */
             {
                 lp->lower[colnr] = FALSE;
                 //lp->rhs[0] += lp->upbo[colnr]*pcol[0];
-                mpq_mul(*temp, *lp->upbo[colnr], *pcol[0]);
-                mpq_add(*lp->rhs[0], *lp->rhs[0], *temp);
+                mpq_mul(temp, lp->upbo[colnr], pcol[0]);
+                mpq_add(lp->rhs[0], lp->rhs[0], temp);
                 Doiter = FALSE;
                 DoInvert = FALSE;
             }
-            else if(mpq_sgn(*pcol[i]) < 0)//pcol[i]<0)
+            else if(mpq_sgn(pcol[i]) < 0)//pcol[i]<0)
             {
                 (*row_nr) = i;
             }
@@ -859,13 +859,13 @@ static short rowprim(lprec *lp,
         //fprintf(stderr, "row_prim:%7d, pivot element:% 18.10f\n", (*row_nr),
             //(double)pcol[(*row_nr)]);
         fprintf(stderr, "row_prim:%7d, pivot element: ", *row_nr);
-        mpq_out_str(stderr, 10, *pcol[*row_nr]);
+        mpq_out_str(stderr, 10, pcol[*row_nr]);
         fprintf(stderr, "\n");
     }
 
-    mpq_clear(*temp);
-    mpq_clear(*f);
-    mpq_clear(*quot);
+    mpq_clear(temp);
+    mpq_clear(f);
+    mpq_clear(quot);
 
     return((*row_nr) > 0);
 } /* rowprim */
@@ -880,34 +880,34 @@ static short rowdual(lprec *lp, int *row_nr)
     short artifs;
 
 
-    mpq_init(*f);
-    mpq_init(*g);
-    mpq_init(*minrhs);
-    mpq_init(*temp);
+    mpq_init(f);
+    mpq_init(g);
+    mpq_init(minrhs);
+    mpq_init(temp);
 
     (*row_nr) = 0;
-    mpq_neg(*minrhs, *lp->epsb);//minrhs = -lp->epsb;
+    mpq_neg(minrhs, lp->epsb);//minrhs = -lp->epsb;
     i = 0;
     artifs = FALSE;
     while(i < lp->rows && !artifs)
     {
         i++;
-        mpq_set(*f, *lp->upbo[lp->bas[i]]);//f = lp->upbo[lp->bas[i]];
-        if(mpq_sgn(*f) == 0 && mpq_sgn(*lp->rhs[i]) != 0)//f == 0 && (lp->rhs[i] != 0))
+        mpq_set(f, lp->upbo[lp->bas[i]]);//f = lp->upbo[lp->bas[i]];
+        if(mpq_sgn(f) == 0 && mpq_sgn(lp->rhs[i]) != 0)//f == 0 && (lp->rhs[i] != 0))
         {
             artifs = TRUE;
             (*row_nr) = i;
         }
         else
         {
-            mpq_sub(*temp, *f, *lp->rhs[i]);
-            if(mpq_cmp(*lp->rhs[i], *temp) < 0)//lp->rhs[i] < f - lp->rhs[i])
-                mpq_set(*g, *lp->rhs[i]);//g = lp->rhs[i];
+            mpq_sub(temp, f, lp->rhs[i]);
+            if(mpq_cmp(lp->rhs[i], temp) < 0)//lp->rhs[i] < f - lp->rhs[i])
+                mpq_set(g, lp->rhs[i]);//g = lp->rhs[i];
             else
-                mpq_sub(*g, *f, *lp->rhs[i]);//g = f - lp->rhs[i];
-            if(mpq_cmp(*g, *minrhs) < 0)//g < minrhs)
+                mpq_sub(g, f, lp->rhs[i]);//g = f - lp->rhs[i];
+            if(mpq_cmp(g, minrhs) < 0)//g < minrhs)
             {
-                mpq_set(*minrhs, *g); //minrhs = g;
+                mpq_set(minrhs, g); //minrhs = g;
                 (*row_nr) = i;
             }
         }
@@ -921,15 +921,15 @@ static short rowdual(lprec *lp, int *row_nr)
                     //"row_dual:%7d, rhs of selected row:           % 18.10f\n",
                     //(*row_nr), (double)lp->rhs[(*row_nr)]);
             fprintf(stderr, "row_dual:%7d, rhs of selected row:           ", *row_nr);
-            mpq_out_str(stderr, 10, *lp->rhs[*row_nr]);
+            mpq_out_str(stderr, 10, lp->rhs[*row_nr]);
             fprintf(stderr, "\n");
 
-            if(mpq_cmp(*lp->upbo[lp->bas[*row_nr]], *lp->infinite)) {//lp->upbo[lp->bas[(*row_nr)]] < lp->infinite)
+            if(mpq_cmp(lp->upbo[lp->bas[*row_nr]], lp->infinite)) {//lp->upbo[lp->bas[(*row_nr)]] < lp->infinite)
                 //fprintf(stderr,
                     //"\t\tupper bound of basis variable:    % 18.10f\n",
                     //(double)lp->upbo[lp->bas[(*row_nr)]]);
                 fprintf(stderr, "\t\tupper bound of basis variable:    ");
-                mpq_out_str(stderr, 10, *lp->upbo[lp->bas[*row_nr]]);
+                mpq_out_str(stderr, 10, lp->upbo[lp->bas[*row_nr]]);
                 fprintf(stderr, "\n");
             }
         }
@@ -937,10 +937,10 @@ static short rowdual(lprec *lp, int *row_nr)
             fprintf(stderr, "row_dual: no infeasibilities found\n");
     }
 
-    mpq_clear(*temp);
-    mpq_clear(*f);
-    mpq_clear(*g);
-    mpq_clear(*minrhs);
+    mpq_clear(temp);
+    mpq_clear(f);
+    mpq_clear(g);
+    mpq_clear(minrhs);
 
 
     return((*row_nr) > 0);
@@ -965,32 +965,32 @@ static short coldual(lprec *lp,
     REAL temp;
     REAL temp2;
 
-    mpq_init(*theta);
-    mpq_init(*quot);
-    mpq_init(*pivot);
-    mpq_init(*d);
-    mpq_init(*f);
-    mpq_init(*g);
-    mpq_init(*value);
-    mpq_init(*temp);
-    mpq_init(*temp2);
+    mpq_init(theta);
+    mpq_init(quot);
+    mpq_init(pivot);
+    mpq_init(d);
+    mpq_init(f);
+    mpq_init(g);
+    mpq_init(value);
+    mpq_init(temp);
+    mpq_init(temp2);
 
     Doiter = FALSE;
     if(!minit)
     {
         for(i = 0; i <= lp->rows; i++)
         {
-            mpq_init(*prow[i]);//prow[i] = 0;
-            mpq_init(*drow[i]);//drow[i] = 0;
+            mpq_init(prow[i]);//prow[i] = 0;
+            mpq_init(drow[i]);//drow[i] = 0;
         }
 
-        mpq_set_ui(*drow[0], 1, 1);//drow[0] = 1;
-        mpq_set_ui(*prow[row_nr], 1, 1);//prow[row_nr] = 1;
+        mpq_set_ui(drow[0], 1, 1);//drow[0] = 1;
+        mpq_set_ui(prow[row_nr], 1, 1);//prow[row_nr] = 1;
 
         for(i = lp->eta_size; i >= 1; i--)
         {
-            mpq_set_ui(*d, 0, 1);//d = 0;
-            mpq_set_ui(*f, 0, 1);//f = 0;
+            mpq_set_ui(d, 0, 1);//d = 0;
+            mpq_set_ui(f, 0, 1);//f = 0;
             k = lp->eta_col_end[i] - 1;
             r = lp->eta_row_nr[k];
             j = lp->eta_col_end[i - 1];
@@ -1005,18 +1005,18 @@ static short coldual(lprec *lp,
                 j++, rowp++, valuep++)
             {
                 //f += prow[*rowp] * *valuep;
-                mpq_mul(*temp, *prow[*rowp], **valuep);
-                mpq_add(*f, *f, *temp);
+                mpq_mul(temp, prow[*rowp], *valuep);
+                mpq_add(f, f, temp);
 
                 //d += drow[*rowp] * *valuep;
-                mpq_mul(*temp, *drow[*rowp], **valuep);
-                mpq_add(*d, *d, *temp);
+                mpq_mul(temp, drow[*rowp], *valuep);
+                mpq_add(d, d, temp);
             }
 
             /*VS - don't need to round */ //my_round(f, lp->epsel);
-            mpq_set(*prow[r], *f); //prow[r] = f;
+            mpq_set(prow[r], f); //prow[r] = f;
             /*VS - don't need to round */ //my_round(d, lp->epsd);
-            mpq_set(*drow[r], *d); //drow[r] = d;
+            mpq_set(drow[r], d); //drow[r] = d;
         }
 
         for(i = 1; i <= lp->columns; i++)
@@ -1027,10 +1027,10 @@ static short coldual(lprec *lp,
                 matrec *matentry;
 
                 //d = - Extrad * drow[0];
-                mpq_neg(*temp, *Extrad);
-                mpq_mul(*d, *temp, *drow[0]);
+                mpq_neg(temp, Extrad);
+                mpq_mul(d, temp, drow[0]);
 
-                mpq_set_ui(*f, 0, 1);//f = 0;
+                mpq_set_ui(f, 0, 1);//f = 0;
 
                 k = lp->col_end[i];
                 j = lp->col_end[i - 1];
@@ -1045,65 +1045,65 @@ static short coldual(lprec *lp,
                     j++, matentry++)
                 {
                     row = (*matentry).row_nr;
-                    mpq_set(*value, *(*matentry).value);//value = (*matentry).value;
+                    mpq_set(value, (*matentry).value);//value = (*matentry).value;
                     //d += drow[row] * value;
-                    mpq_mul(*temp, *drow[row], *value);
-                    mpq_add(*d, *d, *temp);
+                    mpq_mul(temp, drow[row], value);
+                    mpq_add(d, d, temp);
 
                     //f += prow[row] * value;
-                    mpq_mul(*temp, *prow[row], *value);
-                    mpq_add(*f, *f, *temp);
+                    mpq_mul(temp, prow[row], value);
+                    mpq_add(f, f, temp);
                 }
 
                 /*VS - don't need to round */ //my_round(f, lp->epsel);
-                mpq_set(*prow[varnr], *f); //prow[varnr] = f;
+                mpq_set(prow[varnr], f); //prow[varnr] = f;
                 /*VS - don't need to round */ //my_round(d, lp->epsd);
-                mpq_set(*drow[varnr], *d); //drow[varnr] = d;
+                mpq_set(drow[varnr], d); //drow[varnr] = d;
             }
         }
     }
 
-    if(mpq_cmp(*lp->rhs[row_nr], *lp->upbo[lp->bas[row_nr]]) > 0)//lp->rhs[row_nr] > lp->upbo[lp->bas[row_nr]])
-        mpq_set_si(*g, -1, 1); //g = -1;
+    if(mpq_cmp(lp->rhs[row_nr], lp->upbo[lp->bas[row_nr]]) > 0)//lp->rhs[row_nr] > lp->upbo[lp->bas[row_nr]])
+        mpq_set_si(g, -1, 1); //g = -1;
     else
-        mpq_set_ui(*g, 1, 1); //g = 1;
+        mpq_set_ui(g, 1, 1); //g = 1;
 
-    pivot = 0;
+    mpq_set_ui(pivot, 0, 1);//pivot = 0;
     (*colnr) = 0;
-    mpq_set(*theta, *lp->infinite);//theta = lp->infinite;
+    mpq_set(theta, lp->infinite);//theta = lp->infinite;
 
     for(i = 1; i <= lp->sum; i++)
     {
         if(lp->lower[i])
-            mpq_mul(*d, *prow[i], *g); //d = prow[i] * g;
+            mpq_mul(d, prow[i], g); //d = prow[i] * g;
         else {
-            mpq_neg(*temp, *prow[i]); //d = -prow[i] * g;
-            mpq_mul(*d, *temp, *g);
+            mpq_neg(temp, prow[i]); //d = -prow[i] * g;
+            mpq_mul(d, temp, g);
         }
 
 
-        if(mpq_sgn(*d) < 0 && !lp->basis[i] && mpq_sgn(*lp->upbo[i]) > 0)//(d < 0) && (!lp->basis[i]) && (lp->upbo[i] > 0))
+        if(mpq_sgn(d) < 0 && !lp->basis[i] && mpq_sgn(lp->upbo[i]) > 0)//(d < 0) && (!lp->basis[i]) && (lp->upbo[i] > 0))
         {
             if(lp->lower[i]) {
                 //quot = -drow[i] / (REAL) d;
-                mpq_neg(*temp, *drow[i]);
-                mpq_div(*quot, *temp, *d);
+                mpq_neg(temp, drow[i]);
+                mpq_div(quot, temp, d);
             }
             else
                 //quot = drow[i] / (REAL) d;
-                mpq_div(*quot, *drow[i], *d);
+                mpq_div(quot, drow[i], d);
 
-            mpq_abs(*temp, *d);
-            mpq_abs(*temp2, *pivot);
-            if(mpq_cmp(*quot, *theta) < 0)//quot < theta)
+            mpq_abs(temp, d);
+            mpq_abs(temp2, pivot);
+            if(mpq_cmp(quot, theta) < 0)//quot < theta)
             {
-                mpq_set(*theta, *quot); //theta = quot;
-                mpq_set(*pivot, *d); //pivot = d;
+                mpq_set(theta, quot); //theta = quot;
+                mpq_set(pivot, d); //pivot = d;
                 (*colnr) = i;
             }
-            else if(mpq_cmp(*quot, *theta) == 0 && mpq_cmp(*temp, *temp2) > 0)//(quot == theta) && (my_abs(d) > my_abs(pivot)))
+            else if(mpq_cmp(quot, theta) == 0 && mpq_cmp(temp, temp2) > 0)//(quot == theta) && (my_abs(d) > my_abs(pivot)))
             {
-                mpq_set(*pivot, *d); //pivot = d;
+                mpq_set(pivot, d); //pivot = d;
                 (*colnr) = i;
             }
         }
@@ -1113,7 +1113,7 @@ static short coldual(lprec *lp,
         //fprintf(stderr, "col_dual:%7d, pivot element:  % 18.10f\n", (*colnr),
                 //(double) prow[(*colnr)]);
         fprintf(stderr, "col_dual:%7d, pivot element:  ", (*colnr));
-        mpq_out_str(stderr, 10, *prow[*colnr]);
+        mpq_out_str(stderr, 10, prow[*colnr]);
         fprintf(stderr, "\n");
     }
 
@@ -1121,15 +1121,15 @@ static short coldual(lprec *lp,
         Doiter = TRUE;
 
 
-    mpq_clear(*theta);
-    mpq_clear(*quot);
-    mpq_clear(*pivot);
-    mpq_clear(*d);
-    mpq_clear(*f);
-    mpq_clear(*g);
-    mpq_clear(*value);
-    mpq_clear(*temp);
-    mpq_clear(*temp2);
+    mpq_clear(theta);
+    mpq_clear(quot);
+    mpq_clear(pivot);
+    mpq_clear(d);
+    mpq_clear(f);
+    mpq_clear(g);
+    mpq_clear(value);
+    mpq_clear(temp);
+    mpq_clear(temp2);
 
 
     return((*colnr) > 0);
@@ -1151,9 +1151,9 @@ static void iteration(lprec *lp,
     REAL temp;
 
 
-    mpq_init(*f);
-    mpq_init(*pivot);
-    mpq_init(*temp);
+    mpq_init(f);
+    mpq_init(pivot);
+    mpq_init(temp);
 
     lp->iter++;
 
@@ -1165,11 +1165,11 @@ static void iteration(lprec *lp,
         (*low) = !(*low);
     }
     */
-    mpq_add(*temp, *up, *lp->epsb);
-    if(mpq_cmp(**theta, *temp)){
+    mpq_add(temp, up, lp->epsb);
+    if(mpq_cmp(*theta, temp)){
         //VS - we set minit to 1 here, since the comparison returned true
         *minit = 1;
-        mpq_set(**theta, *up);
+        mpq_set(*theta, up);
         *low = !(*low);
     }
     else{
@@ -1177,21 +1177,21 @@ static void iteration(lprec *lp,
     }
 
     k = lp->eta_col_end[lp->eta_size + 1];
-    mpq_set(*pivot, *lp->eta_value[k-1]);//pivot = lp->eta_value[k - 1];
+    mpq_set(pivot, lp->eta_value[k-1]);//pivot = lp->eta_value[k - 1];
 
     for(i = lp->eta_col_end[lp->eta_size]; i < k; i++)
     {
         //f = lp->rhs[lp->eta_row_nr[i]] - (*theta) * lp->eta_value[i];
-        mpq_mul(*temp, **theta, *lp->eta_value[i]);
-        mpq_sub(*f, *lp->rhs[lp->eta_row_nr[i]], *temp);
+        mpq_mul(temp, *theta, lp->eta_value[i]);
+        mpq_sub(f, lp->rhs[lp->eta_row_nr[i]], temp);
 
         /*VS - don't need to round *///my_round(f, lp->epsb);
-        mpq_set(*lp->rhs[lp->eta_row_nr[i]], *f); //lp->rhs[lp->eta_row_nr[i]] = f;
+        mpq_set(lp->rhs[lp->eta_row_nr[i]], f); //lp->rhs[lp->eta_row_nr[i]] = f;
     }
 
     if(!(*minit))
     {
-        mpq_set(*lp->rhs[row_nr], **theta);//lp->rhs[row_nr] = (*theta);
+        mpq_set(lp->rhs[row_nr], *theta);//lp->rhs[row_nr] = (*theta);
         varout = lp->bas[row_nr];
         lp->bas[row_nr] = varin;
         lp->basis[varout] = FALSE;
@@ -1200,12 +1200,12 @@ static void iteration(lprec *lp,
         if(primal && pivot < 0)
             lp->lower[varout] = FALSE;
 
-        if(!(*low) && mpq_cmp(*up, *lp->infinite) < 0)//&& up < lp->infinite)
+        if(!(*low) && mpq_cmp(up, lp->infinite) < 0)//&& up < lp->infinite)
         {
             (*low) = TRUE;
-            mpq_sub(*lp->rhs[row_nr], *up, *lp->rhs[row_nr]);//lp->rhs[row_nr] = up - lp->rhs[row_nr];
+            mpq_sub(lp->rhs[row_nr], up, lp->rhs[row_nr]);//lp->rhs[row_nr] = up - lp->rhs[row_nr];
             for(i = lp->eta_col_end[lp->eta_size]; i < k; i++)
-                mpq_neg(*lp->eta_value[i], *lp->eta_value[i]);//lp->eta_value[i] = -lp->eta_value[i];
+                mpq_neg(lp->eta_value[i], lp->eta_value[i]);//lp->eta_value[i] = -lp->eta_value[i];
         }
 
         addetacol(lp);
@@ -1216,7 +1216,7 @@ static void iteration(lprec *lp,
     {
         //fprintf(stderr, "Theta = %16.4g ", (double)(*theta));
         fprintf(stderr, "Theta = ");
-        mpq_out_str(stderr, 10, **theta);
+        mpq_out_str(stderr, 10, *theta);
         fprintf(stderr, " ");
         if((*minit))
         {
@@ -1225,7 +1225,7 @@ static void iteration(lprec *lp,
                         //"Iteration:%6d, variable%5d changed from 0 to its upper bound of %12f\n",
                         //lp->iter, varin, (double) lp->upbo[varin]);
                 fprintf(stderr,"Iteration:%6d, variable%5d changed from 0 to its upper bound of ", lp->iter, varin );
-                mpq_out_str(stderr, 10, *lp->upbo[varin]);
+                mpq_out_str(stderr, 10, lp->upbo[varin]);
                 fprintf(stderr, "\n");
             }
             else {
@@ -1233,7 +1233,7 @@ static void iteration(lprec *lp,
                     //"Iteration:%6d, variable%5d changed its upper bound of %12f to 0\n",
                     //lp->iter, varin, (double)lp->upbo[varin]);
                 fprintf(stderr, "Iteration:%6d, variable%5d changed its upper bound of ", lp->iter, varin);
-                mpq_out_str(stderr, 10, *lp->upbo[varin]);
+                mpq_out_str(stderr, 10, lp->upbo[varin]);
                 fprintf(stderr, " to 0\n");
             }
         }
@@ -1242,26 +1242,26 @@ static void iteration(lprec *lp,
                     //"Iteration:%6d, variable%5d entered basis at:% 18.10f\n",
                     //lp->iter, varin, (double) lp->rhs[row_nr]);
             fprintf(stderr, "Iteration:%6d, variable%5d entered basis at: ",lp->iter, varin);
-            mpq_out_str(stderr, 10, *lp->rhs[row_nr]);
+            mpq_out_str(stderr, 10, lp->rhs[row_nr]);
             fprintf(stderr, "\n");
         }
         if(!primal)
         {
-            mpq_set_ui(*f, 0, 1);//f = 0;
+            mpq_set_ui(f, 0, 1);//f = 0;
             for(i = 1; i <= lp->rows; i++)
-                if(mpq_sgn(*lp->rhs[i]) < 0)//lp->rhs[i] < 0)
-                    mpq_sub(*f, *f, *lp->rhs[i]);//f -= lp->rhs[i];
+                if(mpq_sgn(lp->rhs[i]) < 0)//lp->rhs[i] < 0)
+                    mpq_sub(f, f, lp->rhs[i]);//f -= lp->rhs[i];
                 else
-                if(mpq_cmp(*lp->rhs[i], *lp->upbo[lp->bas[i]]) > 0)//lp->rhs[i] > lp->upbo[lp->bas[i]])
+                if(mpq_cmp(lp->rhs[i], lp->upbo[lp->bas[i]]) > 0)//lp->rhs[i] > lp->upbo[lp->bas[i]])
                 {
                     //f += lp->rhs[i] - lp->upbo[lp->bas[i]];
-                    mpq_sub(*temp, *lp->rhs[i], *lp->upbo[lp->bas[i]]);
-                    mpq_add(*f, *f, *temp);
+                    mpq_sub(temp, lp->rhs[i], lp->upbo[lp->bas[i]]);
+                    mpq_add(f, f, temp);
                 }
             //fprintf(stderr, "feasibility gap of this basis:% 18.10f\n",
                     //(double)f);
             fprintf(stderr, "feasibility gap of this basis: ");
-            mpq_out_str(stderr, 10, *f);
+            mpq_out_str(stderr, 10, f);
             fprintf(stderr, "\n");
         }
         else {
@@ -1269,13 +1269,13 @@ static void iteration(lprec *lp,
                 //"objective function value of this feasible basis: % 18.10f\n",
                 //(double)lp->rhs[0]);
             fprintf(stderr, "objective function value of this feasible basis: ");
-            mpq_out_str(stderr, 10, *lp->rhs[0]);
+            mpq_out_str(stderr, 10, lp->rhs[0]);
             fprintf(stderr, "\n");
         }
     }
-    mpq_clear(*f);
-    mpq_clear(*temp);
-    mpq_clear(*pivot);
+    mpq_clear(f);
+    mpq_clear(temp);
+    mpq_clear(pivot);
 } /* iteration */
 
 
@@ -1303,14 +1303,14 @@ static int solvelp(lprec *lp)
 
     //VS - initialize drow, prow, and Pcol
     for(i = 0; i <= lp->sum; i++){
-        mpq_init(*drow[i]);
-        mpq_init(*prow[i]);
+        mpq_init(drow[i]);
+        mpq_init(prow[i]);
     }
     for(i = 0; i <= lp->rows; i++){
-        mpq_init(*Pcol[i]);
+        mpq_init(Pcol[i]);
     }
 
-    mpq_init(*temp);
+    mpq_init(temp);
 
     lp->iter = 0;
     minit = FALSE;
@@ -1319,7 +1319,7 @@ static int solvelp(lprec *lp)
     Doiter = FALSE;
 
     for(i = 1, primal = TRUE; (i <= lp->rows) && primal; i++)
-        primal = (mpq_sgn(*lp->rhs[i]) >= 0) && (mpq_cmp(*lp->rhs[i], *lp->upbo[lp->bas[i]]) <= 0);//(lp->rhs[i] >= 0) && (lp->rhs[i] <= lp->upbo[lp->bas[i]]);
+        primal = (mpq_sgn(lp->rhs[i]) >= 0) && (mpq_cmp(lp->rhs[i], lp->upbo[lp->bas[i]]) <= 0);//(lp->rhs[i] >= 0) && (lp->rhs[i] <= lp->upbo[lp->bas[i]]);
 
     if(lp->trace)
     {
@@ -1331,38 +1331,38 @@ static int solvelp(lprec *lp)
 
     if(!primal)
     {
-        mpq_set_ui(*drow[0], 1, 1);//drow[0] = 1;
+        mpq_set_ui(drow[0], 1, 1);//drow[0] = 1;
 
         /* VS - don't need this loop, since drow is already initialized to 0 above */
         //for(i = 1; i <= lp->rows; i++)
             //drow[i] = 0;
 
-        mpq_set_ui(*Extrad, 0, 1);//Extrad = 0;
+        mpq_set_ui(Extrad, 0, 1);//Extrad = 0;
 
         for(i = 1; i <= lp->columns; i++)
         {
             varnr = lp->rows + i;
-            mpq_set_ui(*drow[varnr], 0, 1); //drow[varnr] = 0;
+            mpq_set_ui(drow[varnr], 0, 1); //drow[varnr] = 0;
 
             for(j = lp->col_end[i - 1]; j < lp->col_end[i]; j++)
-                if(mpq_sgn(*drow[lp->mat[j].row_nr]) != 0)//drow[lp->mat[j].row_nr] != 0)
+                if(mpq_sgn(drow[lp->mat[j].row_nr]) != 0)//drow[lp->mat[j].row_nr] != 0)
                 {
                     //drow[varnr] += drow[lp->mat[j].row_nr] * lp->mat[j].value;
-                    mpq_mul(*temp, *drow[lp->mat[j].row_nr], *lp->mat[j].value);
-                    mpq_add(*drow[varnr], *drow[varnr], *temp);
+                    mpq_mul(temp, drow[lp->mat[j].row_nr], lp->mat[j].value);
+                    mpq_add(drow[varnr], drow[varnr], temp);
                 }
 
-            if(mpq_cmp(*drow[varnr], *Extrad) < 0)//drow[varnr] < Extrad)
-                mpq_set(*Extrad, *drow[varnr]);//Extrad = drow[varnr];
+            if(mpq_cmp(drow[varnr], Extrad) < 0)//drow[varnr] < Extrad)
+                mpq_set(Extrad, drow[varnr]);//Extrad = drow[varnr];
         }
     }
     else
-        mpq_set_ui(*Extrad, 0, 1);//Extrad = 0;
+        mpq_set_ui(Extrad, 0, 1);//Extrad = 0;
 
     if(lp->trace) {
         //fprintf(stderr, "Extrad = %f\n", (double) Extrad);
         fprintf(stderr, "Extrad = ");
-        mpq_out_str(stderr, 10, *Extrad);
+        mpq_out_str(stderr, 10, Extrad);
         fprintf(stderr, "\n");
     }
 
@@ -1415,7 +1415,7 @@ static int solvelp(lprec *lp)
                     setpivcol(lp, lp->lower[colnr], colnr, Pcol);
 
                     /* getting div by zero here. Catch it and try to recover */
-                    if(mpq_sgn(*Pcol[row_nr]) == 0)//Pcol[row_nr] == 0)
+                    if(mpq_sgn(Pcol[row_nr]) == 0)//Pcol[row_nr] == 0)
                     {
 
                         /* Added 1/11/99 by A.R. Cassandra. Previously this
@@ -1455,17 +1455,17 @@ static int solvelp(lprec *lp)
                     else
                     {
                         condensecol(lp, row_nr, Pcol);
-                        mpq_sub(*f, *lp->rhs[row_nr], *lp->upbo[lp->bas[row_nr]]);//f = lp->rhs[row_nr] - lp->upbo[lp->bas[row_nr]];
+                        mpq_sub(f, lp->rhs[row_nr], lp->upbo[lp->bas[row_nr]]);//f = lp->rhs[row_nr] - lp->upbo[lp->bas[row_nr]];
 
-                        if(mpq_sgn(*f) > 0)//f > 0)
+                        if(mpq_sgn(f) > 0)//f > 0)
                         {
-                            mpq_div(*theta, *f, *Pcol[row_nr]);//theta = f / (REAL) Pcol[row_nr];
-                            if(mpq_cmp(*theta, *lp->upbo[colnr]) <= 0)//theta <= lp->upbo[colnr])
+                            mpq_div(theta, f, Pcol[row_nr]);//theta = f / (REAL) Pcol[row_nr];
+                            if(mpq_cmp(theta, lp->upbo[colnr]) <= 0)//theta <= lp->upbo[colnr])
                                 lp->lower[lp->bas[row_nr]] =
                                         !lp->lower[lp->bas[row_nr]];
                         }
                         else /* f <= 0 */
-                            mpq_div(*theta, *lp->rhs[row_nr], *Pcol[row_nr]); //theta = lp->rhs[row_nr] / (REAL) Pcol[row_nr];
+                            mpq_div(theta, lp->rhs[row_nr], Pcol[row_nr]); //theta = lp->rhs[row_nr] / (REAL) Pcol[row_nr];
                     }
                 }
                 else
@@ -1475,7 +1475,7 @@ static int solvelp(lprec *lp)
             {
                 primal   = TRUE;
                 Doiter   = FALSE;
-                Extrad   = 0;
+                mpq_set_ui(Extrad, 0, 1);//Extrad   = 0;
                 DoInvert = TRUE;
             }
         }
@@ -1513,15 +1513,15 @@ static int solvelp(lprec *lp)
     lp->total_iter += lp->iter;
 
     for(i = 0; i <= lp->sum; i++){
-        mpq_clear(*drow[i]);
-        mpq_clear(*prow[i]);
+        mpq_clear(drow[i]);
+        mpq_clear(prow[i]);
     }
     for(i = 0; i <= lp->rows; i++){
-        mpq_clear(*Pcol[i]);
+        mpq_clear(Pcol[i]);
     }
-    mpq_clear(*temp);
-    mpq_clear(*f);
-    mpq_clear(*theta);
+    mpq_clear(temp);
+    mpq_clear(f);
+    mpq_clear(theta);
 
     free(drow);
     free(prow);
@@ -1536,8 +1536,8 @@ static short is_int(lprec *lp, REAL value)
 {
 
     /*VS - we can replace all of this with a call to canonicalize on value and check if denominator is 1 */
-    mpq_canonicalize(*value);
-    return mpz_cmp_ui(mpq_denref(*value), 1);
+    mpq_canonicalize(value);
+    return mpz_cmp_ui(mpq_denref(value), 1);
     /*
     REAL   tmp;
 
@@ -1561,81 +1561,81 @@ static void construct_solution(lprec *lp)
     REAL   temp;
     REAL   temp2;
 
-    mpq_init(*f);
-    mpq_init(*temp);
-    mpq_init(*temp2);
+    mpq_init(f);
+    mpq_init(temp);
+    mpq_init(temp2);
 
     /* zero all results of rows */
     memset(lp->solution, '\0', (lp->rows + 1) * sizeof( mpq_t));
 
-    mpq_neg(*lp->solution[0], *lp->orig_rh[0]);//lp->solution[0] = -lp->orig_rh[0];
+    mpq_neg(lp->solution[0], lp->orig_rh[0]);//lp->solution[0] = -lp->orig_rh[0];
 
     if(lp->scaling_used)
     {
-        mpq_div(*lp->solution[0], *lp->solution[0], *lp->scale[0]);//lp->solution[0] /= lp->scale[0];
+        mpq_div(lp->solution[0], lp->solution[0], lp->scale[0]);//lp->solution[0] /= lp->scale[0];
 
         for(i = lp->rows + 1; i <= lp->sum; i++)
-            mpq_mul(*lp->solution[i], *lp->lowbo[i], *lp->scale[i]);//lp->solution[i] = lp->lowbo[i] * lp->scale[i];
+            mpq_mul(lp->solution[i], lp->lowbo[i], lp->scale[i]);//lp->solution[i] = lp->lowbo[i] * lp->scale[i];
         for(i = 1; i <= lp->rows; i++)
         {
             basi = lp->bas[i];
             if(basi > lp->rows) {
                 //lp->solution[basi] += lp->rhs[i] * lp->scale[basi];
-                mpq_mul(*temp, *lp->rhs[i], *lp->scale[basi]);
-                mpq_add(*lp->solution[basi], *lp->solution[basi], *temp);
+                mpq_mul(temp, lp->rhs[i], lp->scale[basi]);
+                mpq_add(lp->solution[basi], lp->solution[basi], temp);
             }
         }
         for(i = lp->rows + 1; i <= lp->sum; i++)
             if(!lp->basis[i] && !lp->lower[i]) {
                 //lp->solution[i] += lp->upbo[i] * lp->scale[i];
-                mpq_mul(*temp, *lp->upbo[i], *lp->scale[i]);
-                mpq_add(*lp->solution[i], *lp->solution[i], *temp);
+                mpq_mul(temp, lp->upbo[i], lp->scale[i]);
+                mpq_add(lp->solution[i], lp->solution[i], temp);
             }
 
         for(j = 1; j <= lp->columns; j++)
         {
-            mpq_set(*f, *lp->solution[lp->rows + j]);//f = lp->solution[lp->rows + j];
-            if(mpq_sgn(*f) != 0)//f != 0)
+            mpq_set(f, lp->solution[lp->rows + j]);//f = lp->solution[lp->rows + j];
+            if(mpq_sgn(f) != 0)//f != 0)
                 for(i = lp->col_end[j - 1]; i < lp->col_end[j]; i++) {
                     //lp->solution[lp->mat[i].row_nr] += (f / lp->scale[lp->rows + j])
                                                        //* (lp->mat[i].value / lp->scale[lp->mat[i].row_nr]);
-                    mpq_div(*temp, *f, *lp->scale[lp->rows + j]);
-                    mpq_div(*temp2, *lp->mat[i].value, *lp->scale[lp->mat[i].row_nr]);
-                    mpq_mul(*temp, *temp, *temp2);
-                    mpq_add(*lp->solution[lp->mat[i].row_nr], *lp->solution[lp->mat[i].row_nr], *temp);
+                    mpq_div(temp, f, lp->scale[lp->rows + j]);
+                    mpq_div(temp2, lp->mat[i].value, lp->scale[lp->mat[i].row_nr]);
+                    mpq_mul(temp, temp, temp2);
+                    mpq_add(lp->solution[lp->mat[i].row_nr], lp->solution[lp->mat[i].row_nr], temp);
                 }
         }
 
         for(i = 0; i <= lp->rows; i++)
         {
-            mpq_abs(*temp, *lp->solution[i]);
-            if(mpq_cmp(*temp, *lp->epsb) < 0)//my_abs(lp->solution[i]) < lp->epsb)
-                mpq_set_ui(*lp->solution[i], 0, 1);//lp->solution[i] = 0;
+            mpq_abs(temp, lp->solution[i]);
+            if(mpq_cmp(temp, lp->epsb) < 0)//my_abs(lp->solution[i]) < lp->epsb)
+                mpq_set_ui(lp->solution[i], 0, 1);//lp->solution[i] = 0;
             else if(lp->ch_sign[i])
-                mpq_neg(*lp->solution[i], *lp->solution[i]);//lp->solution[i] = -lp->solution[i];
+                mpq_neg(lp->solution[i], lp->solution[i]);//lp->solution[i] = -lp->solution[i];
         }
     }
     else /* no scaling */
     {
         for(i = lp->rows + 1; i <= lp->sum; i++)
-            mpq_set(*lp->solution[i], *lp->lowbo[i]);//lp->solution[i] = lp->lowbo[i];
+            mpq_set(lp->solution[i], lp->lowbo[i]);//lp->solution[i] = lp->lowbo[i];
         for(i = 1; i <= lp->rows; i++)
         {
             basi = lp->bas[i];
             if(basi > lp->rows)
-                mpq_add(*lp->solution[basi], *lp->solution[basi], *lp->rhs[i]);//lp->solution[basi] += lp->rhs[i];
+                mpq_add(lp->solution[basi], lp->solution[basi], lp->rhs[i]);//lp->solution[basi] += lp->rhs[i];
         }
         for(i = lp->rows + 1; i <= lp->sum; i++)
             if(!lp->basis[i] && !lp->lower[i])
-                mpq_add(*lp->solution[i], *lp->solution[i], *lp->upbo[i]);//lp->solution[i] += lp->upbo[i];
+                mpq_add(lp->solution[i], lp->solution[i], lp->upbo[i]);//lp->solution[i] += lp->upbo[i];
         for(j = 1; j <= lp->columns; j++)
         {
-            mpq_set(*f, *lp->solution[lp->rows + j]);//f = lp->solution[lp->rows + j];
-            if(mpq_sgn(*f) != 0)//f != 0)
+            mpq_set(f, lp->solution[lp->rows + j]);//f = lp->solution[lp->rows + j];
+            if(mpq_sgn(f) != 0)//f != 0)
                 for(i = lp->col_end[j - 1]; i < lp->col_end[j]; i++) {
                     //lp->solution[lp->mat[i].row_nr] += f * lp->mat[i].value;
-                    mpq_mul(*temp, *f, *lp->mat[i].value);
-                    mpq_add(*lp->solution[lp->mat[i].row_nr], *lp->solution[lp->mat[i].row_nr], *temp);
+                    mpq_mul(temp, f, lp->mat[i].value);
+                    mpq_add(lp->solution[lp->mat[i].row_nr], lp->solution[lp->mat[i].row_nr], temp);
                 }
         }
 
@@ -1644,7 +1644,7 @@ static void construct_solution(lprec *lp)
             /* VS - maybe we don't need to round down */
 
             if(lp->ch_sign[i])
-                mpq_neg(*lp->solution[i], *lp->solution[i]);
+                mpq_neg(lp->solution[i], lp->solution[i]);
 
             /*
             if(my_abs(lp->solution[i]) < lp->epsb)
@@ -1655,9 +1655,9 @@ static void construct_solution(lprec *lp)
         }
     }
 
-    mpq_clear(*temp);
-    mpq_clear(*f);
-    mpq_clear(*temp2);
+    mpq_clear(temp);
+    mpq_clear(f);
+    mpq_clear(temp2);
 
 } /* construct_solution */
 
@@ -1665,22 +1665,22 @@ static void calculate_duals(lprec *lp)
 {
     int i;
     REAL temp;
-    mpq_init(*temp);
+    mpq_init(temp);
 
     /* initialize */
     /* VS - We assume lp->duals has had its memory allocated elsewhere*/
     //lp->duals[0] = 1;
-    mpq_set_ui(*lp->duals[0], 1, 1);
+    mpq_set_ui(lp->duals[0], 1, 1);
     for(i = 1; i <= lp->rows; i++)
-        mpq_set_ui(*lp->duals[i], 0, 1); //lp->duals[i] = 0;
+        mpq_set_ui(lp->duals[i], 0, 1); //lp->duals[i] = 0;
 
     lp_solve_btran(lp, lp->duals);
 
     if(lp->scaling_used)
         for(i = 1; i <= lp->rows; i++) {
             //lp->duals[i] *= lp->scale[i] / lp->scale[0];
-            mpq_div(*temp, *lp->scale[i], *lp->scale[0]);
-            mpq_mul(*lp->duals[i], *lp->duals[i], *temp);
+            mpq_div(temp, lp->scale[i], lp->scale[0]);
+            mpq_mul(lp->duals[i], lp->duals[i], temp);
         }
 
     /* the dual values are the reduced costs of the slacks */
@@ -1688,12 +1688,12 @@ static void calculate_duals(lprec *lp)
     for(i = 1; i <= lp->rows; i++)
     {
         if(lp->basis[i])
-            mpq_set_ui(*lp->duals[i], 0, 1);//lp->duals[i] = 0;
+            mpq_set_ui(lp->duals[i], 0, 1);//lp->duals[i] = 0;
             /* added a test if variable is different from 0 because sometime you get
                -0 and this is different from 0 on for example INTEL processors (ie 0
                != -0 on INTEL !) PN */
-        else if((lp->ch_sign[0] == lp->ch_sign[i]) && mpq_sgn(*lp->duals[i]) != 0)//lp->duals[i])
-            mpq_neg(*lp->duals[i], *lp->duals[i]);//lp->duals[i] = - lp->duals[i];
+        else if((lp->ch_sign[0] == lp->ch_sign[i]) && mpq_sgn(lp->duals[i]) != 0)//lp->duals[i])
+            mpq_neg(lp->duals[i], lp->duals[i]);//lp->duals[i] = - lp->duals[i];
     }
 } /* calculate_duals */
 
@@ -1711,11 +1711,11 @@ static void check_if_less(REAL x,
         //fprintf(stderr, "bound 1: %g, bound 2: %g, value: %g\n",
                 //(double)x, (double)y, (double)value);
         fprintf(stderr, "bound 1: " );
-        mpq_out_str(stderr, 10, *x);
+        mpq_out_str(stderr, 10, x);
         fprintf(stderr, ", bound 2: ");
-        mpq_out_str(stderr, 10, *y);
+        mpq_out_str(stderr, 10, y);
         fprintf(stderr, ", value: ");
-        mpq_out_str(stderr, 10, *value);
+        mpq_out_str(stderr, 10, value);
         fprintf(stderr, "\n");
         /* exit(EXIT_FAILURE); */
     }
@@ -1796,16 +1796,16 @@ static int milpsolve(lprec *lp,
     REAL temp;
     mpz_t tmpInt;
 
-    mpq_init(*theta);
-    mpq_init(*tmpreal);
-    mpq_init(*temp);
+    mpq_init(theta);
+    mpq_init(tmpreal);
+    mpq_init(temp);
     mpz_init(tmpInt);
     mpz_set_ui(tmpInt, 100);
 
     if(Break_bb) {
-        mpq_clear(*theta);
-        mpq_clear(*tmpreal);
-        mpq_clear(*temp);
+        mpq_clear(theta);
+        mpq_clear(tmpreal);
+        mpq_clear(temp);
         mpz_clear(tmpInt);
         return (BREAK_BB);
     }
@@ -1819,9 +1819,9 @@ static int milpsolve(lprec *lp,
     debug_print(lp, "starting solve");
 
     /* make fresh copies of upbo, lowbo, rh as solving changes them */
-    memcpy(lp->upbo,  upbo,    (lp->sum + 1)  * sizeof(mpq_t));
-    memcpy(lp->lowbo, lowbo,   (lp->sum + 1)  * sizeof(mpq_t));
-    memcpy(lp->rh,    lp->orig_rh, (lp->rows + 1) * sizeof(mpq_t));
+    memcpy(lp->upbo,  upbo,    (lp->sum + 1)  * sizeof(REAL));
+    memcpy(lp->lowbo, lowbo,   (lp->sum + 1)  * sizeof(REAL));
+    memcpy(lp->rh,    lp->orig_rh, (lp->rows + 1) * sizeof(REAL));
 
     /* make shure we do not do memcpy(lp->basis, lp->basis ...) ! */
     if(recursive)
@@ -1833,26 +1833,26 @@ static int milpsolve(lprec *lp,
 
     if(lp->anti_degen) /* randomly disturb bounds */
     {
-        mpq_set_d(*temp, 0.00001);
+        mpq_set_d(temp, 0.00001);
         for(i = 1; i <= lp->columns; i++)
         {
             //tmpreal = (REAL) (rand() % 100 * 0.00001);
-            mpz_random(mpq_numref(*tmpreal), 100);
-            mpz_random(mpq_denref(*tmpreal), 100);
-            mpz_mod(mpq_numref(*tmpreal), mpq_numref(*tmpreal), tmpInt);
-            mpz_mod(mpq_denref(*tmpreal), mpq_denref(*tmpreal), tmpInt);
-            mpq_mul(*tmpreal, *tmpreal, *temp);
+            mpz_random(mpq_numref(tmpreal), 100);
+            mpz_random(mpq_denref(tmpreal), 100);
+            mpz_mod(mpq_numref(tmpreal), mpq_numref(tmpreal), tmpInt);
+            mpz_mod(mpq_denref(tmpreal), mpq_denref(tmpreal), tmpInt);
+            mpq_mul(tmpreal, tmpreal, temp);
 
-            if(mpq_cmp(*tmpreal, *lp->epsb) > 0)//tmpreal > lp->epsb)
-                mpq_sub(*lp->lowbo[i + lp->rows], *lp->lowbo[i + lp->rows], *tmpreal);//lp->lowbo[i + lp->rows] -= tmpreal;
+            if(mpq_cmp(tmpreal, lp->epsb) > 0)//tmpreal > lp->epsb)
+                mpq_sub(lp->lowbo[i + lp->rows], lp->lowbo[i + lp->rows], tmpreal);//lp->lowbo[i + lp->rows] -= tmpreal;
             //tmpreal = (REAL) (rand() % 100 * 0.00001);
-            mpz_random(mpq_numref(*tmpreal), 100);
-            mpz_random(mpq_denref(*tmpreal), 100);
-            mpz_mod(mpq_numref(*tmpreal), mpq_numref(*tmpreal), tmpInt);
-            mpz_mod(mpq_denref(*tmpreal), mpq_denref(*tmpreal), tmpInt);
-            mpq_mul(*tmpreal, *tmpreal, *temp);
-            if(mpq_cmp(*tmpreal, *lp->epsb) > 0)//tmpreal > lp->epsb)
-                mpq_add(*lp->lowbo[i + lp->rows], *lp->lowbo[i + lp->rows], *tmpreal);//lp->lowbo[i + lp->rows] += tmpreal;
+            mpz_random(mpq_numref(tmpreal), 100);
+            mpz_random(mpq_denref(tmpreal), 100);
+            mpz_mod(mpq_numref(tmpreal), mpq_numref(tmpreal), tmpInt);
+            mpz_mod(mpq_denref(tmpreal), mpq_denref(tmpreal), tmpInt);
+            mpq_mul(tmpreal, tmpreal, temp);
+            if(mpq_cmp(tmpreal, lp->epsb) > 0)//tmpreal > lp->epsb)
+                mpq_add(lp->lowbo[i + lp->rows], lp->lowbo[i + lp->rows], tmpreal);//lp->lowbo[i + lp->rows] += tmpreal;
         }
         lp->eta_valid = FALSE;
     }
@@ -1861,15 +1861,15 @@ static int milpsolve(lprec *lp,
     {
         /* transform to all lower bounds to zero */
         for(i = 1; i <= lp->columns; i++)
-            mpq_set(*theta, *lp->lowbo[lp->rows + i]);
-            if(mpq_sgn(*theta) != 0)//if((theta = lp->lowbo[lp->rows + i]) != 0)
+            mpq_set(theta, lp->lowbo[lp->rows + i]);
+            if(mpq_sgn(theta) != 0)//if((theta = lp->lowbo[lp->rows + i]) != 0)
             {
-                if(mpq_cmp(*lp->upbo[lp->rows + i], *lp->infinite) < 0) //lp->upbo[lp->rows + i] < lp->infinite)
-                    mpq_sub(*lp->upbo[lp->rows + i], *lp->upbo[lp->rows + i], *theta); //lp->upbo[lp->rows + i] -= theta;
+                if(mpq_cmp(lp->upbo[lp->rows + i], lp->infinite) < 0) //lp->upbo[lp->rows + i] < lp->infinite)
+                    mpq_sub(lp->upbo[lp->rows + i], lp->upbo[lp->rows + i], theta); //lp->upbo[lp->rows + i] -= theta;
                 for(j = lp->col_end[i - 1]; j < lp->col_end[i]; j++) {
                     //lp->rh[lp->mat[j].row_nr] -= theta * lp->mat[j].value;
-                    mpq_mul(*temp, *theta, *lp->mat[j].value);
-                    mpq_sub(*lp->rh[lp->mat[j].row_nr], *lp->rh[lp->mat[j].row_nr], *temp);
+                    mpq_mul(temp, theta, lp->mat[j].value);
+                    mpq_sub(lp->rh[lp->mat[j].row_nr], lp->rh[lp->mat[j].row_nr], temp);
                 }
             }
         invert(lp);
@@ -1889,14 +1889,14 @@ static int milpsolve(lprec *lp,
 
         /* transform to all lower bounds zero */
         for(i = 1; i <= lp->columns; i++) {
-            mpq_set(*theta, *lp->lowbo[lp->rows + i]);
-            if(mpq_sgn(*theta) != 0){//if ((theta = lp->lowbo[lp->rows + i] != 0)) {
-                if (mpq_cmp(*lp->upbo[lp->rows + i], *lp->infinite))//lp->upbo[lp->rows + i] < lp->infinite)
-                    mpq_sub(*lp->upbo[lp->rows + i], *lp->upbo[lp->rows + i], *theta);//lp->upbo[lp->rows + i] -= theta;
+            mpq_set(theta, lp->lowbo[lp->rows + i]);
+            if(mpq_sgn(theta) != 0){//if ((theta = lp->lowbo[lp->rows + i] != 0)) {
+                if (mpq_cmp(lp->upbo[lp->rows + i], lp->infinite))//lp->upbo[lp->rows + i] < lp->infinite)
+                    mpq_sub(lp->upbo[lp->rows + i], lp->upbo[lp->rows + i], theta);//lp->upbo[lp->rows + i] -= theta;
                 for (j = lp->col_end[i - 1]; j < lp->col_end[i]; j++) {
                     //lp->rh[lp->mat[j].row_nr] -= theta * lp->mat[j].value;
-                    mpq_mul(*temp, *theta, *lp->mat[j].value);
-                    mpq_sub(*lp->rh[lp->mat[j].row_nr], *lp->rh[lp->mat[j].row_nr], *temp);
+                    mpq_mul(temp, theta, lp->mat[j].value);
+                    mpq_sub(lp->rh[lp->mat[j].row_nr], lp->rh[lp->mat[j].row_nr], temp);
                 }
             }
         }
@@ -1928,9 +1928,9 @@ static int milpsolve(lprec *lp,
            be at least 1 better than the best sofar, MB */
 
         if(lp->maximise)
-            is_worse = (mpq_cmp(*lp->solution[0], *lp->best_solution[0]) <= 0);//lp->solution[0] <= lp->best_solution[0];
+            is_worse = (mpq_cmp(lp->solution[0], lp->best_solution[0]) <= 0);//lp->solution[0] <= lp->best_solution[0];
         else /* minimising! */
-            is_worse = (mpq_cmp(*lp->solution[0], *lp->best_solution[0]) >= 0);//lp->solution[0] >= lp->best_solution[0];
+            is_worse = (mpq_cmp(lp->solution[0], lp->best_solution[0]) >= 0);//lp->solution[0] >= lp->best_solution[0];
 
         if(is_worse)
         {
@@ -1939,17 +1939,17 @@ static int milpsolve(lprec *lp,
                         Level, (double) lp->solution[0],
                         (double) lp->best_solution[0]);*/
                 fprintf(stderr, "level%4d OPT NOB value ", Level);
-                mpq_out_str(stderr, 10, *lp->solution[0]);
+                mpq_out_str(stderr, 10, lp->solution[0]);
                 fprintf(stderr, " bound ");
-                mpq_out_str(stderr, 10, *lp->best_solution[0]);
+                mpq_out_str(stderr, 10, lp->best_solution[0]);
                 fprintf(stderr, "\n");
             }
             debug_print(lp, "but it was worse than the best sofar, discarded");
             Level--;
 
-            mpq_clear(*temp);
-            mpq_clear(*theta);
-            mpq_clear(*tmpreal);
+            mpq_clear(temp);
+            mpq_clear(theta);
+            mpq_clear(tmpreal);
             return(MILP_FAIL);
         }
 
@@ -1961,15 +1961,15 @@ static int milpsolve(lprec *lp,
                 i++)
             {
                 if(lp->must_be_int[i] && !is_int(lp, lp->solution[i])) {
-                    if(mpq_equal(*lowbo[i], *upbo[i]))//lowbo[i] == upbo[i]) /* this var is already fixed */
+                    if(mpq_equal(lowbo[i], upbo[i]))//lowbo[i] == upbo[i]) /* this var is already fixed */
                     {
                         //fprintf(stderr,
                                 //"Warning: integer var %d is already fixed at %d, but has non-integer value %g\n",
                                 //i - lp->rows, (int)lowbo[i],
                                 //(double)lp->solution[i]);
                         //fprintf(stderr, "Perhaps the -e option should be used\n");
-                        fprintf(stderr, "Warning: integer var %d is already fixed at %d, but has non-integer value ", i - lp->rows, (int) mpq_get_d(*lowbo[i]));
-                        mpq_out_str(stderr, 10, *lp->solution[i]);
+                        fprintf(stderr, "Warning: integer var %d is already fixed at %d, but has non-integer value ", i - lp->rows, (int) mpq_get_d(lowbo[i]));
+                        mpq_out_str(stderr, 10, lp->solution[i]);
                         fprintf(stderr, "\nPerhaps the -e option should be used\n");
 
                     }
@@ -2103,7 +2103,7 @@ static int milpsolve(lprec *lp,
                                        new_bas, TRUE);
                     lp->eta_valid = FALSE;
                 }
-                new_bound += 1;
+                mpz_add(mpq_numref(new_bound), mpq_numref(new_bound), mpq_denref(new_bound));//new_bound += 1;
                 if(mpq_cmp(new_bound, upbo[notint]) > 0)//new_bound > upbo[notint])
                 {
                     //debug_print(lp,
@@ -2418,7 +2418,7 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
         {
             set_mat(lp, 0, i, ModObj[i]);
         }
-        mpq_set_ui(*rhsmod, 0, 1); //rhsmod = 0;
+        mpq_set_ui(rhsmod, 0, 1); //rhsmod = 0;
         for(i = 0; i < lp->nr_lagrange; i++)
             if(lp->maximise) {
                 //rhsmod += lp->lambda[i] * lp->lag_rhs[i];
@@ -2616,9 +2616,9 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
         set_mat(lp, 0, i, OrigObj[i]);
 
     if(lp->maximise)
-        mpq_set(lp->lag_bound, *ub);//lp->lag_bound = Zub;
+        mpq_set(lp->lag_bound, Zub);//lp->lag_bound = Zub;
     else
-        mpq_set(lp->lag_bound, *lb);//lp->lag_bound = Zlb;
+        mpq_set(lp->lag_bound, Zlb);//lp->lag_bound = Zlb;
 
 
     mpq_clear(Zub);

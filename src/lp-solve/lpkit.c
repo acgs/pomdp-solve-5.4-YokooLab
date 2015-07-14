@@ -385,7 +385,7 @@ void set_mat(lprec *lp, int Row, int Column, REAL Value)
         /* there is an existing entry */
     {
         /*VS Replace call to my_abs(Value) to setting temp to abs(Value) and comparing with that.*/
-        if (mpq_cmp(*temp, *lp->epsilon)) /* we replace it by something non-zero */
+        if (mpq_cmp(temp, lp->epsilon)) /* we replace it by something non-zero */
         {
             if (lp->scaling_used) {
                 if (lp->ch_sign[Row]) {
@@ -582,7 +582,7 @@ void add_constraint(lprec *lp, REAL *row, short constr_type, REAL rh)
         for(j = stcol; j < lp->col_end[i]; j++)
         {
             newmat[elmnr].row_nr=lp->mat[j].row_nr;
-            newmat[elmnr].value=lp->mat[j].value;
+            mpq_set(newmat[elmnr].value, lp->mat[j].value);//newmat[elmnr].value=lp->mat[j].value;
             elmnr++;
         }
         if(addtoo[i])
@@ -610,8 +610,8 @@ void add_constraint(lprec *lp, REAL *row, short constr_type, REAL rh)
 
     for(i = lp->sum; i > lp->rows; i--)
     {
-        lp->orig_upbo[i]   = lp->orig_upbo[i - 1];
-        lp->orig_lowbo[i]  = lp->orig_lowbo[i - 1];
+        mpq_set(lp->orig_upbo[i], lp->orig_upbo[i-1]);//lp->orig_upbo[i]   = lp->orig_upbo[i - 1];
+        mpq_set(lp->orig_lowbo[i], lp->orig_lowbo[i-1]);//lp->orig_lowbo[i]  = lp->orig_lowbo[i - 1];
         lp->basis[i]       = lp->basis[i - 1];
         lp->lower[i]       = lp->lower[i - 1];
         lp->must_be_int[i] = lp->must_be_int[i - 1];
@@ -624,11 +624,11 @@ void add_constraint(lprec *lp, REAL *row, short constr_type, REAL rh)
 
     if(constr_type == LE || constr_type == GE)
     {
-        lp->orig_upbo[lp->rows] = lp->infinite;
+        mpq_set(lp->orig_upbo[lp->rows], lp->infinite);//lp->orig_upbo[lp->rows] = lp->infinite;
     }
     else if(constr_type == EQ)
     {
-        lp->orig_upbo[lp->rows] = 0;
+        mpq_set_ui(lp->orig_upbo[lp->rows], 0, 1);//lp->orig_upbo[lp->rows] = 0;
     }
     else
     {
@@ -636,7 +636,7 @@ void add_constraint(lprec *lp, REAL *row, short constr_type, REAL rh)
         exit(EXIT_FAILURE);
     }
 
-    lp->orig_lowbo[lp->rows] = 0;
+    mpq_set_ui(lp->orig_lowbo[lp->rows], 0, 1);//lp->orig_lowbo[lp->rows] = 0;
 
     if(constr_type == GE && rh != 0) {
         /*lp->orig_rh[lp->rows] =- rh;*/
@@ -720,7 +720,7 @@ void del_constraint(lprec *lp, int del_row)
     }
     for(i = del_row; i < lp->rows; i++)
     {
-        lp->orig_rh[i] = lp->orig_rh[i + 1];
+        mpq_set(lp->orig_rh[i], lp->orig_rh[i+1]);//lp->orig_rh[i] = lp->orig_rh[i + 1];
         lp->ch_sign[i] = lp->ch_sign[i + 1];
         lp->bas[i] = lp->bas[i + 1];
         if(lp->names_used)
@@ -738,7 +738,7 @@ void del_constraint(lprec *lp, int del_row)
         mpq_set(lp->orig_lowbo[i], lp->orig_lowbo[i+1]);//lp->orig_lowbo[i]=lp->orig_lowbo[i + 1];
         lp->must_be_int[i]=lp->must_be_int[i + 1];
         if(lp->scaling_used)
-            lp->scale[i]=lp->scale[i + 1];
+            mpq_set(lp->scale[i], lp->scale[i+1]);//lp->scale[i]=lp->scale[i + 1];
     }
 
     lp->rows--;
@@ -772,8 +772,8 @@ void add_lag_con(lprec *lp, REAL *row, short con_type, REAL rhs)
         CALLOC(lp->lambda, lp->nr_lagrange);
         //VS We loop over nr_lagrange and initialize that many mpq_ts
         for(i = 1; i < lp->nr_lagrange; i++){
-            mpq_init(*lp->lag_rhs[i]);
-            mpq_init(*lp->lambda[i]);
+            mpq_init(lp->lag_rhs[i]);
+            mpq_init(lp->lambda[i]);
         }
         CALLOC(lp->lag_con_type, lp->nr_lagrange);
     }
@@ -937,11 +937,11 @@ void del_column(lprec *lp, int column)
         lp->basis[i]=lp->basis[i + 1];
         lp->lower[i]=lp->lower[i + 1];
         if(lp->scaling_used)
-            mpq_set(*lp->scale[i],*lp->scale[i + 1]);
+            mpq_set(lp->scale[i],lp->scale[i + 1]);
     }
     for(i = 0; i < lp->nr_lagrange; i++)
         for(j = column; j <= lp->columns; j++)
-            mpq_set(*lp->lag_row[i][j],*lp->lag_row[i][j+1]);
+            mpq_set(lp->lag_row[i][j],lp->lag_row[i][j+1]);
     to_elm=lp->col_end[column-1];
     from_elm=lp->col_end[column];
     elm_in_col=from_elm-to_elm;
@@ -963,34 +963,34 @@ void del_column(lprec *lp, int column)
 void set_upbo(lprec *lp, int column, REAL value)
 {
     REAL temp;
-    mpq_init(*temp);
+    mpq_init(temp);
     if(column > lp->columns || column < 1)
         error("Column out of range");
     if(lp->scaling_used)
-        mpq_div(*temp, *value, *lp->scale[lp->rows + column]);//value /= lp->scale[lp->rows + column];
-    if(mpq_cmp(*temp, *lp->orig_lowbo[lp->rows + column]) < 0)//value < lp->orig_lowbo[lp->rows + column])
+        mpq_div(temp, value, lp->scale[lp->rows + column]);//value /= lp->scale[lp->rows + column];
+    if(mpq_cmp(temp, lp->orig_lowbo[lp->rows + column]) < 0)//value < lp->orig_lowbo[lp->rows + column])
         error("Upperbound must be >= lowerbound");
     lp->eta_valid = FALSE;
-    mpq_set(*lp->orig_upbo[lp->rows+column], *temp);
-    mpq_clear(*temp);
+    mpq_set(lp->orig_upbo[lp->rows+column], temp);
+    mpq_clear(temp);
 }
 
 void set_lowbo(lprec *lp, int column, REAL value)
 {
     REAL temp;
-    mpq_init(*temp);
+    mpq_init(temp);
     if(column > lp->columns || column < 1)
         error("Column out of range");
     if(lp->scaling_used)
-        mpq_div(*temp, *value, *lp->scale[lp->rows + column]);
-    if(mpq_cmp(*temp, *lp->orig_upbo[lp->rows + column]))//value > lp->orig_upbo[lp->rows + column])
+        mpq_div(temp, value, lp->scale[lp->rows + column]);
+    if(mpq_cmp(temp, lp->orig_upbo[lp->rows + column]))//value > lp->orig_upbo[lp->rows + column])
         error("Upperbound must be >= lowerbound");
     /*
       if(value < 0)
       error("Lower bound cannot be < 0");
       */
     lp->eta_valid = FALSE;
-    mpq_set(*lp->orig_lowbo[lp->rows + column], *temp);//lp->orig_lowbo[lp->rows + column] = value;
+    mpq_set(lp->orig_lowbo[lp->rows + column], temp);//lp->orig_lowbo[lp->rows + column] = value;
 }
 
 void set_int(lprec *lp, int column, short must_be_int)
@@ -1006,32 +1006,32 @@ void set_int(lprec *lp, int column, short must_be_int)
 void set_rh(lprec *lp, int row, REAL value)
 {
     REAL temp;
-    mpq_init(*temp);
-    mpq_set(*temp, *value);
+    mpq_init(temp);
+    mpq_set(temp, value);
     if(row > lp->rows || row < 0)
         error("Row out of Range");
 
     if ((row == 0) && (!lp->maximise))  /* setting of RHS of OF IS meaningful */
-        mpq_neg(*temp, *value);//value = -value;
+        mpq_neg(temp, value);//value = -value;
     if(lp->scaling_used) {
         if(lp->ch_sign[row]) {
             //lp->orig_rh[row] = -value * lp->scale[row];
-            mpq_neg(*temp, *value);
-            mpq_mul(*lp->orig_rh[row], *temp, *lp->scale[row]);
+            mpq_neg(temp, value);
+            mpq_mul(lp->orig_rh[row], temp, lp->scale[row]);
         }
         else
-            mpq_mul(*lp->orig_rh[row], *temp, *lp->scale[row]);//lp->orig_rh[row] = value * lp->scale[row];
+            mpq_mul(lp->orig_rh[row], temp, lp->scale[row]);//lp->orig_rh[row] = value * lp->scale[row];
     }
     else
     if(lp->ch_sign[row]) {
         //lp->orig_rh[row] = -value;
-        mpq_neg(*temp, *value);
-        mpq_set(*lp->orig_rh[row], *temp);
+        mpq_neg(temp, value);
+        mpq_set(lp->orig_rh[row], temp);
     }
     else
-        mpq_set(*lp->orig_rh[row], *temp);//lp->orig_rh[row] = value;
+        mpq_set(lp->orig_rh[row], temp);//lp->orig_rh[row] = value;
     lp->eta_valid = FALSE;
-    mpq_clear(*temp);
+    mpq_clear(temp);
 }
 
 void set_rh_vec(lprec *lp, REAL *rh)
@@ -1042,22 +1042,22 @@ void set_rh_vec(lprec *lp, REAL *rh)
         for(i = 1; i <= lp->rows; i++) {
             if (lp->ch_sign[i]) {
                 REAL temp;
-                mpq_init(*temp);
+                mpq_init(temp);
                 //lp->orig_rh[i] = -rh[i] * lp->scale[i];
-                mpq_neg(*temp, *rh[i]);
-                mpq_mul(*lp->orig_rh[i], *temp, *lp->scale[i]);
-                mpq_clear(*temp);
+                mpq_neg(temp, rh[i]);
+                mpq_mul(lp->orig_rh[i], temp, lp->scale[i]);
+                mpq_clear(temp);
             }
             else
-                mpq_mul(*lp->orig_rh[i], *rh[i], *lp->scale[i]);//lp->orig_rh[i] = rh[i] * lp->scale[i];
+                mpq_mul(lp->orig_rh[i], rh[i], lp->scale[i]);//lp->orig_rh[i] = rh[i] * lp->scale[i];
         }
     }
     else
         for(i=1; i <= lp->rows; i++)
             if(lp->ch_sign[i])
-                mpq_neg(*lp->orig_rh[i], *rh[i]);//lp->orig_rh[i]=-rh[i];
+                mpq_neg(lp->orig_rh[i], rh[i]);//lp->orig_rh[i]=-rh[i];
             else
-                mpq_set(*lp->orig_rh[i], *rh[i]);//lp->orig_rh[i]=rh[i];
+                mpq_set(lp->orig_rh[i], rh[i]);//lp->orig_rh[i]=rh[i];
     lp->eta_valid=FALSE;
 }
 
@@ -1074,8 +1074,8 @@ void str_set_rh_vec(lprec *lp, char *rh_string)
     for(i = 1; i <= lp->rows; i++)
     {
         newrh[i] = (double) strtod(p, &newp);
-        mpq_init(*newrh_REAL[i]);
-        mpq_set_d(*newrh_REAL[i], newrh[i]);
+        mpq_init(newrh_REAL[i]);
+        mpq_set_d(newrh_REAL[i], newrh[i]);
         if(p==newp)
             error("Bad string in str_set_rh_vec");
         else
@@ -1084,7 +1084,7 @@ void str_set_rh_vec(lprec *lp, char *rh_string)
     set_rh_vec(lp, newrh_REAL);
     for(i = 1; i <= lp->rows; i++)
     {
-        mpq_clear(*newrh_REAL[i]);
+        mpq_clear(newrh_REAL[i]);
     }
     free(newrh);
     free(newrh_REAL);
@@ -1098,9 +1098,9 @@ void set_maxim(lprec *lp)
     {
         for(i = 0; i < lp->non_zeros; i++)
             if(lp->mat[i].row_nr == 0)
-                mpq_neg(*lp->mat[i].value, *lp->mat[i].value);//lp->mat[i].value *= -1;
+                mpq_neg(lp->mat[i].value, lp->mat[i].value);//lp->mat[i].value *= -1;
         lp->eta_valid = FALSE;
-        mpq_neg(*lp->orig_rh[0], *lp->orig_rh[0]);//lp->orig_rh[0] *= -1;
+        mpq_neg(lp->orig_rh[0], lp->orig_rh[0]);//lp->orig_rh[0] *= -1;
     }
     lp->maximise = TRUE;
     lp->ch_sign[0] = TRUE;
@@ -1113,9 +1113,9 @@ void set_minim(lprec *lp)
     {
         for(i = 0; i < lp->non_zeros; i++)
             if(lp->mat[i].row_nr == 0)
-                mpq_neg(*lp->mat[i].value, *lp->mat[i].value);//lp->mat[i].value = -lp->mat[i].value;
+                mpq_neg(lp->mat[i].value, lp->mat[i].value);//lp->mat[i].value = -lp->mat[i].value;
         lp->eta_valid = FALSE;
-        mpq_neg(*lp->orig_rh[0], *lp->orig_rh[0]);//lp->orig_rh[0] *= -1;
+        mpq_neg(lp->orig_rh[0], lp->orig_rh[0]);//lp->orig_rh[0] *= -1;
     }
     lp->maximise = FALSE;
     lp->ch_sign[0] = FALSE;
@@ -1128,81 +1128,84 @@ void set_constr_type(lprec *lp, int row, short con_type)
         error("Row out of Range");
     if(con_type==EQ)
     {
-        mpq_set_ui(*lp->orig_upbo[row], 0, 1);//lp->orig_upbo[row]=0;
+        mpq_set_ui(lp->orig_upbo[row], 0, 1);//lp->orig_upbo[row]=0;
         lp->basis_valid=FALSE;
         if(lp->ch_sign[row])
         {
             for(i = 0; i < lp->non_zeros; i++)
                 if(lp->mat[i].row_nr==row)
-                    mpq_neg(*lp->mat[i].value, *lp->mat[i].value);//lp->mat[i].value*=-1;
+                    mpq_neg(lp->mat[i].value, lp->mat[i].value);//lp->mat[i].value*=-1;
             lp->eta_valid=FALSE;
             lp->ch_sign[row]=FALSE;
             if(lp->orig_rh[row]!=0)
-                mpq_neg(*lp->orig_rh[row], *lp->orig_rh[row]);//lp->orig_rh[row]*=-1;
+                mpq_neg(lp->orig_rh[row], lp->orig_rh[row]);//lp->orig_rh[row]*=-1;
         }
     }
     else if(con_type==LE)
     {
-        mpq_set(*lp->orig_upbo[row],*lp->infinite);
+        mpq_set(lp->orig_upbo[row],lp->infinite);
         lp->basis_valid=FALSE;
         if(lp->ch_sign[row])
         {
             for(i = 0; i < lp->non_zeros; i++)
                 if(lp->mat[i].row_nr==row)
-                    mpq_neg(*lp->mat[i].value, *lp->mat[i].value);//lp->mat[i].value*=-1;
+                    mpq_neg(lp->mat[i].value, lp->mat[i].value);//lp->mat[i].value*=-1;
             lp->eta_valid=FALSE;
             lp->ch_sign[row]=FALSE;
             if(lp->orig_rh[row]!=0)
-                mpq_neg(*lp->orig_rh[row], *lp->orig_rh[row]);//lp->orig_rh[row]*=-1;
+                mpq_neg(lp->orig_rh[row], lp->orig_rh[row]);//lp->orig_rh[row]*=-1;
         }
     }
     else if(con_type==GE)
     {
-        mpq_set(*lp->orig_upbo[row],*lp->infinite);
+        mpq_set(lp->orig_upbo[row],lp->infinite);
         lp->basis_valid=FALSE;
         if(!lp->ch_sign[row])
         {
             for(i = 0; i < lp->non_zeros; i++)
                 if(lp->mat[i].row_nr==row)
-                    mpq_neg(*lp->mat[i].value, *lp->mat[i].value);//lp->mat[i].value*=-1;
+                    mpq_neg(lp->mat[i].value, lp->mat[i].value);//lp->mat[i].value*=-1;
             lp->eta_valid=FALSE;
             lp->ch_sign[row]=TRUE;
             if(lp->orig_rh[row]!=0)
-                mpq_neg(*lp->orig_rh[row], *lp->orig_rh[row]);//lp->orig_rh[row]*=-1;
+                mpq_neg(lp->orig_rh[row], lp->orig_rh[row]);//lp->orig_rh[row]*=-1;
         }
     }
     else
         error("Constraint type not (yet) implemented");
 }
 
-REAL mat_elm(lprec *lp, int row, int column)
+REAL * mat_elm(lprec *lp, int row, int column)
 {
+    /*VS - we expect the caller will deallocate the returned value */
     REAL value;
+    REAL *value_ptr;
     int elmnr;
     if(row < 0 || row > lp->rows)
         error("Row out of range in mat_elm");
     if(column < 1 || column > lp->columns)
         error("Column out of range in mat_elm");
-    mpq_init(*value);//value=0;
+    mpq_init(value);//value=0;
     elmnr=lp->col_end[column-1];
     while(lp->mat[elmnr].row_nr != row && elmnr < lp->col_end[column])
         elmnr++;
     if(elmnr != lp->col_end[column])
     {
-        mpq_set(*value, *lp->mat[elmnr].value);//value = lp->mat[elmnr].value;
+        mpq_set(value, lp->mat[elmnr].value);//value = lp->mat[elmnr].value;
         if(lp->ch_sign[row])
-            mpq_neg(*value, *value);//value = -value;
+            mpq_neg(value, value);//value = -value;
         if(lp->scaling_used) {
             //value /= lp->scale[row] * lp->scale[lp->rows + column];
             REAL temp;
-            mpq_init(*temp);
-            mpq_mul(*temp, *lp->scale[row], *lp->scale[lp->rows + column]);
-            mpq_div(*value, *value, *temp);
-            mpq_clear(*temp);
+            mpq_init(temp);
+            mpq_mul(temp, lp->scale[row], lp->scale[lp->rows + column]);
+            mpq_div(value, value, temp);
+            mpq_clear(temp);
         }
 
     }
-    return(value);
+    value_ptr = &value;
+    return(value_ptr);
 }
 
 
@@ -1215,22 +1218,22 @@ void get_row(lprec *lp, int row_nr, REAL *row)
         error("Row nr. out of range in get_row");
     for(i = 1; i <= lp->columns; i++)
     {
-        mpq_init(*row[i]);//row[i]=0;
+        mpq_init(row[i]);//row[i]=0;
         for(j=lp->col_end[i-1]; j < lp->col_end[i]; j++)
             if(lp->mat[j].row_nr==row_nr)
-                mpq_set(*row[i], *lp->mat[j].value);//row[i]=lp->mat[j].value;
+                mpq_set(row[i], lp->mat[j].value);//row[i]=lp->mat[j].value;
         if(lp->scaling_used) {
             //row[i] /= lp->scale[lp->rows + i] * lp->scale[row_nr];
             REAL temp;
-            mpq_init(*temp);
-            mpq_mul(*temp, *lp->scale[lp->rows + i], *lp->scale[row_nr]);
-            mpq_div(*row[i], *row[i], *temp);
+            mpq_init(temp);
+            mpq_mul(temp, lp->scale[lp->rows + i], lp->scale[row_nr]);
+            mpq_div(row[i], row[i], temp);
         }
     }
     if(lp->ch_sign[row_nr])
         for(i=0; i <= lp->columns; i++)
-            if(mpq_sgn(*row[i]) != 0)//row[i]!=0)
-                mpq_neg(*row[i], *row[i]);//row[i] = -row[i];
+            if(mpq_sgn(row[i]) != 0)//row[i]!=0)
+                mpq_neg(row[i], row[i]);//row[i] = -row[i];
 }
 
 void get_column(lprec *lp, int col_nr, REAL *column)
@@ -1240,27 +1243,28 @@ void get_column(lprec *lp, int col_nr, REAL *column)
     if(col_nr < 1 || col_nr > lp->columns)
         error("Col. nr. out of range in get_column");
     for(i = 0; i <= lp->rows; i++)
-        mpq_set_ui(*column[i], 0, 1);//column[i]=0;
+        mpq_set_ui(column[i], 0, 1);//column[i]=0;
     for(i = lp->col_end[col_nr-1]; i < lp->col_end[col_nr]; i++)
-        mpq_set(*column[lp->mat[i].row_nr], *lp->mat[i].value);//column[lp->mat[i].row_nr] = lp->mat[i].value;
+        mpq_set(column[lp->mat[i].row_nr], lp->mat[i].value);//column[lp->mat[i].row_nr] = lp->mat[i].value;
     for(i = 0; i <= lp->rows; i++)
-        if(mpq_sgn(*column[i]) != 0)//column[i] != 0)
+        if(mpq_sgn(column[i]) != 0)//column[i] != 0)
         {
             if(lp->ch_sign[i])
-                mpq_neg(*column[i], *column[i]);//column[i] *= -1;
+                mpq_neg(column[i], column[i]);//column[i] *= -1;
             if(lp->scaling_used) {
                 //column[i] /= (lp->scale[i] * lp->scale[lp->rows + col_nr]);
                 REAL temp;
-                mpq_init(*temp);
-                mpq_mul(*temp, *lp->scale[i], *lp->scale[lp->rows + col_nr]);
-                mpq_div(*column[i], *column[i], *temp);
-                mpq_clear(*temp);
+                mpq_init(temp);
+                mpq_mul(temp, lp->scale[i], lp->scale[lp->rows + col_nr]);
+                mpq_div(column[i], column[i], temp);
+                mpq_clear(temp);
             }
         }
 }
 
 void get_reduced_costs(lprec *lp, REAL *rc)
 {
+    /* We assume rc already has its REALs allocated. */
     int varnr, i, j;
     REAL f;
 
@@ -1271,8 +1275,8 @@ void get_reduced_costs(lprec *lp, REAL *rc)
         invert(lp);
 
     for(i = 1; i <= lp->sum; i++)
-        mpq_set_ui(*rc[i], 0, 1);//rc[i] = 0;
-    mpq_set_ui(*rc[0], 1, 1);//rc[0] = 1;
+        mpq_set_ui(rc[i], 0, 1);//rc[i] = 0;
+    mpq_set_ui(rc[0], 1, 1);//rc[0] = 1;
 
     lp_solve_btran(lp, rc);
 
@@ -1280,19 +1284,19 @@ void get_reduced_costs(lprec *lp, REAL *rc)
     {
         varnr = lp->rows + i;
         if(!lp->basis[varnr])
-        if(mpq_sgn(*lp->upbo[varnr]) > 0)//lp->upbo[varnr] > 0)
+        if(mpq_sgn(lp->upbo[varnr]) > 0)//lp->upbo[varnr] > 0)
         {
-            mpq_init(*f);//f = 0;
+            mpq_init(f);//f = 0;
             REAL temp;
-            mpq_init(*temp);
+            mpq_init(temp);
             for(j = lp->col_end[i - 1]; j < lp->col_end[i]; j++){
                 //f += rc[lp->mat[j].row_nr] * lp->mat[j].value;
-                mpq_mul(*temp, *rc[lp->mat[j].row_nr], *lp->mat[j].value);
-                mpq_add(*f, *f, *temp);
+                mpq_mul(temp, rc[lp->mat[j].row_nr], lp->mat[j].value);
+                mpq_add(f, f, temp);
             }
-            mpq_clear(*f);
-            mpq_clear(*temp); //TODO: Allocating and deallocating memory for f and temp is slow - maybe just allocate for f and temp outside of loop?
-            mpq_set(*rc[varnr], *f);//rc[varnr] = f;
+            mpq_clear(f);
+            mpq_clear(temp); //TODO: Allocating and deallocating memory for f and temp is slow - maybe just allocate for f and temp outside of loop?
+            mpq_set(rc[varnr], f);//rc[varnr] = f;
         }
     }
     /* VS - I don't think we need to round here, since we're using REAL/Rationals */
@@ -1307,7 +1311,7 @@ short is_feasible(lprec *lp, REAL *values)
     REAL *this_rhs;
     REAL dist;
     REAL temp;
-    mpq_init(*temp);
+    mpq_init(temp);
 
 
     if(lp->scaling_used)
@@ -1316,15 +1320,15 @@ short is_feasible(lprec *lp, REAL *values)
             /*if(   values[i - lp->rows] < lp->orig_lowbo[i] * lp->scale[i]
                   || values[i - lp->rows] > lp->orig_upbo[i]  * lp->scale[i])*/
 
-            mpq_mul(*temp, *lp->orig_lowbo[i], *lp->scale[i]);
-            if (mpq_cmp(*values[i - lp->rows], *temp) < 0) {
-                mpq_clear(*temp);
+            mpq_mul(temp, lp->orig_lowbo[i], lp->scale[i]);
+            if (mpq_cmp(values[i - lp->rows], temp) < 0) {
+                mpq_clear(temp);
                 return (FALSE);
             }
 
-            mpq_mul(*temp, *lp->orig_upbo[i], *lp->scale[i]);
-            if (mpq_cmp(*values[i - lp->rows], *temp) > 0) {
-                mpq_clear(*temp);
+            mpq_mul(temp, lp->orig_upbo[i], lp->scale[i]);
+            if (mpq_cmp(values[i - lp->rows], temp) > 0) {
+                mpq_clear(temp);
                 return (FALSE);
             }
         }
@@ -1334,47 +1338,47 @@ short is_feasible(lprec *lp, REAL *values)
         for(i = lp->rows + 1; i <= lp->sum; i++) {
             /*if(   values[i - lp->rows] < lp->orig_lowbo[i]
                   || values[i - lp->rows] > lp->orig_upbo[i])*/
-            if (mpq_cmp(*values[i - lp->rows], *lp->orig_lowbo[i]) < 0
-                || mpq_cmp(*values[i - lp->rows], *lp->orig_upbo[i]) > 0) {
-                mpq_clear(*temp);
+            if (mpq_cmp(values[i - lp->rows], lp->orig_lowbo[i]) < 0
+                || mpq_cmp(values[i - lp->rows], lp->orig_upbo[i]) > 0) {
+                mpq_clear(temp);
                 return (FALSE);
             }
         }
     }
     CALLOC(this_rhs, lp->rows + 1);
     for(i = 0; i <= lp->rows; i++)
-        mpq_init(*this_rhs[i]);
+        mpq_init(this_rhs[i]);
 
     for(i = 1; i <= lp->columns; i++)
         for(elmnr = lp->col_end[i - 1]; elmnr < lp->col_end[i]; elmnr++) {
             //this_rhs[lp->mat[elmnr].row_nr] += lp->mat[elmnr].value * values[i];
-            mpq_mul(*temp, *lp->mat[elmnr].value, *values[i]);
-            mpq_add(*this_rhs[lp->mat[elmnr].row_nr], *this_rhs[lp->mat[elmnr].row_nr], *temp);
+            mpq_mul(temp, lp->mat[elmnr].value, values[i]);
+            mpq_add(this_rhs[lp->mat[elmnr].row_nr], this_rhs[lp->mat[elmnr].row_nr], temp);
         }
     for(i = 1; i <= lp->rows; i++)
     {
         //dist = lp->orig_rh[i] - this_rhs[i];
-        mpq_init(*dist);
-        mpq_sub(*dist, *lp->orig_rh[i], *this_rhs[i]);
+        mpq_init(dist);
+        mpq_sub(dist, lp->orig_rh[i], this_rhs[i]);
         //my_round(dist, 0.001) /* ugly constant, MB */ VS - We don't need to round since we're using rationals.
-        if((mpq_sgn(*lp->orig_upbo[i]) == 0 && mpq_sgn(*dist) != 0) || mpq_sgn(*dist) < 0)//if((lp->orig_upbo[i] == 0 && dist != 0) || dist < 0)
+        if((mpq_sgn(lp->orig_upbo[i]) == 0 && mpq_sgn(dist) != 0) || mpq_sgn(dist) < 0)//if((lp->orig_upbo[i] == 0 && dist != 0) || dist < 0)
         {
             for(j = 0; j <= lp->rows; j++){
-                mpq_clear(*this_rhs[j]);
+                mpq_clear(this_rhs[j]);
             }
             free(this_rhs);
-            mpq_clear(*temp);
-            mpq_clear(*dist);
+            mpq_clear(temp);
+            mpq_clear(dist);
 
             return(FALSE);
         }
     }
     for(j = 0; j <= lp->rows; j++){
-        mpq_clear(*this_rhs[j]);
+        mpq_clear(this_rhs[j]);
     }
     free(this_rhs);
-    mpq_clear(*temp);
-    mpq_clear(*dist);
+    mpq_clear(temp);
+    mpq_clear(dist);
     return(TRUE);
 }
 
@@ -1385,13 +1389,13 @@ short column_in_lp(lprec *lp, REAL *testcolumn)
     int nz, ident;
     REAL value;
     REAL temp;
-    mpq_init(*value);
-    mpq_init(*temp);
+    mpq_init(value);
+    mpq_init(temp);
 
     for(nz = 0, i = 0; i <= lp->rows; i++) {
         //if (my_abs(testcolumn[i]) > lp->epsel) nz++;
-        mpq_abs(*temp, *testcolumn[i]);
-        if(mpq_cmp(*temp, *lp->epsel) > 0) nz++;
+        mpq_abs(temp, testcolumn[i]);
+        if(mpq_cmp(temp, lp->epsel) > 0) nz++;
     }
 
     if(lp->scaling_used)
@@ -1400,20 +1404,20 @@ short column_in_lp(lprec *lp, REAL *testcolumn)
             ident = nz;
             for(j = lp->col_end[i - 1]; j < lp->col_end[i]; j++)
             {
-                mpq_set(*value, *lp->mat[j].value);//value = lp->mat[j].value;
+                mpq_set(value, lp->mat[j].value);//value = lp->mat[j].value;
                 if(lp->ch_sign[lp->mat[j].row_nr])
-                    mpq_neg(*value, *value);//value = -value;
-                mpq_div(*value, *value, *lp->scale[lp->rows+i]);//value /= lp->scale[lp->rows+i];
-                mpq_div(*value, *value, *lp->scale[lp->mat[j].row_nr]);//value /= lp->scale[lp->mat[j].row_nr];
-                mpq_sub(*value, *value, *testcolumn[lp->mat[j].row_nr]);//value -= testcolumn[lp->mat[j].row_nr];
+                    mpq_neg(value, value);//value = -value;
+                mpq_div(value, value, lp->scale[lp->rows+i]);//value /= lp->scale[lp->rows+i];
+                mpq_div(value, value, lp->scale[lp->mat[j].row_nr]);//value /= lp->scale[lp->mat[j].row_nr];
+                mpq_sub(value, value, testcolumn[lp->mat[j].row_nr]);//value -= testcolumn[lp->mat[j].row_nr];
 
-                mpq_abs(*temp, *value);
-                if(mpq_cmp(*temp, *lp->epsel) > 0)//if(my_abs(value) > lp->epsel)
+                mpq_abs(temp, value);
+                if(mpq_cmp(temp, lp->epsel) > 0)//if(my_abs(value) > lp->epsel)
                     break;
                 ident--;
                 if(ident == 0) {
-                    mpq_clear(*value);
-                    mpq_clear(*temp);
+                    mpq_clear(value);
+                    mpq_clear(temp);
                     return (TRUE);
                 }
             }
@@ -1424,23 +1428,23 @@ short column_in_lp(lprec *lp, REAL *testcolumn)
             ident = nz;
             for(j = lp->col_end[i-1]; j < lp->col_end[i]; j++)
             {
-                mpq_set(*value, *lp->mat[j].value);//value = lp->mat[j].value;
+                mpq_set(value, lp->mat[j].value);//value = lp->mat[j].value;
                 if(lp->ch_sign[lp->mat[j].row_nr])
-                    mpq_neg(*value, *value);//value = -value;
-                mpq_sub(*value, *value, *testcolumn[lp->mat[j].row_nr]);//value -= testcolumn[lp->mat[j].row_nr];
-                mpq_abs(*temp, *value);
-                if(mpq_cmp(*temp, *lp->epsel) > 0)//if(my_abs(value) > lp->epsel)
+                    mpq_neg(value, value);//value = -value;
+                mpq_sub(value, value, testcolumn[lp->mat[j].row_nr]);//value -= testcolumn[lp->mat[j].row_nr];
+                mpq_abs(temp, value);
+                if(mpq_cmp(temp, lp->epsel) > 0)//if(my_abs(value) > lp->epsel)
                     break;
                 ident--;
                 if(ident == 0) {
-                    mpq_clear(*value);
-                    mpq_clear(*temp);
+                    mpq_clear(value);
+                    mpq_clear(temp);
                     return (TRUE);
                 }
             }
         }
-    mpq_clear(*value);
-    mpq_clear(*temp);
+    mpq_clear(value);
+    mpq_clear(temp);
     return(FALSE);
 }
 
@@ -1449,15 +1453,15 @@ void print_lp(lprec *lp)
     int i, j;
     REAL *fatmat;
     REAL temp;
-    mpq_init(*temp);
+    mpq_init(temp);
     CALLOC(fatmat, (lp->rows + 1) * lp->columns);
 
     for(i = 0; i < ((lp->rows + 1) * lp->columns); i++)
-        mpq_init(*fatmat[i]);
+        mpq_init(fatmat[i]);
 
     for(i = 1; i <= lp->columns; i++)
         for(j = lp->col_end[i-1]; j < lp->col_end[i]; j++)
-            mpq_set(*fatmat[(i - 1) * (lp->rows + 1) + lp->mat[j].row_nr], *lp->mat[j].value);
+            mpq_set(fatmat[(i - 1) * (lp->rows + 1) + lp->mat[j].row_nr], lp->mat[j].value);
 
     printf("problem name: %s\n", lp->lp_name);
     printf("          ");
@@ -1470,15 +1474,15 @@ void print_lp(lprec *lp)
     {
         printf("\nMaximise  ");
         for(j = 0; j < lp->columns; j++) {
-            mpq_neg(*temp, *fatmat[j * (lp->rows +1)]);
-            mpq_out_str(stdout, 10, *temp);//printf("% 8.2f ", -fatmat[j * (lp->rows + 1)]);
+            mpq_neg(temp, fatmat[j * (lp->rows +1)]);
+            mpq_out_str(stdout, 10, temp);//printf("% 8.2f ", -fatmat[j * (lp->rows + 1)]);
         }
     }
     else
     {
         printf("\nMinimize  ");
         for(j = 0; j < lp->columns; j++)
-            mpq_out_str(stdout, 10, *fatmat[j * (lp->rows + 1)]);//printf("% 8.2f ", fatmat[j * (lp->rows + 1)]);
+            mpq_out_str(stdout, 10, fatmat[j * (lp->rows + 1)]);//printf("% 8.2f ", fatmat[j * (lp->rows + 1)]);
     }
     printf("\n");
     for(i = 1; i <= lp->rows; i++)
@@ -1488,14 +1492,14 @@ void print_lp(lprec *lp)
         else
             printf("Row[%3d]  ", i);
         for(j = 0; j < lp->columns; j++)
-            if(lp->ch_sign[i] && mpq_sgn(*fatmat[j*(lp->rows+1)+i]) != 0) {
+            if(lp->ch_sign[i] && mpq_sgn(fatmat[j*(lp->rows+1)+i]) != 0) {
                 //printf("% 8.2f ",-fatmat[j*(lp->rows+1)+i]);
-                mpq_neg(*temp,*fatmat[j*(lp->rows+1)+i] );
-                mpq_out_str(stdout, 10, *temp);
+                mpq_neg(temp,fatmat[j*(lp->rows+1)+i] );
+                mpq_out_str(stdout, 10, temp);
             }
             else
-                mpq_out_str(stdout, 10, *fatmat[j*(lp->rows+1)+i]);//printf("% 8.2f ", fatmat[j*(lp->rows+1)+i]);
-        if(mpq_sgn(*lp->orig_upbo[i]) != 0){//lp->orig_upbo[i] != 0) {
+                mpq_out_str(stdout, 10, fatmat[j*(lp->rows+1)+i]);//printf("% 8.2f ", fatmat[j*(lp->rows+1)+i]);
+        if(mpq_sgn(lp->orig_upbo[i]) != 0){//lp->orig_upbo[i] != 0) {
             if(lp->ch_sign[i])
                 printf(">= ");
             else
@@ -1505,20 +1509,20 @@ void print_lp(lprec *lp)
             printf(" = ");
         if(lp->ch_sign[i]) {
             //printf("% 8.2f", -lp->orig_rh[i]);
-            mpq_neg(*temp, *lp->orig_rh[i]);
-            mpq_out_str(stdout, 10, *temp);
+            mpq_neg(temp, lp->orig_rh[i]);
+            mpq_out_str(stdout, 10, temp);
         }
         else
-            mpq_out_str(stdout, 10, *lp->orig_rh[i]);//printf("% 8.2f", lp->orig_rh[i]);
-        if(mpq_sgn(*lp->orig_lowbo[i]) != 0){//lp->orig_lowbo[i] != 0) {
+            mpq_out_str(stdout, 10, lp->orig_rh[i]);//printf("% 8.2f", lp->orig_rh[i]);
+        if(mpq_sgn(lp->orig_lowbo[i]) != 0){//lp->orig_lowbo[i] != 0) {
             printf("  %s=", (lp->ch_sign[i]) ? "lowbo" : "upbo");//printf("  %s=%8.2f", (lp->ch_sign[i]) ? "lowbo" : "upbo",
                    //lp->orig_lowbo[i]);
-            mpq_out_str(stdout, 10, *lp->orig_lowbo[i]);
+            mpq_out_str(stdout, 10, lp->orig_lowbo[i]);
         }
-        if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) != 0 && mpq_sgn(*lp->orig_upbo[i]) != 0){//(lp->orig_upbo[i]!=lp->infinite) && (lp->orig_upbo[i]!=0.0)) {
+        if(mpq_cmp(lp->orig_upbo[i], lp->infinite) != 0 && mpq_sgn(lp->orig_upbo[i]) != 0){//(lp->orig_upbo[i]!=lp->infinite) && (lp->orig_upbo[i]!=0.0)) {
             printf("  %s=", (lp->ch_sign[i]) ? "upbo" : "lowbo");//printf("  %s=%8.2f", (lp->ch_sign[i]) ? "upbo" : "lowbo",
                    //lp->orig_upbo[i]);
-            mpq_out_str(stdout, 10, *lp->orig_upbo[i]);
+            mpq_out_str(stdout, 10, lp->orig_upbo[i]);
         }
         printf("\n");
     }
@@ -1530,32 +1534,32 @@ void print_lp(lprec *lp)
             printf("    Real ");
     printf("\nupbo      ");
     for(i = 1; i <= lp->columns; i++)
-        if(mpq_cmp(*lp->orig_upbo[lp->rows+i], *lp->infinite) == 0)//lp->orig_upbo[lp->rows+i]==lp->infinite)
+        if(mpq_cmp(lp->orig_upbo[lp->rows+i], lp->infinite) == 0)//lp->orig_upbo[lp->rows+i]==lp->infinite)
             printf("     Inf ");
         else
-            mpq_out_str(stdout, 10, *lp->orig_upbo[lp->rows+i]);//printf("% 8.2f ", lp->orig_upbo[lp->rows+i]);
+            mpq_out_str(stdout, 10, lp->orig_upbo[lp->rows+i]);//printf("% 8.2f ", lp->orig_upbo[lp->rows+i]);
     printf("\nlowbo     ");
     for(i = 1; i <= lp->columns; i++)
-        mpq_out_str(stdout, 10, *lp->orig_lowbo[lp->rows+i]);//printf("% 8.2f ", lp->orig_lowbo[lp->rows+i]);
+        mpq_out_str(stdout, 10, lp->orig_lowbo[lp->rows+i]);//printf("% 8.2f ", lp->orig_lowbo[lp->rows+i]);
     printf("\n");
     for(i = 0; i < lp->nr_lagrange; i++)
     {
         printf("lag[%3d]  ", i);
         for(j = 1; j <= lp->columns; j++)
-            mpq_out_str(stdout, 10, *lp->lag_row[i][j]);//printf("% 8.2f ", lp->lag_row[i][j]);
-        if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) == 0){//lp->orig_upbo[i]==lp->infinite) {
+            mpq_out_str(stdout, 10, lp->lag_row[i][j]);//printf("% 8.2f ", lp->lag_row[i][j]);
+        if(mpq_cmp(lp->orig_upbo[i], lp->infinite) == 0){//lp->orig_upbo[i]==lp->infinite) {
             if(lp->lag_con_type[i] == GE)
                 printf(">= ");
             else if(lp->lag_con_type[i] == LE)
                 printf("<= ");
             else if(lp->lag_con_type[i] == EQ)
                 printf(" = ");
-            mpq_out_str(stdout, 10, *lp->lag_rhs[i]);//printf("% 8.2f\n", lp->lag_rhs[i]);
+            mpq_out_str(stdout, 10, lp->lag_rhs[i]);//printf("% 8.2f\n", lp->lag_rhs[i]);
         }
     }
     for(i = 0; i < (lp->rows + 1) * lp->columns; i++)
-        mpq_clear(*fatmat[i]);
-    mpq_clear(*temp);
+        mpq_clear(fatmat[i]);
+    mpq_clear(temp);
 
     free(fatmat);
 }
@@ -1598,30 +1602,6 @@ void set_col_name(lprec *lp, int column, nstring new_name)
     strcpy(lp->col_name[column], new_name);
     hp = puthash(lp->col_name[column], lp->colname_hashtab);
     hp->index = column;
-}
-
-static REAL minmax_to_scale(REAL min, REAL max)
-{
-    REAL scale;
-    mpq_init(*scale);
-    /* should do something sensible when min or max is 0, MB */
-    if(mpq_sgn(*min) == 0 || mpq_sgn(*max) == 0) {//(min == 0) || (max == 0))
-        mpq_set_ui(*scale, 1, 1);
-        return (scale);
-    }
-
-    //scale = 1 / pow(10, (log10(min) + log10(max)) / 2);
-    /*VS - no exact algorithm exists for calculating logarithm, so we have to convert min and max to doubles
-     * We could implement a Taylor series approximation with Rationals,
-     * but it still would be approximate - better to use a faster approximation?
-     */
-    mpq_mul(scale, min, max); //we use the logarithm identity log(x) + log(y) = log(x*y)
-    mpq_set_d(scale, (log10(mpq_get_d(scale)))); //have to convert to double here.
-    mpq_div_2exp(scale, scale, 1); //divide by 2
-    mpq_set_d(scale, pow(10, mpq_get_d(scale))); //also convert to double here. Maybe we don't need to?
-    mpq_inv(scale, scale);
-
-    return(scale);
 }
 
 void unscale_columns(lprec *lp)
@@ -1865,7 +1845,7 @@ void write_LP(lprec *lp, FILE *output)
     }
     for(i = lp->rows+1; i <= lp->sum; i++)
     {
-        if(mpq_sgn(*lp->orig_lowbo[i]) != 0)
+        if(mpq_sgn(lp->orig_lowbo[i]) != 0)
         {
             if(lp->names_used) {
                 //fprintf(output, "%s > %g;\n", lp->col_name[i - lp->rows],
@@ -1882,7 +1862,7 @@ void write_LP(lprec *lp, FILE *output)
                 fprintf(output, ";\n");
             }
         }
-        if(mpq_cmp(*lp->orig_upbo[i], lp->infinite) != 0)
+        if(mpq_cmp(lp->orig_upbo[i], lp->infinite) != 0)
         {
             if(lp->names_used) {
                 //fprintf(output, "%s < %g;\n", lp->col_name[i - lp->rows],
@@ -1937,8 +1917,8 @@ void write_MPS(lprec *lp, FILE *output)
     REAL *column;
     REAL a;
     REAL temp;
-    mpq_init(*a);
-    mpq_init(*temp);
+    mpq_init(a);
+    mpq_init(temp);
 
 
     MALLOC(column, lp->rows+1);
@@ -2007,7 +1987,7 @@ void write_MPS(lprec *lp, FILE *output)
         }
         else
         {
-            if(mpq_sgn(*column[j]) != 0)//column[j] != 0)
+            if(mpq_sgn(column[j]) != 0)//column[j] != 0)
             {
                 if(lp->names_used) {
                     //fprintf(output, "    %-8s  %-8s  %g\n", lp->col_name[i],
@@ -2140,85 +2120,85 @@ void write_MPS(lprec *lp, FILE *output)
             if(mpq_sgn(lp->orig_lowbo[i]) != 0 && mpq_cmp(lp->orig_upbo[i], lp->infinite) < 0 &&//(lp->orig_lowbo[i] != 0) && (lp->orig_upbo[i] < lp->infinite) &&
                 (mpq_equal(lp->orig_lowbo[i], lp->orig_upbo[i])))//(lp->orig_lowbo[i] == lp->orig_upbo[i]))
             {
-                mpq_set(*a, *lp->orig_upbo[i]);//a = lp->orig_upbo[i];
+                mpq_set(a, lp->orig_upbo[i]);//a = lp->orig_upbo[i];
                 if(lp->scaling_used)
-                    mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+                    mpq_mul(a, a, lp->scale[i]);//a *= lp->scale[i];
 
                 //fprintf(output, " FX BND       %-8s  %g\n",
                         //lp->col_name[i- lp->rows], (double)a);
                 fprintf(output, " FX BND       %-8s  ", lp->col_name[i - lp->rows]);
-                mpq_out_str(output, 10, *a);
+                mpq_out_str(output, 10, a);
                 fprintf(output, "\n");
             }
             else
             {
-                if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) < 0){//lp->orig_upbo[i] < lp->infinite) {
-                    mpq_set(*a, *lp->orig_upbo[i]);//a = lp->orig_upbo[i];
+                if(mpq_cmp(lp->orig_upbo[i], lp->infinite) < 0){//lp->orig_upbo[i] < lp->infinite) {
+                    mpq_set(a, lp->orig_upbo[i]);//a = lp->orig_upbo[i];
 
                     if(lp->scaling_used)
-                        mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+                        mpq_mul(a, a, lp->scale[i]);//a *= lp->scale[i];
 
                     //fprintf(output, " UP BND       %-8s  %g\n",
                             //lp->col_name[i- lp->rows], (double)a);
                     fprintf(output, " UP BND       %-8s  ", lp->col_name[i - lp->rows]);
-                    mpq_out_str(output, 10, *a);
+                    mpq_out_str(output, 10, a);
                 }
-                if(mpq_sgn(*lp->orig_lowbo[i]) != 0) {//lp->orig_lowbo[i] != 0) {
-                    mpq_set(*a, *lp->orig_lowbo[i]);//a = lp->orig_lowbo[i];
+                if(mpq_sgn(lp->orig_lowbo[i]) != 0) {//lp->orig_lowbo[i] != 0) {
+                    mpq_set(a, lp->orig_lowbo[i]);//a = lp->orig_lowbo[i];
                     if(lp->scaling_used)
-                        mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+                        mpq_mul(a, a, lp->scale[i]);//a *= lp->scale[i];
 
                     //fprintf(output, " LO BND       %-8s  %g\n",
                             //lp->col_name[i- lp->rows], (double)lp->orig_lowbo[i]);
                     fprintf(output, " LO BND       %-8s  ", lp->col_name[i - lp->rows]);
-                    mpq_out_str(output, 10, *lp->orig_lowbo[i]);
+                    mpq_out_str(output, 10, lp->orig_lowbo[i]);
                 }
             }
         }
     else
         for(i = lp->rows + 1; i <= lp->sum; i++)
         {
-            if(mpq_sgn(*lp->orig_lowbo[i]) != 0 && mpq_cmp(*lp->orig_upbo[i], *lp->infinite) < 0 &&//(lp->orig_lowbo[i] != 0) && (lp->orig_upbo[i] < lp->infinite) &&
-                    mpq_equal(*lp->orig_lowbo[i], *lp->orig_upbo[i]))//(lp->orig_lowbo[i] == lp->orig_upbo[i]))
+            if(mpq_sgn(lp->orig_lowbo[i]) != 0 && mpq_cmp(lp->orig_upbo[i], lp->infinite) < 0 &&//(lp->orig_lowbo[i] != 0) && (lp->orig_upbo[i] < lp->infinite) &&
+                    mpq_equal(lp->orig_lowbo[i], lp->orig_upbo[i]))//(lp->orig_lowbo[i] == lp->orig_upbo[i]))
             {
-                mpq_set(*a, *lp->orig_upbo[i]);//a = lp->orig_upbo[i];
+                mpq_set(a, lp->orig_upbo[i]);//a = lp->orig_upbo[i];
                 if(lp->scaling_used)
-                    mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+                    mpq_mul(a, a, lp->scale[i]);//a *= lp->scale[i];
                 //fprintf(output, " FX BND       %-8s  %g\n",
                         //lp->col_name[i- lp->rows], (double)a);
                 fprintf(output, " FX BND       %-8s  ", lp->col_name[i - lp->rows]);
-                mpq_out_str(output, 10, *a);
+                mpq_out_str(output, 10, a);
                 fprintf(output, "\n");
             }
             else
             {
-                if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) < 0){//lp->orig_upbo[i] < lp->infinite) {
-                    mpq_set(*a, *lp->orig_upbo[i]);//a = lp->orig_upbo[i];
+                if(mpq_cmp(lp->orig_upbo[i], lp->infinite) < 0){//lp->orig_upbo[i] < lp->infinite) {
+                    mpq_set(a, lp->orig_upbo[i]);//a = lp->orig_upbo[i];
                     if(lp->scaling_used)
-                        mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+                        mpq_mul(a, a, lp->scale[i]);//a *= lp->scale[i];
 
                     //fprintf(output, " UP BND       var_%-4d  %g\n",
                             //i - lp->rows, (double)a);
                     fprintf(output, " UP BND       var_%-4d  ", i - lp->rows);
-                    mpq_out_str(output, 10, *a);
+                    mpq_out_str(output, 10, a);
                     fprintf(output, "\n");
                 }
-                if(mpq_sgn(*lp->orig_lowbo[i]) != 0){//lp->orig_lowbo[i] != 0) {
-                    mpq_set(*a, *lp->orig_lowbo[i]);//a = lp->orig_lowbo[i];
+                if(mpq_sgn(lp->orig_lowbo[i]) != 0){//lp->orig_lowbo[i] != 0) {
+                    mpq_set(a, lp->orig_lowbo[i]);//a = lp->orig_lowbo[i];
                     if(lp->scaling_used)
-                        mpq_mul(*a, *a, *lp->scale[i]);//a *= lp->scale[i];
+                        mpq_mul(a, a, lp->scale[i]);//a *= lp->scale[i];
 
                     //fprintf(output, " LO BND       var_%-4d  %g\n", i - lp->rows,
                             //(double)a);
                     fprintf(output, " LO BND       var_%-4d  ", i - lp->rows);
-                    mpq_out_str(output, 10, *a);
+                    mpq_out_str(output, 10, a);
                     fprintf(output, "\n");
                 }
             }
         }
     fprintf(output, "ENDATA\n");
-    mpq_clear(*a);
-    mpq_clear(*temp);
+    mpq_clear(a);
+    mpq_clear(temp);
     //column already cleared, can just free it.
     free(column);
 }
@@ -2234,7 +2214,7 @@ void print_duals(lprec *lp)
         else
             //fprintf(stdout, "Dual       [%3d] % 10.4f\n", i, lp->duals[i]);
             fprintf(stdout, "Dual       [%3d] ", i);
-        mpq_out_str(stdout, 10, *lp->duals[i]);
+        mpq_out_str(stdout, 10, lp->duals[i]);
         fprintf(stdout, "\n");
     }
 }
@@ -2247,27 +2227,35 @@ void print_scales(lprec *lp)
         for(i = 0; i <= lp->rows; i++) {
             //fprintf(stdout, "Row[%3d]    scaled at % 10.6f\n", i, lp->scale[i]);
             fprintf(stdout, "Row[%3d]    scaled at ", i);
-            mpq_out_str(stdout, 10, *lp->scale[i]);
+            mpq_out_str(stdout, 10, lp->scale[i]);
         }
         for(i = 1; i <= lp->columns; i++) {
             //fprintf(stdout, "Column[%3d] scaled at % 10.6f\n", i,
                     //lp->scale[lp->rows + i]);
             fprintf(stdout, "Column[%3d] scaled at ", i);
-            mpq_out_str(stdout, 10, *lp->scale[lp->rows + i]);
+            mpq_out_str(stdout, 10, lp->scale[lp->rows + i]);
         }
     }
 }
 
-REAL my_mpq_min(REAL x, REAL y)
+REAL *my_mpq_min(REAL x, REAL y)
 {
-    if(mpq_cmp(*x, *y) < 0)
-        return x;
-    return y;
+    REAL * ptr;
+    if(mpq_cmp(x, y) < 0) {
+        ptr = ( REAL *) &x;
+        return ptr;
+    }
+    ptr = ( REAL *) &y;
+    return ptr;
 }
 
-REAL my_mpq_max(REAL x, REAL y)
+REAL * my_mpq_max(REAL x, REAL y)
 {
-    if(mpq_cmp(*x, *y) > 0)
-        return x;
-    return y;
+    REAL * ptr;
+    if(mpq_cmp(x, y) > 0) {
+        ptr = (REAL *) &x;
+        return ptr;
+    }
+    ptr = (REAL *) &y;
+    return ptr;
 }

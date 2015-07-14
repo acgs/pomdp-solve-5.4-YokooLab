@@ -340,8 +340,12 @@ LP_make_lp( int rows, int columns, int non_zeroes )
     newlp->sum_alloc = sum;
     newlp->names_used = FALSE;
 
-    mpq_set_d(*newlp->obj_bound, DEF_INFINITE);//newlp->obj_bound = DEF_INFINITE;
-    mpq_set_d(*newlp->infinite, DEF_INFINITE);//newlp->infinite = DEF_INFINITE;
+    fprintf(stderr, "Setting obj_bound and infinite to DEF_INFINITE...");
+    mpq_init(newlp->obj_bound);
+    mpq_set_d(newlp->obj_bound, DEF_INFINITE);//newlp->obj_bound = DEF_INFINITE;
+    mpq_init(newlp->infinite);
+    mpq_set_d(newlp->infinite, DEF_INFINITE);//newlp->infinite = DEF_INFINITE;
+    fprintf(stderr, "Done.");
 
     /* Ideally, we would like to adjust these values to make the LP more
        or less sensitive. However, I get weird results when playing
@@ -354,10 +358,16 @@ LP_make_lp( int rows, int columns, int non_zeroes )
        newlp->epsd = LP_getPrecision();
        newlp->epsel = LP_getPrecision();
     */
-    mpq_set_d(*newlp->epsb, DEF_EPSB); //newlp->epsb = DEF_EPSB; /* for rounding RHS values to 0 determine infeasibility basis */
-    mpq_set_d(*newlp->epsel, DEF_EPSEL); //newlp->epsel = DEF_EPSEL; /* for rounding other values (vectors) to 0 */
-    mpq_set_d(*newlp->epsd, DEF_EPSD); //newlp->epsd = DEF_EPSD; /* for rounding reduced costs to zero */
-    mpq_set_d(*newlp->epsilon, DEF_EPSILON); //newlp->epsilon = DEF_EPSILON; /* to determine if a float value is integer */
+    fprintf(stderr, "Setting epsd, epsel, epsd, epsilon...");
+    mpq_init(newlp->epsb);
+    mpq_set_d(newlp->epsb, DEF_EPSB); //newlp->epsb = DEF_EPSB; /* for rounding RHS values to 0 determine infeasibility basis */
+    mpq_init(newlp->epsel);
+    mpq_set_d(newlp->epsel, DEF_EPSEL); //newlp->epsel = DEF_EPSEL; /* for rounding other values (vectors) to 0 */
+    mpq_init(newlp->epsd);
+    mpq_set_d(newlp->epsd, DEF_EPSD); //newlp->epsd = DEF_EPSD; /* for rounding reduced costs to zero */
+    mpq_init(newlp->epsilon);
+    mpq_set_d(newlp->epsilon, DEF_EPSILON); //newlp->epsilon = DEF_EPSILON; /* to determine if a float value is integer */
+    fprintf(stderr, "Done.");
 
     /* We have now explicitly told this routine how many non-zero
        entries there are. Note that this number *has* to include the
@@ -386,14 +396,22 @@ LP_make_lp( int rows, int columns, int non_zeroes )
         newlp->must_be_int[i]=FALSE;
     newlp->orig_upbo = (REAL *) XCALLOC( (size_t) sum + 1,
                                          sizeof(*(newlp->orig_upbo)) );
-    for(i = 0; i <= sum; i++)
-        newlp->orig_upbo[i]=newlp->infinite;
+    for(i = 0; i <= sum; i++) {
+        mpq_init(newlp->orig_upbo[i]);
+        mpq_set(newlp->orig_upbo[i], newlp->infinite);//newlp->orig_upbo[i]=newlp->infinite;
+    }
     newlp->upbo = (REAL *) XCALLOC( (size_t) sum + 1,
                                     sizeof(*(newlp->upbo)) );
     newlp->orig_lowbo = (REAL *) XCALLOC( (size_t) sum + 1,
                                           sizeof(*(newlp->orig_lowbo)) );
     newlp->lowbo = (REAL *) XCALLOC( (size_t) sum + 1,
                                      sizeof(*(newlp->lowbo)) );
+    for(i = 0; i <= sum; i++)
+    {
+        mpq_init(newlp->upbo[i]);
+        mpq_init(newlp->orig_lowbo[i]);
+        mpq_init(newlp->lowbo[i]);
+    }
 
     /* Not sure why they feel the need to set this to TRUE in lpkit.c.
        Every time something is added to the LP it gets changed to
@@ -443,7 +461,8 @@ LP_make_lp( int rows, int columns, int non_zeroes )
 
     newlp->bb_rule = FIRST_NI;
     newlp->break_at_int = FALSE;
-    newlp->break_value = 0;
+    mpq_init(newlp->break_value);
+    mpq_set_ui(newlp->break_value, 0, 1);//newlp->break_value = 0;
 
     newlp->iter = 0;
     newlp->total_iter = 0;
@@ -545,16 +564,13 @@ LP_loadLpSolveLP( LP lp )
     int i, col, lpi;
     lprec *lp_solve_lp;
     //double obj_sign, row_sign; /*VS - we'll just use REALs, since that's what LP is written with now */
-    mpq_t obj_sign_t;
     REAL obj_sign;
     REAL row_sign;
     REAL temp;
     fprintf(stderr, "Initalizing obj_sign, row_sign, temp...");
-    mpq_init(obj_sign_t);
     fprintf(stderr, "Made obj_sign_t. Making row_sign...");
-    obj_sign = &obj_sign_t;
-    mpq_init(*row_sign);
-    mpq_init(*temp);
+    mpq_init(row_sign);
+    mpq_init(temp);
     fprintf(stderr, "Done initializing.\n");
 
     Assert( lp != NULL, "LP is NULL." );
@@ -576,9 +592,9 @@ LP_loadLpSolveLP( LP lp )
        conversion ourselves. */
     fprintf(stderr, "Setting obj_sign...");
     if ( lp->objsen == MAXIMIZE )
-        mpq_set_si(*obj_sign, -1, 1);//obj_sign = -1.0;
+        mpq_set_si(obj_sign, -1, 1);//obj_sign = -1.0;
     else
-        mpq_set_ui(*obj_sign, 1, 1); //obj_sign = 1.0;
+        mpq_set_ui(obj_sign, 1, 1); //obj_sign = 1.0;
     fprintf(stderr, "Done.\n");
 
     /* This copies both the non-zero matrices and their corresponding
@@ -600,19 +616,24 @@ LP_loadLpSolveLP( LP lp )
        bump up ;lpi' once for each matval[] entry and once for each
        objective row coefficient. */
     lpi = 0;
+    fprintf(stderr, "moving data from CPLEX format to lp-solve format...");
     for( col = 0; col < lp->cols; col++ ) {
 
         /* Assume that each column has an objective row variable and don't
            forget to adjust it to compensate for MIN or MAX. */
         /*VS - We don't want to convert lp->obj to a REAL, since CPLEX won't understand it.*/
-        mpq_set_d(*temp, lp->obj[col]);
-        mpq_mul(*lp_solve_lp->mat[lpi].value, *obj_sign, *temp);//lp_solve_lp->mat[lpi].value = obj_sign * lp->obj[col];
+        mpq_set_d(temp, lp->obj[col]);
+        mpq_init(lp_solve_lp->mat[lpi].value);
+        mpq_out_str(stderr, 10, lp_solve_lp->mat[lpi].value);
+        mpq_mul(lp_solve_lp->mat[lpi].value, obj_sign, temp);//lp_solve_lp->mat[lpi].value = obj_sign * lp->obj[col];
+        fprintf(stderr, "Done move lp->obj");
         lp_solve_lp->mat[lpi].row_nr = 0;
         lpi++;
 
         /* To loop over the rows for this column, we start at at
            lp->matbeg[col] in 'matval' and go for lp->matcnt[col]
            positions. */
+        mpq_init(row_sign);
         for( i = lp->matbeg[col];
              i < lp->matbeg[col] + lp->matcnt[col];
              i++ )  {
@@ -621,19 +642,24 @@ LP_loadLpSolveLP( LP lp )
                If we have a >= row, we need to multiply the coef by '-1'.
                The lprec struct has ch_sign[] to aid with this, but we
                prefer to do the conversion ourselves. */
+            fprintf(stderr, "setting sign...");
             if ( lp->sense[lp->matind[i]] == 'G' )
-                mpq_set_si(*row_sign, -1, 1);//row_sign = -1.0;
+                mpq_set_si(row_sign, -1, 1);//row_sign = -1.0;
             else
-                mpq_set_ui(*row_sign, 1, 1);//row_sign = 1.0;
+                mpq_set_ui(row_sign, 1, 1);//row_sign = 1.0;
+            fprintf(stderr, "done.");
 
             /* Note that lp_solve captures in one array of structs the same
                thing CPLEX uses two arrays for.  No big deal other than
                remembering the extra level of indirection needed for lp_solve.  */
             /*VS - again, we don't want to convert lp->matval to REALs due to CPLEX */
-            mpq_set_d(*temp, lp->matval[i]);
-            mpq_mul(*lp_solve_lp->mat[lpi].value, *row_sign, *temp);//lp_solve_lp->mat[lpi].value = row_sign * lp->matval[i];
+            fprintf(stderr, "Setting matval...");
+            mpq_set_d(temp, lp->matval[i]);
+            mpq_mul(lp_solve_lp->mat[lpi].value, row_sign, temp);//lp_solve_lp->mat[lpi].value = row_sign * lp->matval[i];
             lp_solve_lp->mat[lpi].row_nr = lp->matind[i] + 1;
             lpi++;
+            fprintf(stderr, "Done.");
+
 
         } /* for i */
 
@@ -659,6 +685,7 @@ LP_loadLpSolveLP( LP lp )
         lp_solve_lp->col_end[col+1] = lpi;
 
     }  /* for col */
+    fprintf(stderr, "Done.\n");
 
     /* The weirdness I am not sure of that was mention above. */
     lp_solve_lp->col_end[0] = 0;
@@ -666,19 +693,25 @@ LP_loadLpSolveLP( LP lp )
     /* The first lp-rows upper bounds are for the constraint rows. The
        last lp->cols are the ones for the variables. There' also the
        off-by-one problem to deal with here. */
+    fprintf(stderr, "Moving upper and lower bounds...");
     for( i = 0; i < lp->cols; i++) {
-        mpq_set_d(*lp_solve_lp->orig_upbo[lp->rows + i + 1], lp->upbnd[i]);//lp_solve_lp->orig_upbo[lp->rows + i + 1] = lp->upbnd[i];
-        mpq_set_d(*lp_solve_lp->orig_lowbo[lp->rows + i + 1], lp->lowbnd[i]);//lp_solve_lp->orig_lowbo[lp->rows + i + 1] = lp->lowbnd[i];
+        mpq_set_d(lp_solve_lp->orig_upbo[lp->rows + i + 1], lp->upbnd[i]);//lp_solve_lp->orig_upbo[lp->rows + i + 1] = lp->upbnd[i];
+        mpq_set_d(lp_solve_lp->orig_lowbo[lp->rows + i + 1], lp->lowbnd[i]);//lp_solve_lp->orig_lowbo[lp->rows + i + 1] = lp->lowbnd[i];
     } /* for i */
+    fprintf(stderr, "Done.\n");
 
     /* The right hand sides just have to account for the off-by-one
        indexing problem. Also, since we are doing the multiplication by
        '-1' for >= rows, make sure we do this for the RHS. */
-    for ( i = 0; i < lp->rows; i++ )
-        if ( lp->sense[i] == 'G' )
-            mpq_set_d(*lp_solve_lp->orig_rh[i+1], -1.0 * lp->rhs[i]);//lp_solve_lp->orig_rh[i+1] = -1.0 * lp->rhs[i];
+    fprintf(stderr, "Moving rhs...");
+    for ( i = 0; i < lp->rows; i++ ) {
+        mpq_init(lp_solve_lp->orig_rh[i + 1]);
+        if (lp->sense[i] == 'G')
+            mpq_set_d(lp_solve_lp->orig_rh[i + 1], -1.0 * lp->rhs[i]);//lp_solve_lp->orig_rh[i+1] = -1.0 * lp->rhs[i];
         else
-            mpq_set_d(*lp_solve_lp->orig_rh[i+1], lp->rhs[i]);//lp_solve_lp->orig_rh[i+1] = lp->rhs[i];
+            mpq_set_d(lp_solve_lp->orig_rh[i + 1], lp->rhs[i]);//lp_solve_lp->orig_rh[i+1] = lp->rhs[i];
+    }
+    fprintf(stderr, "Done.\n");
 
     /* The sense of the constraint row is fairly explicit in CPLEX, but
        more subtle in lp_solve. lp_solve really only allows <=
@@ -692,9 +725,11 @@ LP_loadLpSolveLP( LP lp )
        values have been already set, we prefer to adjust >= row to <= by
        ourselves as was done above.  However, we do still need to set
        the upper bound on the equality rows. */
+    fprintf(stderr, "Setting constraint row...");
     for ( i = 0; i < lp->rows; i++ )
         if ( lp->sense[i] == 'E' )
-            mpq_set_ui(*lp_solve_lp->orig_upbo[i+1], 0, 1); //lp_solve_lp->orig_upbo[i+1] = 0.0;
+            mpq_set_ui(lp_solve_lp->orig_upbo[i+1], 0, 1); //lp_solve_lp->orig_upbo[i+1] = 0.0;
+    fprintf(stderr, "Done.\n");
 
     /* As far as I can tell, the lp_solve fields:
 
@@ -714,6 +749,7 @@ LP_loadLpSolveLP( LP lp )
 
     /*VS - may need to allocate memory for REALs here */
 
+    fprintf(stderr, "Done LP_loadLpSolveLP.");
     return ( lp_solve_lp );
 }  /* LP_loadLpSolveLP */
 /**********************************************************************/
@@ -740,7 +776,7 @@ LP_extractLpSolveSolution( LP lp )
 
     /* Note tht lp->lpstat was set in the LP_optimizeLP() routine and
        lp_solve just maintains that. */
-    lp->objval = mpq_get_d(*lp->lp->best_solution[0]);//lp->objval = (double) lp->lp->best_solution[0];
+    lp->objval = mpq_get_d(lp->lp->best_solution[0]);//lp->objval = (double) lp->lp->best_solution[0];
 
     /* Since we explicitly multiplied the objective row by -1 for MAX
        problems, we have to remember that the objective value needs to
@@ -751,7 +787,7 @@ LP_extractLpSolveSolution( LP lp )
     /* Solution values for LP variables, if space allocated. */
     if ( lp->x != NULL )
         for(i = 0; i < lp->cols; i++)
-            lp->x[i] = mpq_get_d(*lp->lp->best_solution[lp->rows+i+1]);//lp->x[i] = (double) lp->lp->best_solution[lp->rows+i+1];
+            lp->x[i] = mpq_get_d(lp->lp->best_solution[lp->rows+i+1]);//lp->x[i] = (double) lp->lp->best_solution[lp->rows+i+1];
 
     /* We do not use the slack or dual variables so we will not copy
        them over.  However, if it becomes useful, this is how it is

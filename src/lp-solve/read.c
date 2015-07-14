@@ -104,7 +104,7 @@ void init_read(void)
     Non_zeros = 0;
     Columns = 0;
     CALLOC(First_rside, 1);
-    First_rside->value = 0;
+    mpq_set_ui(First_rside->value, 0, 1);//First_rside->value = 0;
     /* first row (nr 0) is always the objective function */
     First_rside->relat = OF;
     Hash_tab = create_hash_table(HASHSIZE);
@@ -136,9 +136,9 @@ static bound *create_bound_rec(void)
     bound *bp;
     CALLOC(bp, 1);
     // bp->upbo = DEF_INFINITE;
-    mpq_init(*bp->upbo);
-    mpq_set_d(*bp->upbo, DEF_INFINITE);
-    mpq_init(*bp->lowbo);//bp->lowbo = 0;
+    mpq_init(bp->upbo);
+    mpq_set_d(bp->upbo, DEF_INFINITE);
+    mpq_init(bp->lowbo);//bp->lowbo = 0;
     return(bp);
 } /* create_bound_rec */
 
@@ -147,8 +147,8 @@ static bound *create_bound_rec(void)
  */
 void null_tmp_store(void)
 {
-    tmp_store.value = 0;
-    tmp_store.rhs_value = 0;
+    mpq_set_ui(tmp_store.value, 0, 1);//tmp_store.value = 0;
+    mpq_set_ui(tmp_store.rhs_value, 0, 1);//tmp_store.rhs_value = 0;
 }
 
 /*
@@ -168,7 +168,7 @@ static void store(char *variable,
     hashelem *h_tab_p;
     column *col_p;
 
-    if(mpq_sgn(*value) == 0)//value == 0)
+    if(mpq_sgn(value) == 0)//value == 0)
     {
         fprintf(stderr,
                 "(store) Warning, variable %s has an effective coefficient of 0 on line %d. Ignored.\n",
@@ -184,8 +184,8 @@ static void store(char *variable,
         Non_zeros++; /* for calloc of final arrays */
         h_tab_p->col->row = row;
         //h_tab_p->col->value = value;
-        mpq_init(*h_tab_p->col->value);
-        mpq_set(*h_tab_p->col->value, *value);
+        mpq_init(h_tab_p->col->value);
+        mpq_set(h_tab_p->col->value, value);
     }
     else
     if((col_p = getrow(h_tab_p->col, row)) == NULL)
@@ -193,15 +193,15 @@ static void store(char *variable,
         CALLOC(col_p, 1);
         Non_zeros++; /* for calloc of final arrays */
         //col_p->value = value;
-        mpq_init(*col_p->value);
-        mpq_set(*col_p->value, *value);
+        mpq_init(col_p->value);
+        mpq_set(col_p->value, value);
 
         col_p->row = row;
         col_p->next = h_tab_p->col;
         h_tab_p->col = col_p;
     }
     else
-        mpq_add(*col_p->value, *col_p->value, *value);//col_p->value += value;
+        mpq_add(col_p->value, col_p->value, value);//col_p->value += value;
 } /* store */
 
 /*
@@ -247,9 +247,9 @@ void store_re_op(void)
 void rhs_store(REAL value)
 {
     if(Lin_term_count > 1) /* not a bound */
-        mpq_add(*First_rside->value, *First_rside->value, *value);//First_rside->value += value;
+        mpq_add(First_rside->value, First_rside->value, value);//First_rside->value += value;
     else /* a bound */
-        mpq_add(*tmp_store.rhs_value, *tmp_store.rhs_value, *value);//tmp_store.rhs_value += value;
+        mpq_add(tmp_store.rhs_value, tmp_store.rhs_value, value);//tmp_store.rhs_value += value;
 } /* RHS_store */
 
 /*
@@ -283,7 +283,7 @@ void var_store(char *var, int row, REAL value)
     {
         strcpy(tmp_store.name, var);
         tmp_store.row = row;
-        mpq_add(*tmp_store.value, *tmp_store.value, *value);//tmp_store.value += value;
+        mpq_add(tmp_store.value, tmp_store.value, value);//tmp_store.value += value;
         return;
     }
 
@@ -296,8 +296,8 @@ void var_store(char *var, int row, REAL value)
         rp->next = First_rside;
         First_rside = rp;
         //First_rside->value = tmp_store.rhs_value;
-        mpq_init(*First_rside->value);
-        mpq_set(*First_rside->value, *tmp_store.rhs_value);
+        mpq_init(First_rside->value);
+        mpq_set(First_rside->value, tmp_store.rhs_value);
 
         First_rside->relat = tmp_store.relat;
 
@@ -325,7 +325,7 @@ void store_bounds(void)
     {
         hashelem *h_tab_p;
         REAL boundvalue;
-        mpq_init(*boundvalue);
+        mpq_init(boundvalue);
 
         if((h_tab_p = findhash(tmp_store.name, Hash_tab)) == NULL)
         {
@@ -350,9 +350,9 @@ void store_bounds(void)
                 tmp_store.relat = GE;
         }
         /* Check sanity of bound; all variables should be positive */
-        mpq_div(*boundvalue, *tmp_store.rhs_value, *tmp_store.value);//boundvalue = tmp_store.rhs_value / tmp_store.value;
-        if(   ((tmp_store.relat == EQ) && (mpq_sgn(*boundvalue) < 0))
-              || ((tmp_store.relat == LE) && (mpq_sgn(*boundvalue) < 0))) /* Error */
+        mpq_div(boundvalue, tmp_store.rhs_value, tmp_store.value);//boundvalue = tmp_store.rhs_value / tmp_store.value;
+        if(   ((tmp_store.relat == EQ) && (mpq_sgn(boundvalue) < 0))
+              || ((tmp_store.relat == LE) && (mpq_sgn(boundvalue) < 0))) /* Error */
         {
             fprintf(stderr,
                     "Error on line %d: variables must always be non-negative\n",
@@ -360,7 +360,7 @@ void store_bounds(void)
             exit(EXIT_FAILURE);
         }
 
-        if((tmp_store.relat == GE) && (mpq_sgn(*boundvalue) <= 0)) /* Warning */
+        if((tmp_store.relat == GE) && (mpq_sgn(boundvalue) <= 0)) /* Warning */
             fprintf(stderr,
                     "Warning on line %d: useless bound; variables are always >= 0\n",
                     yylineno);
@@ -368,23 +368,23 @@ void store_bounds(void)
         /* bound seems to be sane, add it */
         if((tmp_store.relat == GE) || (tmp_store.relat == EQ))
         {
-            if(mpq_cmp(*h_tab_p->bnd->lowbo, *boundvalue) < 0 )//h_tab_p->bnd->lowbo <  boundvalue)
-                mpq_set(*h_tab_p->bnd->lowbo, *boundvalue);//h_tab_p->bnd->lowbo = boundvalue;
+            if(mpq_cmp(h_tab_p->bnd->lowbo, boundvalue) < 0 )//h_tab_p->bnd->lowbo <  boundvalue)
+                mpq_set(h_tab_p->bnd->lowbo, boundvalue);//h_tab_p->bnd->lowbo = boundvalue;
             else
                 fprintf(stderr, "Ineffective lower bound on line %d, ignored\n",
                         yylineno);
         }
         if((tmp_store.relat == LE) || (tmp_store.relat == EQ))
         {
-            if(mpq_cmp(*h_tab_p->bnd->upbo, *boundvalue) > 0)//h_tab_p->bnd->upbo >  boundvalue)
-                mpq_set(*h_tab_p->bnd->upbo, *boundvalue);//h_tab_p->bnd->upbo  = boundvalue;
+            if(mpq_cmp(h_tab_p->bnd->upbo, boundvalue) > 0)//h_tab_p->bnd->upbo >  boundvalue)
+                mpq_set(h_tab_p->bnd->upbo, boundvalue);//h_tab_p->bnd->upbo  = boundvalue;
             else
                 fprintf(stderr, "Ineffective upper bound on line %d, ignored\n",
                         yylineno);
         }
 
         /* check for empty range */
-        if(mpq_cmp(*h_tab_p->bnd->upbo, *h_tab_p->bnd->lowbo) < 0)//h_tab_p->bnd->upbo < h_tab_p->bnd->lowbo)
+        if(mpq_cmp(h_tab_p->bnd->upbo, h_tab_p->bnd->lowbo) < 0)//h_tab_p->bnd->upbo < h_tab_p->bnd->lowbo)
         {
             fprintf(stderr,
                     "Error: bound on line %d contradicts earlier bounds, exiting\n",
@@ -442,7 +442,7 @@ void readinput(lprec *lp)
     {
         rp = First_rside;
         relat[i] = rp->relat;
-        lp->orig_rh[i] = rp->value;
+        mpq_set(lp->orig_rh[i], rp->value);//lp->orig_rh[i] = rp->value;
         First_rside = rp->next;
         free(rp); /* free memory when data has been read */
     }
@@ -450,7 +450,7 @@ void readinput(lprec *lp)
     /* change upperbound to zero if the relational operator is the equal sign */
     for(i = 1; i <= Rows; i++)
         if(relat[i] == EQ)
-            lp->orig_upbo[i] = 0;
+            mpq_set_ui(lp->orig_upbo[i], 0, 1);//lp->orig_upbo[i] = 0;
 
     for(i = 0; i <= Rows; i++)
         if(strcmp(lp->row_name[i], "")==0)
@@ -477,8 +477,8 @@ void readinput(lprec *lp)
             if(hp->bnd != NULL)
             {
                 bp = hp->bnd;
-                lp->orig_lowbo[Rows+index] = bp->lowbo;
-                lp->orig_upbo[Rows+index] = bp->upbo;
+                mpq_set(lp->orig_lowbo[Rows+index], bp->lowbo);//lp->orig_lowbo[Rows+index] = bp->lowbo;
+                mpq_set(lp->orig_upbo[Rows+index], bp->upbo);//lp->orig_upbo[Rows+index] = bp->upbo;
                 free(bp); /* free memory when data has been read*/
             }
 
@@ -490,7 +490,7 @@ void readinput(lprec *lp)
             while(cp!=NULL)
             {
                 lp->mat[nn_ind].row_nr = cp->row;
-                lp->mat[nn_ind].value = cp->value;
+                mpq_set(lp->mat[nn_ind].value, cp->value);//lp->mat[nn_ind].value = cp->value;
                 nn_ind++;
                 tcp = cp;
                 cp = cp->next;
@@ -537,7 +537,7 @@ void readinput(lprec *lp)
             //printf("    %-8s  %-8s  %g\n", lp->col_name[j],
                    //lp->row_name[lp->mat[i].row_nr], (double)lp->mat[i].value);
             printf("    %-8s  %-8s  ", lp->col_name[j], lp->row_name[lp->mat[i].row_nr]);
-            mpq_str_out(stdout, 10, *lp->mat[i].value);
+            mpq_str_out(stdout, 10, lp->mat[i].value);
             printf("\n");
         }
 
@@ -547,42 +547,42 @@ void readinput(lprec *lp)
             //printf("    RHS       %-8s  %g\n", lp->row_name[i],
                    //(double)lp->orig_rh[i]);
             printf("    RHS       %-8s  ", lp->row_name[i]);
-            mpq_str_out(stdout, 10, *lp->orig_rh[i]);
+            mpq_str_out(stdout, 10, lp->orig_rh[i]);
             printf("\n");
         }
 
         printf("RANGES\n");
         for(i = 1; i <= Rows; i++)
-            if(mpq_equal(*lp->orig_upbo[i], *lp->infinite) == 0 && (mpq_sgn(*lp->orig_upbo[i]) != 0)) {//(lp->orig_upbo[i] != lp->infinite) && (lp->orig_upbo[i] != 0)) {
+            if(mpq_equal(lp->orig_upbo[i], lp->infinite) == 0 && (mpq_sgn(lp->orig_upbo[i]) != 0)) {//(lp->orig_upbo[i] != lp->infinite) && (lp->orig_upbo[i] != 0)) {
                 //printf("    RGS       %-8s  %g\n", lp->row_name[i],
                        //(double)lp->orig_upbo[i]);
                 printf("    RGS       %-8s  ", lp->row_name[i]);
-                mpq_str_out(stdout, 10, *lp->orig_upbo[i]);
+                mpq_str_out(stdout, 10, lp->orig_upbo[i]);
                 printf("\n");
             }
-            else if(mpq_sgn(*lp->orig_lowbo[i]) != 0) {//(lp->orig_lowbo[i] != 0)) {
+            else if(mpq_sgn(lp->orig_lowbo[i]) != 0) {//(lp->orig_lowbo[i] != 0)) {
                 //printf("    RGS       %-8s  %g\n", lp->row_name[i],
                        //(double)-lp->orig_lowbo[i]);
                 printf("    RGS       %-8s  ", lp->row_name[i]);
-                mpq_str_out(stdout, 10, *lp->orig_lowbo[i]);
+                mpq_str_out(stdout, 10, lp->orig_lowbo[i]);
                 printf("\n");
             }
 
         printf("BOUNDS\n");
         for(i = Rows + 1; i <= Sum; i++)
         {
-            if(mpq_cmp(*lp->orig_upbo[i], *lp->infinite) < 0) {//lp->orig_upbo[i] < lp->infinite)
+            if(mpq_cmp(lp->orig_upbo[i], lp->infinite) < 0) {//lp->orig_upbo[i] < lp->infinite)
                 //printf(" UP BND       %-8s  %g\n", lp->col_name[i - Rows],
                        //(double) lp->orig_upbo[i]);
                 printf(" UP BND       %-8s  ", lp->col_name[i - Rows]);
-                mpq_str_out(stdout, 10, *lp->orig_upbo[i]);
+                mpq_str_out(stdout, 10, lp->orig_upbo[i]);
                 printf("\n");
             }
-            if(mpq_sgn(*lp->orig_lowbo[i]) > 0) {//lp->orig_lowbo[i] > 0)
+            if(mpq_sgn(lp->orig_lowbo[i]) > 0) {//lp->orig_lowbo[i] > 0)
                 //printf(" LO BND       %-8s  %g\n", lp->col_name[i - Rows],
                        //(double) lp->orig_lowbo[i]);
                 printf(" LO BND       %-8s  ", lp->col_name[i - Rows]);
-                mpq_str_out(stdout, 10, *lp->lowbo[i]);
+                mpq_str_out(stdout, 10, lp->lowbo[i]);
                 printf("\n");
             }
         }
@@ -629,25 +629,25 @@ lprec *read_lp_file(FILE *input, short verbose, nstring lp_name)
 
     lp->names_used    = TRUE;
     //lp->obj_bound     = DEF_INFINITE;
-    mpq_init(*lp->obj_bound);
-    mpq_set_d(*lp->obj_bound, DEF_INFINITE);
+    mpq_init(lp->obj_bound);
+    mpq_set_d(lp->obj_bound, DEF_INFINITE);
     lp->bb_rule       = FIRST_NI;
     lp->break_at_int  = FALSE;
     //lp->infinite      = DEF_INFINITE;
-    mpq_init(*lp->infinite);
-    mpq_set_d(*lp->infinite, DEF_INFINITE);
+    mpq_init(lp->infinite);
+    mpq_set_d(lp->infinite, DEF_INFINITE);
     //lp->epsilon       = DEF_EPSILON;
-    mpq_init(*lp->epsilon);
-    mpq_set_d(*lp->epsilon, DEF_EPSILON);
+    mpq_init(lp->epsilon);
+    mpq_set_d(lp->epsilon, DEF_EPSILON);
     //lp->epsb          = DEF_EPSB;
-    mpq_init(*lp->epsb);
-    mpq_set_d(*lp->epsb, DEF_EPSB);
+    mpq_init(lp->epsb);
+    mpq_set_d(lp->epsb, DEF_EPSB);
     //lp->epsd          = DEF_EPSD;
-    mpq_init(*lp->epsd);
-    mpq_set_d(*lp->epsd, DEF_EPSD);
+    mpq_init(lp->epsd);
+    mpq_set_d(lp->epsd, DEF_EPSD);
     //lp->epsel         = DEF_EPSEL;
-    mpq_init(*lp->epsel);
-    mpq_set_d(*lp->epsel, DEF_EPSEL);
+    mpq_init(lp->epsel);
+    mpq_set_d(lp->epsel, DEF_EPSEL);
     lp->non_zeros     = Non_zeros;
     lp->mat_alloc     = Non_zeros;
     lp->row_end_valid = FALSE;
@@ -668,11 +668,11 @@ lprec *read_lp_file(FILE *input, short verbose, nstring lp_name)
     for(i = 0; i <= Sum; i++)
     {
         //lp->orig_upbo[i]  = lp->infinite;
-        mpq_init(*lp->orig_upbo[i]);
-        mpq_set(*lp->orig_upbo[i], *lp->infinite);
+        mpq_init(lp->orig_upbo[i]);
+        mpq_set(lp->orig_upbo[i], lp->infinite);
 
         //lp->orig_lowbo[i] = 0;
-        mpq_init(*lp->orig_lowbo[i]);
+        mpq_init(lp->orig_lowbo[i]);
     }
 
     lp->basis_valid = TRUE;
