@@ -1,7 +1,7 @@
 #include "lpkit.h"
 #include "lpglob.h"
 #include <stdarg.h>
-
+#include <gmp.h>
 
 static void print_indent(void)
 {

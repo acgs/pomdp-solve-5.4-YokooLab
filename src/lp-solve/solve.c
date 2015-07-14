@@ -2,6 +2,8 @@
 #include "lpkit.h"
 #include "lpglob.h"
 #include "debug.h"
+#include <stdio.h>
+#include <gmp.h>
 
 /* Globals used by solver */
 static short JustInverted;
@@ -404,7 +406,7 @@ void invert(lprec *lp)
                 //lp->iter, lp->eta_size, (double) - lp->rhs[0]);
         fprintf(stderr, "Start Invert iter %7d eta_size %4d rhs[0] ", lp->iter, lp->eta_size);
         mpq_neg(*temp, *lp->rhs[0]);
-        mpq_str_out(stderr, 10, *temp);
+        mpq_out_str(stderr, 10, *temp);
     }
 
     CALLOC(rownum, lp->rows + 1);
@@ -613,7 +615,7 @@ void invert(lprec *lp)
             //lp->eta_size, (double) - lp->rhs[0]);
         fprintf(stderr, "End Invert                eta_size %4d rhs[0] ", lp->eta_size);
         mpq_neg(*temp, *lp->rhs[0]);
-        mpq_str_out(stderr, 10, *temp);
+        mpq_out_str(stderr, 10, *temp);
     }
 
     JustInverted = TRUE;
@@ -679,7 +681,7 @@ static short colprim(lprec *lp,
     }
     for(i = 1; i <= lp->sum; i++)
         if(!lp->basis[i])
-        if(mpoq_sgn(*lp->upbo[i]) > 0)//lp->upbo[i] > 0)
+        if(mpq_sgn(*lp->upbo[i]) > 0)//lp->upbo[i] > 0)
         {
             if(lp->lower[i])
                 mpq_set(*f, *drow[i]);//f = drow[i];
@@ -696,7 +698,7 @@ static short colprim(lprec *lp,
             //fprintf(stderr, "col_prim:%7d, reduced cost: % 18.10f\n",
                     //(*colnr), (double)dpiv);
             fprintf(stderr,"col_prim:%7d, reduced cost: ", (*colnr) );
-            mpq_str_out(stderr, 10, *dpiv);
+            mpq_out_str(stderr, 10, *dpiv);
             fprintf(stderr, "\n");
         }
         else
@@ -748,9 +750,9 @@ static short rowprim(lprec *lp,
                             //(double)f, (double)Trej);
                 if(lp->debug){
                     fprintf(stderr, "pivot ");
-                    mpq_str_out(stderr, 10, *f);
+                    mpq_out_str(stderr, 10, *f);
                     fprintf(stderr, " rejected, too small (limit ");
-                    mpq_str_out(stderr, 10, *Trej);
+                    mpq_out_str(stderr, 10, *Trej);
                     fprintf(stderr, ")\n");
                 }
             }
@@ -758,7 +760,7 @@ static short rowprim(lprec *lp,
             {
                 /*VS- using mul_2exp, following equation becomes quot = lp->inifinie * 2^1 */ //quot = 2 * lp->infinite;
                 mpq_mul_2exp(*quot, *lp->infinite, 1);
-                if(mqp_sgn(*f) > 0)//f > 0)
+                if(mpq_sgn(*f) > 0)//f > 0)
                     mpq_div(*quot, *lp->rhs[i], *f);//quot = lp->rhs[i] / (REAL) f;
                 else if(mpq_cmp(*lp->upbo[lp->bas[i]], *lp->infinite) < 0)//lp->upbo[lp->bas[i]] < lp->infinite)
                 {
@@ -809,17 +811,17 @@ static short rowprim(lprec *lp,
             //fprintf(stderr, "Warning: Numerical instability, qout = %f\n",
                     //(double)(*theta));
             fprintf(stderr, "Warning: Numerical instability, qout = ");
-            mpq_str_out(stderr, 10, **theta);
+            mpq_out_str(stderr, 10, **theta);
 
             //fprintf(stderr, "pcol[%d] = % 18.10f, rhs[%d] = % 18.8f , upbo = % f\n",
                     //(*row_nr), (double)f, (*row_nr), (double)lp->rhs[(*row_nr)],
                     //(double)lp->upbo[lp->bas[(*row_nr)]]);
             fprintf(stderr, "pcol[%d] = ", (*row_nr));
-            mpq_str_out(stderr, 10, *f);
+            mpq_out_str(stderr, 10, *f);
             fprintf(stderr, ", rhs[%d] = ", (*row_nr));
-            mpq_str_out(stderr, 10, *lp->rhs[*row_nr]);
+            mpq_out_str(stderr, 10, *lp->rhs[*row_nr]);
             fprintf(stderr, ", upbo = ");
-            mpq_str_out(stderr, 10, *lp->upbo[lp->bas[*row_nr]]);
+            mpq_out_str(stderr, 10, *lp->upbo[lp->bas[*row_nr]]);
             fprintf(stderr, "\n");
         }
     }
@@ -857,7 +859,7 @@ static short rowprim(lprec *lp,
         //fprintf(stderr, "row_prim:%7d, pivot element:% 18.10f\n", (*row_nr),
             //(double)pcol[(*row_nr)]);
         fprintf(stderr, "row_prim:%7d, pivot element: ", *row_nr);
-        mpq_str_out(stderr, 10, *pcol[*row_nr]);
+        mpq_out_str(stderr, 10, *pcol[*row_nr]);
         fprintf(stderr, "\n");
     }
 
@@ -919,7 +921,7 @@ static short rowdual(lprec *lp, int *row_nr)
                     //"row_dual:%7d, rhs of selected row:           % 18.10f\n",
                     //(*row_nr), (double)lp->rhs[(*row_nr)]);
             fprintf(stderr, "row_dual:%7d, rhs of selected row:           ", *row_nr);
-            mpq_str_out(stderr, 10, *lp->rhs[*row_nr]);
+            mpq_out_str(stderr, 10, *lp->rhs[*row_nr]);
             fprintf(stderr, "\n");
 
             if(mpq_cmp(*lp->upbo[lp->bas[*row_nr]], *lp->infinite)) {//lp->upbo[lp->bas[(*row_nr)]] < lp->infinite)
@@ -927,7 +929,7 @@ static short rowdual(lprec *lp, int *row_nr)
                     //"\t\tupper bound of basis variable:    % 18.10f\n",
                     //(double)lp->upbo[lp->bas[(*row_nr)]]);
                 fprintf(stderr, "\t\tupper bound of basis variable:    ");
-                mpq_str_out(stderr, 10, *lp->upbo[lp->bas[*row_nr]]);
+                mpq_out_str(stderr, 10, *lp->upbo[lp->bas[*row_nr]]);
                 fprintf(stderr, "\n");
             }
         }
@@ -1111,7 +1113,7 @@ static short coldual(lprec *lp,
         //fprintf(stderr, "col_dual:%7d, pivot element:  % 18.10f\n", (*colnr),
                 //(double) prow[(*colnr)]);
         fprintf(stderr, "col_dual:%7d, pivot element:  ", (*colnr));
-        mpq_str_out(stderr, 10, *prow[*colnr]);
+        mpq_out_str(stderr, 10, *prow[*colnr]);
         fprintf(stderr, "\n");
     }
 
@@ -1214,7 +1216,7 @@ static void iteration(lprec *lp,
     {
         //fprintf(stderr, "Theta = %16.4g ", (double)(*theta));
         fprintf(stderr, "Theta = ");
-        mpq_str_out(stderr, 10, *theta);
+        mpq_out_str(stderr, 10, **theta);
         fprintf(stderr, " ");
         if((*minit))
         {
@@ -1223,7 +1225,7 @@ static void iteration(lprec *lp,
                         //"Iteration:%6d, variable%5d changed from 0 to its upper bound of %12f\n",
                         //lp->iter, varin, (double) lp->upbo[varin]);
                 fprintf(stderr,"Iteration:%6d, variable%5d changed from 0 to its upper bound of ", lp->iter, varin );
-                mpq_str_out(stderr, 10, *lp->upbo[varin]);
+                mpq_out_str(stderr, 10, *lp->upbo[varin]);
                 fprintf(stderr, "\n");
             }
             else {
@@ -1231,7 +1233,7 @@ static void iteration(lprec *lp,
                     //"Iteration:%6d, variable%5d changed its upper bound of %12f to 0\n",
                     //lp->iter, varin, (double)lp->upbo[varin]);
                 fprintf(stderr, "Iteration:%6d, variable%5d changed its upper bound of ", lp->iter, varin);
-                mpq_str_out(stderr, 10, *lp->upbo[varin]);
+                mpq_out_str(stderr, 10, *lp->upbo[varin]);
                 fprintf(stderr, " to 0\n");
             }
         }
@@ -1240,7 +1242,7 @@ static void iteration(lprec *lp,
                     //"Iteration:%6d, variable%5d entered basis at:% 18.10f\n",
                     //lp->iter, varin, (double) lp->rhs[row_nr]);
             fprintf(stderr, "Iteration:%6d, variable%5d entered basis at: ",lp->iter, varin);
-            mpq_str_out(stderr, 10, *lp->rhs[row_nr]);
+            mpq_out_str(stderr, 10, *lp->rhs[row_nr]);
             fprintf(stderr, "\n");
         }
         if(!primal)
@@ -1259,7 +1261,7 @@ static void iteration(lprec *lp,
             //fprintf(stderr, "feasibility gap of this basis:% 18.10f\n",
                     //(double)f);
             fprintf(stderr, "feasibility gap of this basis: ");
-            mpq_str_out(stderr, 10, *f);
+            mpq_out_str(stderr, 10, *f);
             fprintf(stderr, "\n");
         }
         else {
@@ -1267,7 +1269,7 @@ static void iteration(lprec *lp,
                 //"objective function value of this feasible basis: % 18.10f\n",
                 //(double)lp->rhs[0]);
             fprintf(stderr, "objective function value of this feasible basis: ");
-            mpq_str_out(stderr, 10, *lp->rhs[0]);
+            mpq_out_str(stderr, 10, *lp->rhs[0]);
             fprintf(stderr, "\n");
         }
     }
@@ -1360,7 +1362,7 @@ static int solvelp(lprec *lp)
     if(lp->trace) {
         //fprintf(stderr, "Extrad = %f\n", (double) Extrad);
         fprintf(stderr, "Extrad = ");
-        mpq_str_out(stderr, 10, *Extrad);
+        mpq_out_str(stderr, 10, *Extrad);
         fprintf(stderr, "\n");
     }
 
@@ -1696,8 +1698,8 @@ static void calculate_duals(lprec *lp)
 } /* calculate_duals */
 
 
-/*VS - this function doesn't seem to be called by anything. */
-/*
+/*VS - not sure what the purpose of this function is besides printing an error message - maybe we should just
+ * change the function name to be more meaningful, since it doesn't actually return anything. */
 static void check_if_less(REAL x,
                           REAL y,
                           REAL value)
@@ -1706,13 +1708,18 @@ static void check_if_less(REAL x,
     {
         fprintf(stderr,
                 "Error: new upper or lower bound is not more restrictive\n");
-        fprintf(stderr, "bound 1: %g, bound 2: %g, value: %g\n",
-                (double)x, (double)y, (double)value);
+        //fprintf(stderr, "bound 1: %g, bound 2: %g, value: %g\n",
+                //(double)x, (double)y, (double)value);
+        fprintf(stderr, "bound 1: " );
+        mpq_out_str(stderr, 10, *x);
+        fprintf(stderr, ", bound 2: ");
+        mpq_out_str(stderr, 10, *y);
+        fprintf(stderr, ", value: ");
+        mpq_out_str(stderr, 10, *value);
+        fprintf(stderr, "\n");
         /* exit(EXIT_FAILURE); */
-/*
     }
 }
-*/
 
 
 /* This function is never called.  There is a commented out call later
@@ -1831,7 +1838,7 @@ static int milpsolve(lprec *lp,
         {
             //tmpreal = (REAL) (rand() % 100 * 0.00001);
             mpz_random(mpq_numref(*tmpreal), 100);
-            mpq_random(mpq_denref(*tmpreal), 100);
+            mpz_random(mpq_denref(*tmpreal), 100);
             mpz_mod(mpq_numref(*tmpreal), mpq_numref(*tmpreal), tmpInt);
             mpz_mod(mpq_denref(*tmpreal), mpq_denref(*tmpreal), tmpInt);
             mpq_mul(*tmpreal, *tmpreal, *temp);
@@ -1840,7 +1847,7 @@ static int milpsolve(lprec *lp,
                 mpq_sub(*lp->lowbo[i + lp->rows], *lp->lowbo[i + lp->rows], *tmpreal);//lp->lowbo[i + lp->rows] -= tmpreal;
             //tmpreal = (REAL) (rand() % 100 * 0.00001);
             mpz_random(mpq_numref(*tmpreal), 100);
-            mpq_random(mpq_denref(*tmpreal), 100);
+            mpz_random(mpq_denref(*tmpreal), 100);
             mpz_mod(mpq_numref(*tmpreal), mpq_numref(*tmpreal), tmpInt);
             mpz_mod(mpq_denref(*tmpreal), mpq_denref(*tmpreal), tmpInt);
             mpq_mul(*tmpreal, *tmpreal, *temp);
@@ -1932,9 +1939,9 @@ static int milpsolve(lprec *lp,
                         Level, (double) lp->solution[0],
                         (double) lp->best_solution[0]);*/
                 fprintf(stderr, "level%4d OPT NOB value ", Level);
-                mpq_str_out(stderr, 10, *lp->solution[0]);
+                mpq_out_str(stderr, 10, *lp->solution[0]);
                 fprintf(stderr, " bound ");
-                mpq_str_out(stderr, 10, *lp->best_solution[0]);
+                mpq_out_str(stderr, 10, *lp->best_solution[0]);
                 fprintf(stderr, "\n");
             }
             debug_print(lp, "but it was worse than the best sofar, discarded");
@@ -1962,7 +1969,7 @@ static int milpsolve(lprec *lp,
                                 //(double)lp->solution[i]);
                         //fprintf(stderr, "Perhaps the -e option should be used\n");
                         fprintf(stderr, "Warning: integer var %d is already fixed at %d, but has non-integer value ", i - lp->rows, (int) mpq_get_d(*lowbo[i]));
-                        mpq_str_out(stderr, 10, *lp->solution[i]);
+                        mpq_out_str(stderr, 10, *lp->solution[i]);
                         fprintf(stderr, "\nPerhaps the -e option should be used\n");
 
                     }
@@ -2001,14 +2008,14 @@ static int milpsolve(lprec *lp,
                 //fprintf(stderr, "level %3d OPT     value %f\n", Level,
                         //(double) lp->solution[0]);
                 fprintf(stderr, "level %3d OPT     value \n", Level);
-                mpq_str_out(stderr, 10, *lp->solution[0]);
+                mpq_out_str(stderr, 10, *lp->solution[0]);
                 fprintf(stderr, "\n");
             }
             else {
                 //fprintf(stderr, "level %3d OPT INT value %f\n", Level,
                         //(double) lp->solution[0]);
                 fprintf(stderr, "level %3d OPT INT value ", Level);
-                mpq_str_out(stderr, 10, *lp->solution[0]);
+                mpq_out_str(stderr, 10, *lp->solution[0]);
                 fprintf(stderr, "\n");
             }
         }
@@ -2047,7 +2054,7 @@ static int milpsolve(lprec *lp,
                             //(double) lp->solution[notint]);
                if(lp->debug){
                    fprintf(stderr, "not enough ints. Selecting var %s, val: ", lp->col_name[notint - lp->rows]);
-                   mpq_str_out(stderr, 10, *lp->solution[notint]);
+                   mpq_out_str(stderr, 10, *lp->solution[notint]);
                    fprintf(stderr, "\n");
                }
             }
@@ -2057,7 +2064,7 @@ static int milpsolve(lprec *lp,
                             //notint, (double) lp->solution[notint]);
                 if(lp->debug){
                     fprintf(stderr, "not enough ints. Selecting Var [%5d], val: ", notint);
-                    mpq_str_out(stderr, 10, *lp->solution[notint]);
+                    mpq_out_str(stderr, 10, *lp->solution[notint]);
                     fprintf(stderr, "\n");
                 }
             }
@@ -2077,9 +2084,9 @@ static int milpsolve(lprec *lp,
                                 //(double)new_bound, (double)lowbo[notint]);
                     if(lp->debug){
                         fprintf(stderr, "New upper bound value ");
-                        mpq_str_out(stderr, 10, *new_bound);
+                        mpq_out_str(stderr, 10, *new_bound);
                         fprintf(stderr, " confilicts with old lower bound ");
-                        mpq_str_out(stderr, 10, *lowbo[notint]);
+                        mpq_out_str(stderr, 10, *lowbo[notint]);
                         fprintf(stderr, "\n");
                     }
 
@@ -2104,9 +2111,9 @@ static int milpsolve(lprec *lp,
                                 //(double)new_bound, (double)upbo[notint]);
                     if(lp->debug){
                         fprintf(stderr, "New lower bound value ");
-                        mpq_str_out(stderr, 10, *new_bound);
+                        mpq_out_str(stderr, 10, *new_bound);
                         fprintf(stderr, " conflicts with old upper bound ");
-                        mpq_str_out(stderr, 10, *upbo[notint]);
+                        mpq_out_str(stderr, 10, *upbo[notint]);
                         fprintf(stderr, "\n");
                     }
 
@@ -2137,9 +2144,9 @@ static int milpsolve(lprec *lp,
                                 //(double)new_bound, (double)upbo[notint]);
                     if(lp->debug){
                         fprintf(stderr, "New lower bound value ");
-                        mpq_str_out(stderr, 10, *new_bound);
+                        mpq_out_str(stderr, 10, *new_bound);
                         fprintf(stderr, " conflicts with old upper bound ");
-                        mpq_str_out(stderr, 10, *upbo[notint]);
+                        mpq_out_str(stderr, 10, *upbo[notint]);
                         fprintf(stderr, "\n");
                     }
 
@@ -2167,9 +2174,9 @@ static int milpsolve(lprec *lp,
                                 //(double)new_bound, (double)lowbo[notint]);
                     if(lp->debug){
                         fprintf(stderr, "New upper bound value ");
-                        mpq_str_out(stderr, 10, *new_bound);
+                        mpq_out_str(stderr, 10, *new_bound);
                         fprintf(stderr, " conflicts with old lower bound ");
-                        mpq_str_out(stderr, 10, *lowbo[notint]);
+                        mpq_out_str(stderr, 10, *lowbo[notint]);
                         fprintf(stderr, "\n");
                     }
                     restwo = MILP_FAIL;
@@ -2219,9 +2226,9 @@ static int milpsolve(lprec *lp,
                             //"*** new best solution: old: %g, new: %g ***\n",
                             //(double) lp->best_solution[0], (double) lp->solution[0]);
                     fprintf(stderr, "*** new best solution: old: ");
-                    mpq_str_out(stderr, 10, *lp->best_solution[0]);
+                    mpq_out_str(stderr, 10, *lp->best_solution[0]);
                     fprintf(stderr, ", new: ");
-                    mpq_str_out(stderr, 10, *lp->solution[0]);
+                    mpq_out_str(stderr, 10, *lp->solution[0]);
                     fprintf(stderr, " ***\n");
                 }
                 memcpy(lp->best_solution, lp->solution,
@@ -2431,13 +2438,13 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
                     //(double)Zub, (double)Zlb, (double)Step, (double)pie,
                     //OrigFeas);
             fprintf(stderr, "Zub: ");
-            mpq_str_out(stderr, 10, *Zub);
+            mpq_out_str(stderr, 10, *Zub);
             fprintf(stderr, " Zlb: ");
-            mpq_str_out(stderr, 10, *Zlb);
+            mpq_out_str(stderr, 10, *Zlb);
             fprintf(stderr, " Step: ");
-            mpq_str_out(stderr, 10, *Step);
+            mpq_out_str(stderr, 10, *Step);
             fprintf(stderr, " pie: ");
-            mpq_str_out(stderr, 10, *pie);
+            mpq_out_str(stderr, 10, *pie);
             fprintf(stderr, " Feas %d\n", OrigFeas);
 
             for(i = 0; i < lp->nr_lagrange; i++) {
@@ -2445,9 +2452,9 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
                         //(double) SubGrad[i], (double) lp->lambda[i]);
 
                 fprintf(stderr, "%3d SubGrad ", i);
-                mpq_str_out(stderr, 10, *SubGrad[i]);
+                mpq_out_str(stderr, 10, *SubGrad[i]);
                 fprintf(stderr, " lambda ");
-                mpq_str_out(stderr, 10, *lp->lambda[i]);
+                mpq_out_str(stderr, 10, *lp->lambda[i]);
                 fprintf(stderr, "\n");
 
             }
@@ -2489,7 +2496,7 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
         if(result == UNBOUNDED)
         {
             for(i = 1; i <= lp->columns; i++)
-                mpq_str_out(stderr, 10, *ModObj[i]);//fprintf(stderr, "%5f ", (double)ModObj[i]);
+                mpq_out_str(stderr, 10, *ModObj[i]);//fprintf(stderr, "%5f ", (double)ModObj[i]);
             exit(EXIT_FAILURE);
         }
 
@@ -2542,7 +2549,7 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
                 if(verbose) {
                    //fprintf(stderr, "Best feasible solution: %f\n", (double) Zlb);
                     fprintf(stderr, "Best feasible solution: ");
-                    mpq_str_out(stderr, 10, *Zlb);
+                    mpq_out_str(stderr, 10, *Zlb);
                     fprintf(stderr, "\n");
                 }
             }
@@ -2555,7 +2562,7 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
                 if(verbose) {
                     //fprintf(stderr, "Best feasible solution: %f\n", (double) Zub);
                     fprintf(stderr, "Best feasible solution: ");
-                    mpq_str_out(stderr, 10, *Zub);
+                    mpq_out_str(stderr, 10, *Zub);
                     fprintf(stderr, "\n");
                 }
             }
@@ -2568,7 +2575,7 @@ int lag_solve(lprec *lp, REAL start_bound, int num_iter, short verbose)
         else {
             //Zlb = my_max(Zlb, rhsmod + lp->best_solution[0]);
             mpq_add(*temp, *rhsmod, *lp->best_solution[0]);
-            mpoq_set(*Zlb, *(my_mpq_max(Zlb, temp)));
+            mpq_set(*Zlb, *(my_mpq_max(Zlb, temp)));
         }
 
         mpq_sub(*temp, *Zub, *Zlb);

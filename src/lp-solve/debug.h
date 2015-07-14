@@ -1,6 +1,6 @@
 #ifndef LP_SOLVE_DEBUG
 #define LP_SOLVE_DEBUG 1
-
+#include <gmp.h>
 /* prototypes for debug printing by other files */
 
 void debug_print(lprec *lp, char *format, ...);

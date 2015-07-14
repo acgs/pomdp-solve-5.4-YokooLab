@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <gmp.h>
 #define HASHSIZE 10007
 
 /* Globals */
@@ -1831,7 +1831,7 @@ void write_solution(lprec *lp, FILE *stream )
     /*fprintf(stream, "Value of objective function: %16.10g\n",
             (double)lp->best_solution[0]);*/
     fprintf(stream, "Value of objective function: ");
-    mpq_str_out(stream, 10, *lp->best_solution[0]);
+    mpq_out_str(stream, 10, *lp->best_solution[0]);
     fprintf(stream, "\n");
 
     /* print normal variables */
@@ -1844,7 +1844,7 @@ void write_solution(lprec *lp, FILE *stream )
             /*fprintf(stream, "Var [%4d]  %16.5g\n", i,
                     (double)lp->best_solution[lp->rows+i]);*/
             fprintf(stream, "Var [%4d]  ", i);
-        mpq_str_out(stream, 10, *lp->best_solution[lp->rows+i]);
+        mpq_out_str(stream, 10, *lp->best_solution[lp->rows+i]);
         fprintf(stream, "\n");
     }
 
@@ -1861,7 +1861,7 @@ void write_solution(lprec *lp, FILE *stream )
                 /*fprintf(stream, "Row [%4d]  %16.5g\n", i,
                         (double) lp->best_solution[i]);*/
                 fprintf(stream, "Row [%4d]  ", i);
-            mpq_str_out(stream, 10, *lp->best_solution[i]);
+            mpq_out_str(stream, 10, *lp->best_solution[i]);
             fprintf(stream, "\n");
         }
     }
@@ -1881,7 +1881,7 @@ void write_solution(lprec *lp, FILE *stream )
             else
                 /*fprintf(stream, "Row [%4d]  %16.5g\n", i, (double)lp->duals[i]);*/
                 fprintf(stream, "Row [%4d]  ", i);
-            mpq_str_out(stream, 10, *lp->duals[i]);
+            mpq_out_str(stream, 10, *lp->duals[i]);
             fprintf(stream, "\n");
         }
     }
@@ -1926,7 +1926,7 @@ void write_LP(lprec *lp, FILE *output)
                 fprintf(output, " +");
             else {
                 fprintf(output, " ");
-                mpq_str_out(output, 10, *row[i]);//fprintf(output, " %+g ", row[i]);
+                mpq_out_str(output, 10, *row[i]);//fprintf(output, " %+g ", row[i]);
             }
             if(lp->names_used)
                 fprintf(output, "%s", lp->col_name[i]);
@@ -1948,7 +1948,7 @@ void write_LP(lprec *lp, FILE *output)
                     fprintf(output, " +");
                 else {
                     fprintf(output, " ");
-                    mpq_str_out(output, 10, *row[i]);//fprintf(output, " %+g ", row[i]);
+                    mpq_out_str(output, 10, *row[i]);//fprintf(output, " %+g ", row[i]);
                 }
                 if (lp->names_used)
                     fprintf(output, "%s", lp->col_name[i]);
@@ -1968,13 +1968,13 @@ void write_LP(lprec *lp, FILE *output)
             //fprintf(output, " %g;\n", -lp->orig_rh[j]);
             fprintf(output, " ");
             mpq_neg(*temp, *lp->orig_rh[j]);
-            mpq_str_out(output, 10, *temp);
+            mpq_out_str(output, 10, *temp);
             fprintf(output, ";\n");
         }
         else {
             //fprintf(output, " %g;\n", lp->orig_rh[j]);
             fprintf(output, " ");
-            mpq_str_out(output, 10, *lp->orig_rh[j]);
+            mpq_out_str(output, 10, *lp->orig_rh[j]);
             fprintf(output, ";\n");
         }
     }
@@ -1986,14 +1986,14 @@ void write_LP(lprec *lp, FILE *output)
                 //fprintf(output, "%s > %g;\n", lp->col_name[i - lp->rows],
                         //lp->orig_lowbo[i]);
                 fprintf(output, "%s > ", lp->col_name[i - lp->rows]);
-                mpq_str_out(output, 10, *lp->orig_lowbo[i]);
+                mpq_out_str(output, 10, *lp->orig_lowbo[i]);
                 fprintf(output, ";\n");
             }
             else {
                 //fprintf(output, "x%d > %g;\n", i - lp->rows,
                         //lp->orig_lowbo[i]);
                 fprintf(output, "x%d > ", i - lp->rows);
-                mpq_str_out(output, 10, *lp->orig_lowbo[i]);
+                mpq_out_str(output, 10, *lp->orig_lowbo[i]);
                 fprintf(output, ";\n");
             }
         }
@@ -2003,13 +2003,13 @@ void write_LP(lprec *lp, FILE *output)
                 //fprintf(output, "%s < %g;\n", lp->col_name[i - lp->rows],
                         //lp->orig_upbo[i]);
                 fprintf(output, "%s < ", lp->col_name[i - lp->rows]);
-                mpq_str_out(output, 10, *lp->orig_upbo[i]);
+                mpq_out_str(output, 10, *lp->orig_upbo[i]);
                 fprintf(output, ";\n");
             }
             else {
                 //fprintf(output, "x%d < %g;\n", i - lp->rows, lp->orig_upbo[i]);
                 fprintf(output, "x%d < ", i - lp->rows);
-                mpq_str_out(output, 10, *lp->orig_upbo[i]);
+                mpq_out_str(output, 10, *lp->orig_upbo[i]);
             }
         }
     }
@@ -2108,14 +2108,14 @@ void write_MPS(lprec *lp, FILE *output)
                     //fprintf(output, "    %-8s  %-8s  %g\n", lp->col_name[i],
                     //lp->row_name[j], -column[j]);
                     fprintf(output, "    %-8s  %-8s  ", lp->col_name[i], lp->row_name[j]);
-                    mpq_str_out(output, 10, *temp);
+                    mpq_out_str(output, 10, *temp);
                     fprintf(output, "\n");
                 }
                 else {
                     //fprintf(output, "    var_%-4d  r_%-6d  %g\n", i, j,
                             //-column[j]);
                     fprintf(output,"    var_%-4d  r_%-6d ", i, j);
-                    mpq_str_out(output, 10, *temp);
+                    mpq_out_str(output, 10, *temp);
                     fprintf(output, "\n");
                 }
             }
@@ -2128,14 +2128,14 @@ void write_MPS(lprec *lp, FILE *output)
                     //fprintf(output, "    %-8s  %-8s  %g\n", lp->col_name[i],
                             //lp->row_name[j], column[j]);
                     fprintf(output, "    %-8s  %-8s ", lp->col_name[i], lp->row_name[j]);
-                    mpq_str_out(output, 10, *column[j]);
+                    mpq_out_str(output, 10, *column[j]);
                     fprintf(output, "\n");
                 }
                 else {
                     //fprintf(output, "    var_%-4d  r_%-6d  %g\n", i, j,
                         //column[j]);
                     fprintf(output, "    var_%-4d  r_%-6d ", i, j);
-                    mpq_str_out(output, 10, *column[j]);
+                    mpq_out_str(output, 10, *column[j]);
                     fprintf(output, "\n");
                 }
 
@@ -2153,7 +2153,7 @@ void write_MPS(lprec *lp, FILE *output)
                     //column[j]);
                     fprintf(output, "    var_%-4d  r_%-6d ", i, j);
                 }
-                mpq_str_out(output, 10, *column[j]);
+                mpq_out_str(output, 10, *column[j]);
                 fprintf(output, "\n");
             }
             /* VS - clear column[j] here since we won't use it again.*/
@@ -2185,7 +2185,7 @@ void write_MPS(lprec *lp, FILE *output)
                 //fprintf(output, "    RHS       r_%-6d  %g\n", i,
                         //(double)-a);
                 fprintf(output, "    RHS       r_%-6d  ", i);
-            mpq_str_out(output, 10, *temp);
+            mpq_out_str(output, 10, *temp);
             fprintf(output, "\n");
         }
         else
@@ -2198,7 +2198,7 @@ void write_MPS(lprec *lp, FILE *output)
                 //fprintf(output, "    RHS       r_%-6d  %g\n", i,
                         //(double)a);
                 fprintf(output, "    RHS       r_%-6d  ", i);
-            mpq_str_out(output, 10, *a);
+            mpq_out_str(output, 10, *a);
             fprintf(output, "\n");
         }
     }
@@ -2222,7 +2222,7 @@ void write_MPS(lprec *lp, FILE *output)
                 /*fprintf(output, "    RGS       r_%-6d  %g\n", i,
                         (double)a);*/
                 fprintf(output, "    RGS       r_%-6d  ", i);
-            mpq_str_out(output, 10, *a);
+            mpq_out_str(output, 10, *a);
             fprintf(output, "\n");
         }
         else if(mpq_sgn(*lp->orig_lowbo[i]) != 0){//(lp->orig_lowbo[i] != 0.0)) {
@@ -2244,7 +2244,7 @@ void write_MPS(lprec *lp, FILE *output)
                 //fprintf(output, "    RGS       r_%-6d  %g\n", i,
                         //(double)-a);
                 fprintf(output, "    RGS       r_%-6d  ", i);
-            mpq_str_out(output, 10, *temp);
+            mpq_out_str(output, 10, *temp);
             fprintf(output, "\n");
         }
 
@@ -2262,7 +2262,7 @@ void write_MPS(lprec *lp, FILE *output)
                 //fprintf(output, " FX BND       %-8s  %g\n",
                         //lp->col_name[i- lp->rows], (double)a);
                 fprintf(output, " FX BND       %-8s  ", lp->col_name[i - lp->rows]);
-                mpq_str_out(output, 10, *a);
+                mpq_out_str(output, 10, *a);
                 fprintf(output, "\n");
             }
             else
@@ -2276,7 +2276,7 @@ void write_MPS(lprec *lp, FILE *output)
                     //fprintf(output, " UP BND       %-8s  %g\n",
                             //lp->col_name[i- lp->rows], (double)a);
                     fprintf(output, " UP BND       %-8s  ", lp->col_name[i - lp->rows]);
-                    mpq_str_out(output, 10, *a);
+                    mpq_out_str(output, 10, *a);
                 }
                 if(mpq_sgn(*lp->orig_lowbo[i]) != 0) {//lp->orig_lowbo[i] != 0) {
                     mpq_set(*a, *lp->orig_lowbo[i]);//a = lp->orig_lowbo[i];
@@ -2286,7 +2286,7 @@ void write_MPS(lprec *lp, FILE *output)
                     //fprintf(output, " LO BND       %-8s  %g\n",
                             //lp->col_name[i- lp->rows], (double)lp->orig_lowbo[i]);
                     fprintf(output, " LO BND       %-8s  ", lp->col_name[i - lp->rows]);
-                    mpq_str_out(output, 10, *lp->orig_lowbo[i]);
+                    mpq_out_str(output, 10, *lp->orig_lowbo[i]);
                 }
             }
         }
@@ -2302,7 +2302,7 @@ void write_MPS(lprec *lp, FILE *output)
                 //fprintf(output, " FX BND       %-8s  %g\n",
                         //lp->col_name[i- lp->rows], (double)a);
                 fprintf(output, " FX BND       %-8s  ", lp->col_name[i - lp->rows]);
-                mpq_str_out(output, 10, *a);
+                mpq_out_str(output, 10, *a);
                 fprintf(output, "\n");
             }
             else
@@ -2315,7 +2315,7 @@ void write_MPS(lprec *lp, FILE *output)
                     //fprintf(output, " UP BND       var_%-4d  %g\n",
                             //i - lp->rows, (double)a);
                     fprintf(output, " UP BND       var_%-4d  ", i - lp->rows);
-                    mpq_str_out(output, 10, *a);
+                    mpq_out_str(output, 10, *a);
                     fprintf(output, "\n");
                 }
                 if(mpq_sgn(*lp->orig_lowbo[i]) != 0){//lp->orig_lowbo[i] != 0) {
@@ -2326,7 +2326,7 @@ void write_MPS(lprec *lp, FILE *output)
                     //fprintf(output, " LO BND       var_%-4d  %g\n", i - lp->rows,
                             //(double)a);
                     fprintf(output, " LO BND       var_%-4d  ", i - lp->rows);
-                    mpq_str_out(output, 10, *a);
+                    mpq_out_str(output, 10, *a);
                     fprintf(output, "\n");
                 }
             }
@@ -2349,7 +2349,7 @@ void print_duals(lprec *lp)
         else
             //fprintf(stdout, "Dual       [%3d] % 10.4f\n", i, lp->duals[i]);
             fprintf(stdout, "Dual       [%3d] ", i);
-        mpq_str_out(stdout, 10, *lp->duals[i]);
+        mpq_out_str(stdout, 10, *lp->duals[i]);
         fprintf(stdout, "\n");
     }
 }
@@ -2362,13 +2362,13 @@ void print_scales(lprec *lp)
         for(i = 0; i <= lp->rows; i++) {
             //fprintf(stdout, "Row[%3d]    scaled at % 10.6f\n", i, lp->scale[i]);
             fprintf(stdout, "Row[%3d]    scaled at ", i);
-            mpq_str_out(stdout, 10, *lp->scale[i]);
+            mpq_out_str(stdout, 10, *lp->scale[i]);
         }
         for(i = 1; i <= lp->columns; i++) {
             //fprintf(stdout, "Column[%3d] scaled at % 10.6f\n", i,
                     //lp->scale[lp->rows + i]);
             fprintf(stdout, "Column[%3d] scaled at ", i);
-            mpq_str_out(stdout, 10, *lp->scale[lp->rows + i]);
+            mpq_out_str(stdout, 10, *lp->scale[lp->rows + i]);
         }
     }
 }

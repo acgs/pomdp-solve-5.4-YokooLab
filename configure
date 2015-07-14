@@ -4104,7 +4104,8 @@ else
 
     ac_save_LIBS=$LIBS
     ac_cv_lib_lex='none needed'
-    for ac_lib in '' -lfl -ll; do
+    #VS - Added -lgmp to library list
+    for ac_lib in '' -lfl -ll -lgmp; do
       LIBS="$ac_lib $ac_save_LIBS"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -4256,6 +4257,9 @@ else
   RANLIB="$ac_cv_prog_RANLIB"
 fi
 
+#VS - Add gmp as library dependency
+#TODO: figure out how to test for library like the other libraries
+LIBS="-lgmp $LIBS"
 
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lcplex':

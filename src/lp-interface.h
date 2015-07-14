@@ -55,6 +55,7 @@
 #include "lp-solve/lpkit.h"
 #include "lp-solve/lpglob.h"
 #include "params.h"
+#include <gmp.h>
 
 #ifdef HAVE_CPLEX
 #include "cpxdefs.inc"
