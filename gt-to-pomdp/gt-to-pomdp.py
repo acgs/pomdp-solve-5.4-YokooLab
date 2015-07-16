@@ -211,11 +211,9 @@ class GTModel(object):
                     else:
                         signal_lines.append(line)
                 elif state is 7: #payoff
-                    print(len(line.strip()))
                     if len(line.strip()) is 0:
                         state = 8
                         continue
-                    print("Adding line {} to payoff_lines".format(line))
                     payoff_lines.append(line) #We hold off on parsing payoff_lines until end of file.
                 elif state is 8: #end
                     continue
@@ -225,7 +223,6 @@ class GTModel(object):
 
         #We don't need to reshape payoff matrix, since values are always 1-D
         model.payoff = matrix
-        print('payoff matrix after reshape: {}'.format(model.payoff))
 
         return model
 
@@ -330,14 +327,26 @@ class PseudoPOMDPModel(object):
     def __init__(self, gt_model=None):
         pass
 
+    def __str__(self):
+        return ''
+
 class POMDPModel(object):
 
     def __init__(self, pseudo_pomdp_model=None):
         pass
 
+    def __str__(self):
+        return ''
+
 def main(inputfilename, outputfilename=None):
     gt = GTModel(inputfilename)
     print(gt)
+    ppomdp = PseudoPOMDPModel(gt)
+    print("PseudoPOMDP")
+    print(ppomdp)
+    pomdp = POMDPModel(ppomdp)
+    print("POMDP")
+    print(pomdp)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parses a Game Theory model and converts it to a POMDP model.')
