@@ -323,9 +323,19 @@ class GTModel(object):
 
 
 class PseudoPOMDPModel(object):
+    """
+    Describes a PseudoPOMDP model, as defined in Automated Equilibrium Analysis of Repeated Games with
+Private Monitoring: A POMDP Approach by YongJoon Joe.
+    """
 
     def __init__(self, gt_model=None):
-        pass
+        self.states = set()  # A set of states of other players (player 2 in a 2 player game)
+        self.actions = set()  # A set of actions for player 1
+        self.observations = set()  # A set of observations/signals of player 1
+        self.observation_probability = []  # A function that maps an observation given an action/state tuple to a probability
+        self.state_transition = []  # A function that represents the conditional probability that the next state
+        # is θ t+1 when the current state is θ t and the action of player 1 is a 1
+        self.payoff = []  # A function that maps an action/state tuple to a real value.
 
     def __str__(self):
         return ''
