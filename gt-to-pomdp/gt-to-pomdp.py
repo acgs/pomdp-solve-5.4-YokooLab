@@ -403,14 +403,18 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         # Observation probability maps an observation given an action/state tuple to a probability
         # We represent this as a tuple (observation, (action, state), probability)
         # Then there are |observations| x |actions| x |states| many entries
+
+        print("Making observation probability function...")
         self.observation_probability = []
         action_state_tuples = [(action_state[0], action_state[1]) for action_state in itertools.product(self.actions, self.states)]
 
         #Note that each action_state_tuple in action_state_tuples is a tuple (maybe of length 1)
 
-        observation_profiles = itertools.product(self.observations, repeat=len(gt_model.players))
+        observation_profiles = [observation_profile for observation_profile in itertools.product(self.observations, repeat=len(gt_model.players))]
 
         print("Action_state_tuples: {}".format(action_state_tuples))
+
+
 
         for (action, state) in action_state_tuples:
 
@@ -431,26 +435,64 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         # action of player 1 is a_1
         # P (θ^t+1 | θ^t , a_1 ) = sum_{ω_2 in Omega | T(θ t, ω_2) = θ t+1}  o_2 (ω_2 | (a_1 , f (θ^t ))).
         # So, we make a tuple (state2, (state1, action), value), where state2 =  θ^t+1 and state1 = θ^t
+        # Note that ω_2 is the observation of player 2
+
+        print("Done.\nMaking state transition function...")
 
         for (action, state1) in action_state_tuples:
-            for state2 in self.states:
-                # we'll loop over each state to find the action profile (a_1, a_2, ...)
-                action_profile = self._to_action_profile(gt_model, state1, action)
+            # we'll loop over each state to find the action profile (a_1, a_2, ...)
+            action_profile = self._to_action_profile(gt_model, state1, action)
+
+            for state2 in self.states: #state2 is θ^t+1
+
 
                 # now loop over all observations to do summation
                 # sum_{ω_2 in Omega | T(θ t, ω_2) = θ t+1}  o_2 (ω_2 | (a_1 , f (θ^t ))).
+                #TODO: What do we do when there are more than 2 players? Multiply the sums of probabilities?
+
+                print(state1)
+                print(state2)
+
+
+
+                #For right now, assume we only have 2 players. Must abstract this somehow to n players
                 probability = 0
-                for observation in observation_profiles:
-                    if (state1, observation, state2) not in player1.state_transitions:
-                        print("Did not find {}->{} given observation {} in player1's transitions: {}".format(state1, state2, observation, player1.state_transitions))
-                        continue  # ignore any observations that do not take us from state1 to state2 for player 1.
 
-                    print("Found {}->{} given observation {} in player1's transitions: {}".format(state1, state2, observation, player1.state_transitions))
-                    probability += gt_model.probability_lookup(observation, action_profile)
+                for observation in gt_model.players[1].signals:
 
-                #now we can make the tuple
+                    probability += gt_model.probability_lookup(observation, action_profile)[1] if (state1[0], observation, state2[0]) in gt_model.players[1].state_transitions else 0
+
+
+
                 probability_tuple = (state2, (state1, action), probability)
                 self.state_transition.append(probability_tuple)
+
+
+                # probability = 0
+                # for obs in observation_profiles:
+                #     observation = obs[0]
+                #
+                #     player_probability = 0
+                #
+                #     print("Looking up transition probabilities for pairs {} and observation {}".format([(index, (s1, s2)) for (index, (s1,s2)) in enumerate(zip(state1, state2))], observation))
+                #
+                #     for index, (s1, s2) in enumerate(zip(state1, state2)): #We iterate over pairs of single states for each player
+                #         i = index + 1
+                #
+                #         if (s1, observation, s2) not in gt_model.players[i].state_transitions:
+                #             continue  # ignore any observations that do not take us from state1 to state2 for player 1.
+                #
+                #         print("****\nGot probability of observation {} given action profile {} for player {} as {}\n****".format(observation, action_profile, i+1, gt_model.probability_lookup(observation, action_profile)[i]))
+                #
+                #         player_probability += gt_model.probability_lookup(observation, action_profile)[i]
+                #
+                #     probability += player_probability # For now, just add each players' probabilities. This only makes sense for 2 players, though.
+                #
+                # #now we can make the tuple
+                # probability_tuple = (state2, (state1, action), probability)
+                # self.state_transition.append(probability_tuple)
+
+        print("Done.\nMaking payoff...")
 
         # payoff R : A × S → R is given as:
         # R(a_1 , θ^t ) = g_1 ((a_1 , f (θ^t ))).
@@ -471,12 +513,14 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
             payoff_tuple = (action, state, payoff)
             self.payoff.append(payoff_tuple)
 
+        print("Done.")
+
 
     def _to_action_profile(self, gt_model, state, action):
-        print("In action profile with state {} and action {}".format(state, action))
+        #print("In action profile with state {} and action {}".format(state, action))
         action_profile = [action]
         for i in range(len(state)):
-            print("Looking up action for player {}.".format(i+1))
+            #print("Looking up action for player {}.".format(i+1))
             other_action = gt_model.players[i+1].state_machine[state[i]]
             action_profile.append(other_action)
         action_profile = tuple([action for action in action_profile])
