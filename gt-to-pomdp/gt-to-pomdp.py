@@ -81,6 +81,39 @@ class Player(object):
         return '\n'.join(s)
 
 
+def probability_lookup(signal_distribution, players, observation, action_profile):
+    """
+    using the provided observation (set of signals) and action_profile (set of actions), returns the probability
+    of observation given the action_profile.
+
+    Assumes that action_profile is sorted by player (e.g. action_profile[0] is the action for player1).
+
+    I.e. o_1 (ω_1 | (a_1 , f (θ^t ))). where (a_1 , f (θ^t ) is `action_profile` and  ω_1 is `observation`
+    """
+    print(action_profile)
+    print(signal_distribution)
+    #with the action profile, we can look up the probability table for that profile
+    probability_table = signal_distribution[action_profile]
+
+    #indexes in signal_distribution are based on the index of signals. We know the signals of other players from observation, but need to get 'our' signal
+    player1_signal_index = players[0].actions.index(action_profile[0])
+
+    # we'll collect the indicies of each other player's signal to do a lookup in the signal_distribution table.
+    indicies = [player1_signal_index]
+    for index, obs in enumerate(observation):
+        if index is 0:
+            continue
+
+        indicies.append(players[index].signals.index(obs))
+
+    #now we can look up the value using indicies
+    probability = probability_table #We'll 'reduce' probability table down to one value.
+    for index in indicies:
+        probability = probability[index]
+
+    return probability
+
+
 
 class GTModel(object):
 
@@ -295,35 +328,7 @@ class GTModel(object):
 
         return mapping
 
-    def probability_lookup(self, observation, action_profile):
-        """
-        using the provided observation (set of signals) and action_profile (set of actions), returns the probability
-        of observation given the action_profile.
 
-        Assumes that action_profile is sorted by player (e.g. action_profile[0] is the action for player1).
-
-        I.e. o_1 (ω_1 | (a_1 , f (θ^t ))). where (a_1 , f (θ^t ) is `action_profile` and  ω_1 is `observation`
-        """
-        #with the action profile, we can look up the probability table for that profile
-        probability_table = self.signal_distribution[action_profile]
-
-        #indexes in signal_distribution are based on the index of signals. We know the signals of other players from observation, but need to get 'our' signal
-        player1_signal_index = self.players[0].actions.index(action_profile[0])
-
-        # we'll collect the indicies of each other player's signal to do a lookup in the signal_distribution table.
-        indicies = [player1_signal_index]
-        for index, obs in enumerate(observation):
-            if index is 0:
-                continue
-
-            indicies.append(self.players[index].signals.index(obs))
-
-        #now we can look up the value using indicies
-        probability = probability_table #We'll 'reduce' probability table down to one value.
-        for index in indicies:
-            probability = probability[index]
-
-        return probability
 
     @staticmethod
     def _shape(flat, dims):
@@ -366,10 +371,14 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         # Note that this is an observation of the entire world - that is, the joint observations of all other players.
 
 
-        self.observation_probability = []  # A function that maps an observation given an action/state tuple to a probability
+        self.observation_probability = {}  # A function that maps an observation given an action/state tuple to a probability
         self.state_transition = []  # A function that represents the conditional probability that the next state
         # is θ^t+1 when the current state is θ^t and the action of player 1 is a_1
         self.payoff = []  # A function that maps an action/state tuple to a real value.
+
+        #Additional data to help translation
+        self.players = []
+        self.signal_distribution = []
 
         if gt_model is not None:
             self.from_gt(gt_model)
@@ -382,6 +391,8 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         """
         # states are the cartesian product of all states in gt_model of players except player 1
 
+        self.players = gt_model.players
+        self.signal_distribution = gt_model.signal_distribution
 
         player1 = gt_model.players[0]
 
@@ -405,7 +416,7 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         # Then there are |observations| x |actions| x |states| many entries
 
         print("Making observation probability function...")
-        self.observation_probability = []
+        self.observation_probability = {}
         action_state_tuples = [(action_state[0], action_state[1]) for action_state in itertools.product(self.actions, self.states)]
 
         #Note that each action_state_tuple in action_state_tuples is a tuple (maybe of length 1)
@@ -419,16 +430,16 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         for (action, state) in action_state_tuples:
 
             # we'll loop over each state to find the action profile (a_1, a_2, ...)
-            action_profile = self._to_action_profile(gt_model, state, action)
+            action_profile = self._to_action_profile( state, action)
 
             for observation in observation_profiles: #gets the combinations of observations possible.
                 # O(ω_1 | a_1 , θ^t ) = o_1 (ω_1 | (a_1 , f (θ^t ))).
 
-                probability = gt_model.probability_lookup(observation, action_profile)
+                probability = probability_lookup(gt_model.signal_distribution, self.players, observation, action_profile)
 
                 #now we can make the tuple
-                probability_tuple = (observation, (action, state), probability)
-                self.observation_probability.append(probability_tuple)
+                probability_tuple = ((action, state), probability)
+                self.observation_probability[observation] = (probability_tuple)
 
         # state_transition function P (θ^t+1 | θ^t , a_1 ) represents the conditional probability that
         # the next state is θ^t+1 when the current state is θ^t and the
@@ -441,7 +452,7 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
 
         for (action, state1) in action_state_tuples:
             # we'll loop over each state to find the action profile (a_1, a_2, ...)
-            action_profile = self._to_action_profile(gt_model, state1, action)
+            action_profile = self._to_action_profile( state1, action)
 
             for state2 in self.states: #state2 is θ^t+1
 
@@ -460,7 +471,7 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
 
                 for observation in gt_model.players[1].signals:
 
-                    probability += gt_model.probability_lookup(observation, action_profile)[1] if (state1[0], observation, state2[0]) in gt_model.players[1].state_transitions else 0
+                    probability += probability_lookup(gt_model.signal_distribution, self.players, observation, action_profile)[1] if (state1[0], observation, state2[0]) in gt_model.players[1].state_transitions else 0
 
 
 
@@ -499,12 +510,12 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         # g_i (a) = sum_{ω∈Ω^2} π_i (a_i , ω_i )o(ω | a)
         # So, we make a tuple (action, state, payoff) where action = a_1, state = θ^t, and payoff is a real value (floating point)
         for (action, state) in action_state_tuples:
-            action_profile = self._to_action_profile(gt_model, state, action)
+            action_profile = self._to_action_profile(state, action)
             payoff_matrix = gt_model.payoff[action_profile]
 
             payoff = 0
             for observation in observation_profiles:
-                probability = gt_model.probability_lookup(observation, action_profile)
+                probability = probability_lookup(gt_model.signal_distribution, self.players, observation, action_profile)
                 #TODO: Check if this is correct. The GT model doesn't seem to provide realized payoff related to a player's observation.
                 payoff += payoff_matrix[0] * probability  # π_i (a_i , ω_i )o(ω | a)
 
@@ -516,12 +527,12 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         print("Done.")
 
 
-    def _to_action_profile(self, gt_model, state, action):
+    def _to_action_profile(self, state, action):
         #print("In action profile with state {} and action {}".format(state, action))
         action_profile = [action]
         for i in range(len(state)):
             #print("Looking up action for player {}.".format(i+1))
-            other_action = gt_model.players[i+1].state_machine[state[i]]
+            other_action = self.players[i+1].state_machine[state[i]]
             action_profile.append(other_action)
         action_profile = tuple([action for action in action_profile])
 
@@ -555,7 +566,94 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
 class POMDPModel(object):
 
     def __init__(self, pseudo_pomdp_model=None):
-        pass
+        self.states = set()  # A set of states of other players (player 2 in a 2 player game)
+        self.actions = set()  # A set of actions for player 1
+        self.observations = set()  # A set of observations/signals of player 1.
+        # Note that this is an observation of the entire world - that is, the joint observations of all other players.
+
+
+        self.observation_probability = []  # A function that maps an observation given an action/state tuple to a probability
+        self.state_transition = []  # A function that represents the conditional probability that the next state
+        # is θ^t+1 when the current state is θ^t and the action of player 1 is a_1
+        self.payoff = []  # A function that maps an action/state tuple to a real value.
+        self.players = []
+
+        if pseudo_pomdp_model is not None:
+            self.from_pseudo_pomdp(pseudo_pomdp_model)
+
+    def from_pseudo_pomdp(self, pseudo_pomdp_model):
+
+        self.players = pseudo_pomdp_model.players
+
+        # actions and observations are identical
+        self.actions = pseudo_pomdp_model.actions
+        self.observations = pseudo_pomdp_model.observations
+
+        # The key idea of this translation is to introduce a set of new
+        # combined states Θ' , where Θ' = Θ^2 . Namely, we assume
+        # that a state θ'^t in the standard POMDP model represents
+        # the combination of the previous and current states (θ^t−1 , θ^t )
+        # in our model present in the previous subsection.
+        self.states = [ s for s in itertools.product(pseudo_pomdp_model.states, repeat=2)]
+        #remove any unreachable states (i.e. pairs that do not exist in the state_transition function of pseudo_pomdp_model.
+
+        print([s for s in self.states])
+        print([s for s in itertools.product(self.states, self.states)])
+
+        # A new state transition function P' (θ^t+1 | θ^t , a_1 ) is equal
+        # to P (θ^t+1 | θ^t , a_1 ) in the original model if θ'^t+1 = (θ^t , θ^t+1 )
+        # and θ'^t = (θ^t−1 , θ^t ), i.e., the previous state in θ'^t+1 and the
+        # current state in θ'^t are identical. Otherwise, it is 0.
+
+        for action, theta_t_plus_one, theta_t in itertools.product(self.actions, self.states, self.states):
+            probability = 0
+            if theta_t_plus_one[0] is theta_t[1]:
+                for state_transition in pseudo_pomdp_model.state_transition:
+                    if state_transition[0] is theta_t[1] and state_transition[1][0] is theta_t[0] and\
+                        state_transition[1][1] is action:
+                            probability = state_transition[2]
+            self.state_transition.append((theta_t_plus_one, (theta_t, action), probability))
+
+        print(self.state_transition)
+
+        # Next,
+        # let us examine how to define O'(ω_1 | a_1 , (θ^t , θ^t+1 )). This
+        # is identical to the posterior probability that the observation
+        # was ω 1 , when the state transits from θ t to θ t+1 . Thus, this
+        # is defined as:
+        #     O (ω_1 | a_1 , (θ^t , θ^t+1 )) =
+        #         (sum_{ω_2 ∈Ω} O(ω_1 , ω_2 | (a_1 , f (θ^t ))) )
+        #         ----------------------------------------------
+        #         (sum_{ω∈Ω} sum_{ω_2 ∈Ω} O(ω, ω_2 | (a_1 , f (θ^t ))))
+        # ,
+        # where Ω' = {ω 2 | T (θ t , ω 2 ) = θ t+1 }
+
+        omega_prime = [omega_2 for (t, omega_2, t1) in self.players[1].state_transitions]
+
+        for observation1, action, theta_prime in itertools.product(self.observations, self.actions, self.states):
+            theta_t = theta_prime[0]
+            upper = 0
+            lower = 0
+
+            # (sum_{ω_2 ∈Ω} O(ω_1 , ω_2 | (a_1 , f (θ^t ))) )
+            # (observation, (action, state), probability)
+            # TODO: There seems to be some inconsistancy in meaning/usage of O in the paper.
+            # In particular, O is defined as: O(ω 1 | a 1 , θ t ) = o 1 (ω 1 | (a 1 , f (θ t ))) --- That is, the probability of ω 1 given action,state pair (a_1 , θ^t)
+            # But when defining O', we sum over O(ω 1 , ω 2 | (a 1 , f (θ t ))) -- That is, the probability of observation, observation pair ω 1 , ω 2 given action profile a 1 , f (θ t ).
+            # Maybe he meant given action, state pair (a_1 , θ^t)? I think so.
+            for observation2 in omega_prime:
+                for observations, observation_tuple in pseudo_pomdp_model.observation_probability.items():
+                    if (observation1, observation2) == observations and action == observation_tuple[0][0] and theta_t == observation_tuple[0][1]:
+                        print("Yay!")
+                        upper += observation_tuple[1]
+
+            print("Got upper summation: {}".format(upper))
+
+            # (sum_{ω∈Ω} sum_{ω_2 ∈Ω} O(ω, ω_2 | (a_1 , f (θ^t ))))
+
+
+                #upper += pseudo_pomdp_model.observation_probability
+
 
     def __str__(self):
         return ''
