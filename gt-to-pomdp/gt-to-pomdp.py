@@ -3,6 +3,8 @@
 import argparse
 import operator #used for reshaping a matrix
 import functools
+import itertools
+
 
 class Player(object):
 
@@ -60,7 +62,7 @@ class Player(object):
                 if len(state_action_pair) > 2:
                     state = 6
                 else:
-                    player.state_machine[state_action_pair[0].lstrip().rstrip()] = state_action_pair[0].lstrip().rstrip()
+                    player.state_machine[state_action_pair[0].lstrip().rstrip()] = state_action_pair[1].lstrip().rstrip()
 
             if state is 6:
                 player.state_transitions.append(tuple(line.split()))
@@ -293,6 +295,35 @@ class GTModel(object):
 
         return mapping
 
+    def probability_lookup(self, observation, action_profile):
+        """
+        using the provided observation (set of signals) and action_profile (set of actions), returns the probability
+        of observation given the action_profile.
+
+        Assumes that action_profile is sorted by player (e.g. action_profile[0] is the action for player1).
+
+        I.e. o_1 (ω_1 | (a_1 , f (θ^t ))). where (a_1 , f (θ^t ) is `action_profile` and  ω_1 is `observation`
+        """
+        #with the action profile, we can look up the probability table for that profile
+        probability_table = self.signal_distribution[action_profile]
+
+        #indexes in signal_distribution are based on the index of signals. We know the signals of other players from observation, but need to get 'our' signal
+        player1_signal_index = self.players[0].actions.index(action_profile[0])
+
+        # we'll collect the indicies of each other player's signal to do a lookup in the signal_distribution table.
+        indicies = [player1_signal_index]
+        for index, obs in enumerate(observation):
+            if index is 0:
+                continue
+
+            indicies.append(self.players[index].signals.index(obs))
+
+        #now we can look up the value using indicies
+        probability = probability_table #We'll 'reduce' probability table down to one value.
+        for index in indicies:
+            probability = probability[index]
+
+        return probability
 
     @staticmethod
     def _shape(flat, dims):
@@ -331,14 +362,151 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
     def __init__(self, gt_model=None):
         self.states = set()  # A set of states of other players (player 2 in a 2 player game)
         self.actions = set()  # A set of actions for player 1
-        self.observations = set()  # A set of observations/signals of player 1
+        self.observations = set()  # A set of observations/signals of player 1.
+        # Note that this is an observation of the entire world - that is, the joint observations of all other players.
+
+
         self.observation_probability = []  # A function that maps an observation given an action/state tuple to a probability
         self.state_transition = []  # A function that represents the conditional probability that the next state
-        # is θ t+1 when the current state is θ t and the action of player 1 is a 1
+        # is θ^t+1 when the current state is θ^t and the action of player 1 is a_1
         self.payoff = []  # A function that maps an action/state tuple to a real value.
 
+        if gt_model is not None:
+            self.from_gt(gt_model)
+
+    def from_gt(self, gt_model):
+        """
+        Translates a GTModel into this PseudoPOMDPModel. Sets all of this model's attributes.
+        :param gt_model: the GTModel to translate from.
+        :return:
+        """
+        # states are the cartesian product of all states in gt_model of players except player 1
+
+
+        player1 = gt_model.players[0]
+
+        states = [player.states for player in gt_model.players if player is not player1]
+
+        print("States: {}".format(states))
+
+        self.states = [s for s in itertools.product(*states)]
+
+        # self.states is a list of tuples (maybe of length 1)
+        print("States: {}".format(self.states))
+
+        # actions are the set of actions of player 1. Again, if all players use FSA M, we can pick any player.
+        self.actions = set(player1.actions)
+
+        # observations are the set of observations of player 1.
+        self.observations = set(player1.signals)
+
+        # Observation probability maps an observation given an action/state tuple to a probability
+        # We represent this as a tuple (observation, (action, state), probability)
+        # Then there are |observations| x |actions| x |states| many entries
+        self.observation_probability = []
+        action_state_tuples = [(action_state[0], action_state[1]) for action_state in itertools.product(self.actions, self.states)]
+
+        #Note that each action_state_tuple in action_state_tuples is a tuple (maybe of length 1)
+
+        observation_profiles = itertools.product(self.observations, repeat=len(gt_model.players))
+
+        print("Action_state_tuples: {}".format(action_state_tuples))
+
+        for (action, state) in action_state_tuples:
+
+            # we'll loop over each state to find the action profile (a_1, a_2, ...)
+            action_profile = self._to_action_profile(gt_model, state, action)
+
+            for observation in observation_profiles: #gets the combinations of observations possible.
+                # O(ω_1 | a_1 , θ^t ) = o_1 (ω_1 | (a_1 , f (θ^t ))).
+
+                probability = gt_model.probability_lookup(observation, action_profile)
+
+                #now we can make the tuple
+                probability_tuple = (observation, (action, state), probability)
+                self.observation_probability.append(probability_tuple)
+
+        # state_transition function P (θ^t+1 | θ^t , a_1 ) represents the conditional probability that
+        # the next state is θ^t+1 when the current state is θ^t and the
+        # action of player 1 is a_1
+        # P (θ^t+1 | θ^t , a_1 ) = sum_{ω_2 in Omega | T(θ t, ω_2) = θ t+1}  o_2 (ω_2 | (a_1 , f (θ^t ))).
+        # So, we make a tuple (state2, (state1, action), value), where state2 =  θ^t+1 and state1 = θ^t
+
+        for (action, state1) in action_state_tuples:
+            for state2 in self.states:
+                # we'll loop over each state to find the action profile (a_1, a_2, ...)
+                action_profile = self._to_action_profile(gt_model, state1, action)
+
+                # now loop over all observations to do summation
+                # sum_{ω_2 in Omega | T(θ t, ω_2) = θ t+1}  o_2 (ω_2 | (a_1 , f (θ^t ))).
+                probability = 0
+                for observation in observation_profiles:
+                    if (state1, observation, state2) not in player1.state_transitions:
+                        print("Did not find {}->{} given observation {} in player1's transitions: {}".format(state1, state2, observation, player1.state_transitions))
+                        continue  # ignore any observations that do not take us from state1 to state2 for player 1.
+
+                    print("Found {}->{} given observation {} in player1's transitions: {}".format(state1, state2, observation, player1.state_transitions))
+                    probability += gt_model.probability_lookup(observation, action_profile)
+
+                #now we can make the tuple
+                probability_tuple = (state2, (state1, action), probability)
+                self.state_transition.append(probability_tuple)
+
+        # payoff R : A × S → R is given as:
+        # R(a_1 , θ^t ) = g_1 ((a_1 , f (θ^t ))).
+        # g_i (a) = sum_{ω∈Ω^2} π_i (a_i , ω_i )o(ω | a)
+        # So, we make a tuple (action, state, payoff) where action = a_1, state = θ^t, and payoff is a real value (floating point)
+        for (action, state) in action_state_tuples:
+            action_profile = self._to_action_profile(gt_model, state, action)
+            payoff_matrix = gt_model.payoff[action_profile]
+
+            payoff = 0
+            for observation in observation_profiles:
+                probability = gt_model.probability_lookup(observation, action_profile)
+                #TODO: Check if this is correct. The GT model doesn't seem to provide realized payoff related to a player's observation.
+                payoff += payoff_matrix[0] * probability  # π_i (a_i , ω_i )o(ω | a)
+
+
+
+            payoff_tuple = (action, state, payoff)
+            self.payoff.append(payoff_tuple)
+
+
+    def _to_action_profile(self, gt_model, state, action):
+        print("In action profile with state {} and action {}".format(state, action))
+        action_profile = [action]
+        for i in range(len(state)):
+            print("Looking up action for player {}.".format(i+1))
+            other_action = gt_model.players[i+1].state_machine[state[i]]
+            action_profile.append(other_action)
+        action_profile = tuple([action for action in action_profile])
+
+        return action_profile
+
+
+
     def __str__(self):
-        return ''
+        """
+        self.states = set()  # A set of states of other players (player 2 in a 2 player game)
+        self.actions = set()  # A set of actions for player 1
+        self.observations = set()  # A set of observations/signals of player 1.
+        # Note that this is an observation of the entire world - that is, the joint observations of all other players.
+
+
+        self.observation_probability = []  # A function that maps an observation given an action/state tuple to a probability
+        self.state_transition = []  # A function that represents the conditional probability that the next state
+        # is θ^t+1 when the current state is θ^t and the action of player 1 is a_1
+        self.payoff = []  # A function that maps an action/state tuple to a real value.
+        :return:
+        """
+        s = []
+        s.append('States: {}'.format(self.states))
+        s.append('Actions: {}'.format(self.actions))
+        s.append(('Observations: {}'.format(self.observations)))
+        s.append('Observation probabilities: {}'.format(self.observation_probability))
+        s.append('State Transition probabilities: {}'.format(self.state_transition))
+        s.append('Payoffs: {}'.format(self.payoff))
+        return '\n'.join(s)
 
 class POMDPModel(object):
 
