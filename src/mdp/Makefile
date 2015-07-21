@@ -236,9 +236,9 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 LDFLAGS = 
-LEX = ${SHELL} /home/victor/ClionProjects/pomdp-solve-5.4-YokooLab/missing flex
-LEXLIB = 
-LEX_OUTPUT_ROOT = 
+LEX = flex
+LEXLIB = -lfl
+LEX_OUTPUT_ROOT = lex.yy
 LIBOBJS = 
 LIBS = -lm 
 LTLIBOBJS = 
@@ -259,7 +259,7 @@ SET_MAKE =
 SHELL = /bin/bash
 STRIP = 
 VERSION = 5.4
-YACC = yacc
+YACC = byacc
 
 # Need this to have yacc generate a header file which I include in the
 # scanner.

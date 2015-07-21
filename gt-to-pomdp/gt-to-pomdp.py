@@ -6,7 +6,51 @@ import functools
 import itertools
 
 
+class FSA(object):
+    """Describes an FSA - finite state automata - as its states and its transitions. Note that this is really more like a
+    pre-FSA, since we won't specify a starting state"""
+    def __init__(self, states=[], observations=[], transitions={}):
+        self.states = states
+        self.observations = observations
+        self.transitions = transitions
+        """
+        The transition function maps a state and an observation to another state - it is a 2 level dictionary
+        where level 1 is a state and level 2 is an observation.
+        """
+
+
+def flatten_tuple(t):
+    """
+    Flattens a 2d tuple - or returns t if it is already flat.
+    :param t:
+    :return:
+    """
+    flattened = t
+    print("Flattening tuple {}".format(t))
+    try:
+        flattened[0][0] #check for multiple levels
+    except IndexError:
+        return flattened
+
+    #flatten
+    flattened = [element for tupl in flattened for element in tupl]
+
+    return flattened
+
+def to_tuple(t):
+    """
+    Takes a parameter t and returns it as a tuple - if t is already a tuple, returns t. Otherwise returns (t,)
+    :param t:
+    :return:
+    """
+    if type(t) is tuple:
+        return t
+    return (t,)
+
 class Player(object):
+    """
+    A Player represents an FSA - finite state automaton.
+    """
 
     def __init__(self, lines=None):
         self.name = ""
@@ -14,7 +58,7 @@ class Player(object):
         self.actions = []
         self.signals = []
         self.state_machine = {} #maps a state to an action
-        self.state_transitions = [] #list of tuples of the form (state, signal, state)
+        self.state_transitions = {} #2 level dictionary that maps a state to a signal to a state.
 
         if lines is not None:
             p = Player.from_lines(lines)
@@ -24,6 +68,99 @@ class Player(object):
             self.signals = p.signals
             self.state_machine = p.state_machine
             self.state_transitions = p.state_transitions
+
+    def join(self, other_player=None):
+        """
+        Joins this player's FSA with another player's FSA.
+        If `other_player` is None, returns this Player - it is idempotent.
+        :param other_player:
+        :return:
+        """
+        if other_player is None:
+            return self
+
+        joint_player = Player()
+
+        joint_player.name = self.name + other_player.name
+        #We create joint states by doing the cartesian product of this player's states and the other player's states.
+
+        for my_state in self.states:
+            m = to_tuple(my_state)
+
+            for other_state in other_player.states:
+                o = to_tuple(other_state)
+
+                joint_player.states.append(m + o) #will just append other_state to it.
+
+        for my_action in self.actions:
+            m = to_tuple(my_action)
+
+            for other_action in other_player.actions:
+                o = to_tuple(other_action)
+
+                joint_player.actions.append(m + o) #will just append other_state to it.
+
+        for my_signal in self.signals:
+            m = to_tuple(my_signal)
+
+            for other_signal in other_player.signals:
+                o = to_tuple(other_signal)
+
+                joint_player.signals.append(m + o) #will just append other_state to it.
+
+        # The new state machine maps a set of states to a set of actions
+
+        for state in joint_player.states:
+            #state could be split into many 'substates' - but we know the last one is from the other player.
+            my_state = state[:-1]
+            if len(my_state) == 1:
+                my_state = my_state[0]
+            their_state = state[-1]
+
+            m = to_tuple(my_state)
+            t = to_tuple(their_state)
+
+            joint_player.state_machine[m + t] = to_tuple(self.state_machine[my_state]) +  to_tuple(other_player.state_machine[their_state])
+
+        #The new state transitions maps a set of 2 level state/signals to a set of states.
+        for state in joint_player.states:
+
+            my_state = state[:-1]
+            if len(my_state) == 1:
+                my_state = my_state[0]
+
+            my_state_tuple = to_tuple(my_state)
+
+            their_state = state[-1]
+            t = to_tuple(their_state)
+
+            for signal in joint_player.signals:
+
+                my_signal = signal[:-1]
+
+                if len(my_signal) == 1:
+                    my_signal = my_signal[0]
+
+                m_tuple = to_tuple(my_signal)
+
+
+                their_signal = signal[-1]
+                o = their_signal
+                if type(their_signal) is not tuple and type(m_tuple) is tuple:
+                    o = (their_signal,)
+
+                if (my_state, their_state) not in joint_player.state_transitions:
+                    joint_player.state_transitions[my_state_tuple + t] = {}
+
+                my_transition = to_tuple(self.state_transitions[my_state][my_signal])
+
+
+                their_transition = to_tuple(other_player.state_transitions[their_state][their_signal])
+
+                joint_player.state_transitions[my_state_tuple + t][m_tuple + o] = \
+                    (my_transition + their_transition)
+
+        return joint_player
 
     @staticmethod
     def from_lines(lines):
@@ -65,19 +202,23 @@ class Player(object):
                     player.state_machine[state_action_pair[0].lstrip().rstrip()] = state_action_pair[1].lstrip().rstrip()
 
             if state is 6:
-                player.state_transitions.append(tuple(line.split()))
+                state1, signal, state2 = line.split()
+                if state1 not in player.state_transitions:
+                    player.state_transitions[state1] = {}
+
+                player.state_transitions[state1][signal] = state2
 
         return player
 
     def __str__(self):
         s = []
-        s.append('Automaton {}'.format(self.name))
-        s.append('States: {}'.format(' '.join(self.states)))
-        s.append('Actions: {}'.format(' '.join(self.actions)))
-        s.append('Signals: {}'.format(' '.join(self.signals)))
+        s.append('Automaton {}'.format(str(self.name)))
+        s.append('States: {}'.format(' '.join(flatten_tuple(self.states))))
+        s.append('Actions: {}'.format(' '.join(flatten_tuple(self.actions))))
+        s.append('Signals: {}'.format(' '.join(flatten_tuple(self.signals))))
         s.append('\n'.join(['{} {}'.format(key, value) for key,value in self.state_machine.items()]))
         for state_transition in self.state_transitions:
-            s.append(' '.join(state_transition))
+            s.append(str(state_transition) + ' '.join(str(self.state_transitions[state_transition])))
         return '\n'.join(s)
 
 
@@ -90,8 +231,6 @@ def probability_lookup(signal_distribution, players, observation, action_profile
 
     I.e. o_1 (ω_1 | (a_1 , f (θ^t ))). where (a_1 , f (θ^t ) is `action_profile` and  ω_1 is `observation`
     """
-    print(action_profile)
-    print(signal_distribution)
     #with the action profile, we can look up the probability table for that profile
     probability_table = signal_distribution[action_profile]
 
@@ -100,6 +239,7 @@ def probability_lookup(signal_distribution, players, observation, action_profile
 
     # we'll collect the indicies of each other player's signal to do a lookup in the signal_distribution table.
     indicies = [player1_signal_index]
+    print(observation)
     for index, obs in enumerate(observation):
         if index is 0:
             continue
@@ -108,6 +248,8 @@ def probability_lookup(signal_distribution, players, observation, action_profile
 
     #now we can look up the value using indicies
     probability = probability_table #We'll 'reduce' probability table down to one value.
+    print("Probability table: {}".format(probability))
+    print("Indicies: {}".format(indicies))
     for index in indicies:
         probability = probability[index]
 
@@ -365,6 +507,9 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
     """
 
     def __init__(self, gt_model=None):
+        self.title = ''
+        self.discount = 0.0
+        self.gt = None
         self.states = set()  # A set of states of other players (player 2 in a 2 player game)
         self.actions = set()  # A set of actions for player 1
         self.observations = set()  # A set of observations/signals of player 1.
@@ -372,9 +517,9 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
 
 
         self.observation_probability = {}  # A function that maps an observation given an action/state tuple to a probability
-        self.state_transition = []  # A function that represents the conditional probability that the next state
+        self.state_transition = {}  # A function that represents the conditional probability that the next state
         # is θ^t+1 when the current state is θ^t and the action of player 1 is a_1
-        self.payoff = []  # A function that maps an action/state tuple to a real value.
+        self.payoff = {}  # A function that maps an action/state tuple to a real value.
 
         #Additional data to help translation
         self.players = []
@@ -389,6 +534,9 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         :param gt_model: the GTModel to translate from.
         :return:
         """
+        self.title = gt_model.title
+        self.discount = gt_model.discount
+        self.gt = gt_model
         # states are the cartesian product of all states in gt_model of players except player 1
 
         self.players = gt_model.players
@@ -396,15 +544,19 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
 
         player1 = gt_model.players[0]
 
-        states = [player.states for player in gt_model.players if player is not player1]
+        #We need to build a joint-FSA from all other players
+        joint_player = gt_model.players[1]
+        for player in gt_model.players:
 
-        print("States: {}".format(states))
+            joint_player = joint_player.join(player)
+
+        print(joint_player)
+
+        states = [player.states for player in gt_model.players if player is not player1]
 
         self.states = [s for s in itertools.product(*states)]
 
         # self.states is a list of tuples (maybe of length 1)
-        print("States: {}".format(self.states))
-
         # actions are the set of actions of player 1. Again, if all players use FSA M, we can pick any player.
         self.actions = set(player1.actions)
 
@@ -415,7 +567,6 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         # We represent this as a tuple (observation, (action, state), probability)
         # Then there are |observations| x |actions| x |states| many entries
 
-        print("Making observation probability function...")
         self.observation_probability = {}
         action_state_tuples = [(action_state[0], action_state[1]) for action_state in itertools.product(self.actions, self.states)]
 
@@ -423,9 +574,8 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
 
         observation_profiles = [observation_profile for observation_profile in itertools.product(self.observations, repeat=len(gt_model.players))]
 
-        print("Action_state_tuples: {}".format(action_state_tuples))
-
-
+        for observation in observation_profiles:
+            self.observation_probability[observation] = {}
 
         for (action, state) in action_state_tuples:
 
@@ -438,8 +588,8 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
                 probability = probability_lookup(gt_model.signal_distribution, self.players, observation, action_profile)
 
                 #now we can make the tuple
-                probability_tuple = ((action, state), probability)
-                self.observation_probability[observation] = (probability_tuple)
+                self.observation_probability[observation][action_profile] = probability
+                #self.observation_probability[(observation, action, state)] = probability
 
         # state_transition function P (θ^t+1 | θ^t , a_1 ) represents the conditional probability that
         # the next state is θ^t+1 when the current state is θ^t and the
@@ -448,22 +598,23 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         # So, we make a tuple (state2, (state1, action), value), where state2 =  θ^t+1 and state1 = θ^t
         # Note that ω_2 is the observation of player 2
 
-        print("Done.\nMaking state transition function...")
+        #initialize self.state_transition:
+        for state1 in self.states:
+            self.state_transition[state1] = {}
+            for state2 in self.states:
+                self.state_transition[state1][state2] = {}
 
         for (action, state1) in action_state_tuples:
+
+
             # we'll loop over each state to find the action profile (a_1, a_2, ...)
-            action_profile = self._to_action_profile( state1, action)
+            action_profile = self._to_action_profile(state1, action)
 
             for state2 in self.states: #state2 is θ^t+1
-
 
                 # now loop over all observations to do summation
                 # sum_{ω_2 in Omega | T(θ t, ω_2) = θ t+1}  o_2 (ω_2 | (a_1 , f (θ^t ))).
                 #TODO: What do we do when there are more than 2 players? Multiply the sums of probabilities?
-
-                print(state1)
-                print(state2)
-
 
 
                 #For right now, assume we only have 2 players. Must abstract this somehow to n players
@@ -475,8 +626,8 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
 
 
 
-                probability_tuple = (state2, (state1, action), probability)
-                self.state_transition.append(probability_tuple)
+                #probability_tuple = (state2, (state1, action), probability)
+                self.state_transition[state1][state2][action] = probability
 
 
                 # probability = 0
@@ -503,8 +654,6 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
                 # probability_tuple = (state2, (state1, action), probability)
                 # self.state_transition.append(probability_tuple)
 
-        print("Done.\nMaking payoff...")
-
         # payoff R : A × S → R is given as:
         # R(a_1 , θ^t ) = g_1 ((a_1 , f (θ^t ))).
         # g_i (a) = sum_{ω∈Ω^2} π_i (a_i , ω_i )o(ω | a)
@@ -519,12 +668,8 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
                 #TODO: Check if this is correct. The GT model doesn't seem to provide realized payoff related to a player's observation.
                 payoff += payoff_matrix[0] * probability  # π_i (a_i , ω_i )o(ω | a)
 
+            self.payoff[(action, state)] = payoff
 
-
-            payoff_tuple = (action, state, payoff)
-            self.payoff.append(payoff_tuple)
-
-        print("Done.")
 
 
     def _to_action_profile(self, state, action):
@@ -566,22 +711,28 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
 class POMDPModel(object):
 
     def __init__(self, pseudo_pomdp_model=None):
+        self.title = ''
+        self.discount = 0.0
+        self.gt = None
         self.states = set()  # A set of states of other players (player 2 in a 2 player game)
         self.actions = set()  # A set of actions for player 1
         self.observations = set()  # A set of observations/signals of player 1.
         # Note that this is an observation of the entire world - that is, the joint observations of all other players.
 
 
-        self.observation_probability = []  # A function that maps an observation given an action/state tuple to a probability
+        self.observation_probability = {}  # A function that maps an observation given an action/state tuple to a probability
         self.state_transition = []  # A function that represents the conditional probability that the next state
         # is θ^t+1 when the current state is θ^t and the action of player 1 is a_1
-        self.payoff = []  # A function that maps an action/state tuple to a real value.
+        self.payoff = {}  # A function that maps an action/state tuple to a real value.
         self.players = []
 
         if pseudo_pomdp_model is not None:
             self.from_pseudo_pomdp(pseudo_pomdp_model)
 
     def from_pseudo_pomdp(self, pseudo_pomdp_model):
+        self.title = pseudo_pomdp_model.title
+        self.discount = pseudo_pomdp_model.discount
+        self.gt = pseudo_pomdp_model.gt
 
         self.players = pseudo_pomdp_model.players
 
@@ -594,17 +745,39 @@ class POMDPModel(object):
         # that a state θ'^t in the standard POMDP model represents
         # the combination of the previous and current states (θ^t−1 , θ^t )
         # in our model present in the previous subsection.
-        self.states = [ s for s in itertools.product(pseudo_pomdp_model.states, repeat=2)]
+        self.states = [s for s in itertools.product(pseudo_pomdp_model.states, repeat=2)]
         #remove any unreachable states (i.e. pairs that do not exist in the state_transition function of pseudo_pomdp_model.
 
-        print([s for s in self.states])
-        print([s for s in itertools.product(self.states, self.states)])
+        removed_states = []
+        for state in self.states:
+            try:
+                _ = pseudo_pomdp_model.state_transition[state[0]][state[1]]
+            except KeyError:
+                removed_states.append(state)
+                print(removed_states)
 
-        # A new state transition function P' (θ^t+1 | θ^t , a_1 ) is equal
+        for state in removed_states:
+            self.states.remove(state)
+
+        # A new state transition function P' (θ'^t+1 | θ'^t , a_1 ) is equal
         # to P (θ^t+1 | θ^t , a_1 ) in the original model if θ'^t+1 = (θ^t , θ^t+1 )
         # and θ'^t = (θ^t−1 , θ^t ), i.e., the previous state in θ'^t+1 and the
         # current state in θ'^t are identical. Otherwise, it is 0.
 
+        for action, theta_t_plus_one, theta_t in itertools.product(self.actions, self.states, self.states):
+            probability = 0
+            if theta_t_plus_one[0] is theta_t[1]:
+
+                probability = pseudo_pomdp_model.state_transition[theta_t_plus_one[0]][theta_t_plus_one[1]][action]
+
+                """for state_transition in pseudo_pomdp_model.state_transition:
+                    if state_transition[0] is theta_t[1] and state_transition[1][0] is theta_t[0] and\
+                        state_transition[1][1] is action:
+                            probability = state_transition[2]"""
+            self.state_transition.append((theta_t_plus_one, (theta_t, action), probability))
+
+
+        """
         for action, theta_t_plus_one, theta_t in itertools.product(self.actions, self.states, self.states):
             probability = 0
             if theta_t_plus_one[0] is theta_t[1]:
@@ -613,50 +786,143 @@ class POMDPModel(object):
                         state_transition[1][1] is action:
                             probability = state_transition[2]
             self.state_transition.append((theta_t_plus_one, (theta_t, action), probability))
+        """
 
-        print(self.state_transition)
 
         # Next,
         # let us examine how to define O'(ω_1 | a_1 , (θ^t , θ^t+1 )). This
         # is identical to the posterior probability that the observation
         # was ω 1 , when the state transits from θ t to θ t+1 . Thus, this
         # is defined as:
-        #     O (ω_1 | a_1 , (θ^t , θ^t+1 )) =
-        #         (sum_{ω_2 ∈Ω} O(ω_1 , ω_2 | (a_1 , f (θ^t ))) )
+        #     O'(ω_1 | a_1 , (θ^t , θ^t+1 )) =
+        #         (sum_{ω_2 ∈Ω'} O(ω_1 , ω_2 | (a_1 , f (θ^t ))) )
         #         ----------------------------------------------
-        #         (sum_{ω∈Ω} sum_{ω_2 ∈Ω} O(ω, ω_2 | (a_1 , f (θ^t ))))
+        #         (sum_{ω∈Ω} sum_{ω_2 ∈Ω'} O(ω, ω_2 | (a_1 , f (θ^t ))))
         # ,
         # where Ω' = {ω 2 | T (θ t , ω 2 ) = θ t+1 }
 
-        omega_prime = [omega_2 for (t, omega_2, t1) in self.players[1].state_transitions]
+        #Initialize observation_probability table
+        for observation in itertools.product(self.observations,repeat=len(self.gt.players)):
+            self.observation_probability[observation] = {}
 
-        for observation1, action, theta_prime in itertools.product(self.observations, self.actions, self.states):
+            print("Observation: {}".format(observation))
+
+        for observation1, action, theta_prime in itertools.product(itertools.product(self.observations,repeat=len(self.gt.players)), self.actions, self.states):
             theta_t = theta_prime[0]
+            theta_t_plus_one = theta_prime[1]
             upper = 0
             lower = 0
+            print(observation1)
+
+            omega_prime = set()#[omega_2 for (t, omega_2, t1) in self.players[1].state_transitions] # state ->signal state
+
+            for state in self.players[1].state_transitions:
+                for obs in self.players[1].state_transitions[state]:
+                    s = to_tuple(state)
+                    o = to_tuple(obs)
+
+                    if theta_t == s and theta_t_plus_one == to_tuple(self.players[1].state_transitions[state][obs]):
+                        omega_prime.add(o)
+
+
+
+            print("omega prime: {}".format(omega_prime))
 
             # (sum_{ω_2 ∈Ω} O(ω_1 , ω_2 | (a_1 , f (θ^t ))) )
             # (observation, (action, state), probability)
-            # TODO: There seems to be some inconsistancy in meaning/usage of O in the paper.
-            # In particular, O is defined as: O(ω 1 | a 1 , θ t ) = o 1 (ω 1 | (a 1 , f (θ t ))) --- That is, the probability of ω 1 given action,state pair (a_1 , θ^t)
-            # But when defining O', we sum over O(ω 1 , ω 2 | (a 1 , f (θ t ))) -- That is, the probability of observation, observation pair ω 1 , ω 2 given action profile a 1 , f (θ t ).
-            # Maybe he meant given action, state pair (a_1 , θ^t)? I think so.
+            # Since it is O(ω_1 , ω_2 | (a_1 , f (θ^t ))) ), we will split it to o_1(ω_1 | a_1, f(θ^t )) x o_2(ω_2 | a_1, f(θ^t ))
             for observation2 in omega_prime:
-                for observations, observation_tuple in pseudo_pomdp_model.observation_probability.items():
-                    if (observation1, observation2) == observations and action == observation_tuple[0][0] and theta_t == observation_tuple[0][1]:
-                        print("Yay!")
-                        upper += observation_tuple[1]
 
-            print("Got upper summation: {}".format(upper))
+                obs2 = probability_lookup(self.gt.signal_distribution, self.gt.players, observation2,
+                                          pseudo_pomdp_model._to_action_profile(theta_t, action))
+                obs1 = probability_lookup(self.gt.signal_distribution, self.gt.players, observation1,
+                                          pseudo_pomdp_model._to_action_profile(theta_t, action))
+                print("obs2: {}, obs1: {}".format(obs2, obs1))
 
-            # (sum_{ω∈Ω} sum_{ω_2 ∈Ω} O(ω, ω_2 | (a_1 , f (θ^t ))))
+                upper += obs2 * obs1
+
+            # (sum_{ω∈Ω} sum_{ω_2 ∈Ω'} O(ω, ω_2 | (a_1 , f (θ^t ))))
+            for observation in self.observations:
+                for observation2 in omega_prime:
+                    lower += pseudo_pomdp_model.observation_probability[((observation, observation2), action, theta_t)]
+                    """for observations, observation_tuple in pseudo_pomdp_model.observation_probability.items():
+                        if (observation, observation2) == observations and action == observation_tuple[0][0] and theta_t == observation_tuple[0][1]:
+                            lower += observation_tuple[1]"""
 
 
-                #upper += pseudo_pomdp_model.observation_probability
+            self.observation_probability[observation1][(action, theta_prime)] = upper/lower
 
+
+        #Finally, the expected payoff function, R' (a_1 , (θ^t−1 , θ^t )), is
+        #given as R(a_1 , θ^t ).
+        for action, theta_prime in itertools.product(self.actions, self.states):
+            theta_t = theta_prime[1]
+            self.payoff[(action, theta_prime)] = pseudo_pomdp_model.payoff[(action, theta_t)]
+
+
+    def to_Cassandra_format(self):
+        """
+        Returns a string formatted in Cassandra file format. This string may be directly output to a file (i.e. it contains all whitespace necessary)
+        :return string: this POMDP formatted in Cassandra format.
+        """
+        s = []
+        s.append('# TITLE: {}'.format(self.title))
+        s.append('# Automatically generated by gt-to-pomdp script.')
+        s.append('discount: {}'.format(self.discount))
+        s.append('values: reward') #Right now, we'll hard code this, since the input from GT doesn't state whether we minimize or maximize
+        state_string = []
+        for state in self.states:
+            state_string.append(self._statetuple_to_Cassandra(state))
+
+        s.append('states: {}'.format(' '.join(state_string)))
+        s.append('actions: {}'.format(' '.join(self.actions)))
+        s.append('observations: {}'.format(' '.join(self.observations)))
+        s.append('\n')
+
+        #We don't have a start state from GT.
+        #s.append('start: ')
+
+        # T: <action> : <start-state> : <end-state> %f
+
+        for theta_t_plusone, (theta_t, action), probability in self.state_transition:
+            s.append('T: {} : {} : {} {}'.format(action, self._statetuple_to_Cassandra(theta_t), self._statetuple_to_Cassandra(theta_t_plusone), probability))
+
+        for observation, action, state in itertools.product(self.observations, self.actions, self.states):
+            #O: action : end-state : observation %f
+            s.append('O: {} : {} : {} {}'.format(action, self._statetuple_to_Cassandra(state), observation, self.observation_probability[observation][(action, state)]))
+
+        for action, state in self.payoff:
+            state_string = ''
+            substate_string = []
+            for substate in state:
+                substate_string.append(''.join(substate))
+            state_string = (''.join(substate_string))
+            s.append('R: {} : {}: * : * {}'.format(action, state_string, self.payoff[(action, state)]))
+
+        return '\n'.join(s)
+
+    def _statetuple_to_Cassandra(self, tuple):
+        """
+        Formats a POMDP tuple to a combined state that Cassandra format likes.
+        :param tuple:
+        :return:
+        """
+        state_string = ''
+        substate_string = []
+        for substate in tuple:
+            substate_string.append(''.join(substate))
+        state_string = (''.join(substate_string))
+        return state_string
 
     def __str__(self):
-        return ''
+        s = []
+        s.append('States: {}'.format(self.states))
+        s.append('Actions: {}'.format(self.actions))
+        s.append(('Observations: {}'.format(self.observations)))
+        s.append('Observation probabilities: {}'.format(self.observation_probability))
+        s.append('State Transition probabilities: {}'.format(self.state_transition))
+        s.append('Payoffs: {}'.format(self.payoff))
+        return '\n'.join(s)
 
 def main(inputfilename, outputfilename=None):
     gt = GTModel(inputfilename)
@@ -667,6 +933,10 @@ def main(inputfilename, outputfilename=None):
     pomdp = POMDPModel(ppomdp)
     print("POMDP")
     print(pomdp)
+    print(pomdp.to_Cassandra_format())
+    if outputfilename is not None:
+        with open(outputfilename, 'w') as f:
+            f.write(pomdp.to_Cassandra_format())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parses a Game Theory model and converts it to a POMDP model.')
