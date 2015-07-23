@@ -5,19 +5,24 @@ from gt_to_pomdp.models import *
 
 
 
-def main(inputfilename, outputfilename=None, policygraph=None):
+def main(inputfilename, outputfilename=None, policygraph=None, verbose=False):
     gt = GTModel(inputfilename)
-    print(gt)
+    if verbose:
+        print(gt)
     ppomdp = PseudoPOMDPModel(gt)
-    print("PseudoPOMDP")
-    print(ppomdp)
+    if verbose:
+        print("PseudoPOMDP")
+        print(ppomdp)
     pomdp = POMDPModel(ppomdp)
-    print("POMDP")
-    print(pomdp)
-    print(pomdp.to_Cassandra_format())
+    if verbose:
+        print("POMDP")
+        print(pomdp)
+        print(pomdp.to_Cassandra_format())
     if outputfilename is not None:
         with open(outputfilename, 'w') as f:
             f.write(pomdp.to_Cassandra_format())
+    else:
+        print(pomdp.to_Cassandra_format())
 
 
 if __name__ == "__main__":
@@ -25,6 +30,7 @@ if __name__ == "__main__":
     parser.add_argument('gtmodel', type=str, help='The input file name for the Game Theory model.')
     parser.add_argument('pomdpmodel', type=str, help='The output file name for the POMDP model.', default=None, nargs='?')
     parser.add_argument('policygraph', type=str, help='The policy graph (pre-FSA) to convert to a value function.', default=None, nargs='?')
+    parser.add_argument('verbose', type=bool, help='Verbosity of output. If true, will output in verbose mode.', default=False, nargs='?')
 
     args = parser.parse_args()
-    main(args.gtmodel, args.pomdpmodel, args.policygraph)
+    main(args.gtmodel, args.pomdpmodel, args.policygraph, args.verbose)

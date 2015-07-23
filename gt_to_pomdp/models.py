@@ -562,8 +562,6 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
             if player is not player1 and player is not gt_model.players[1]:
                 opponent = opponent.join(player)
 
-        print(opponent)
-
         #Θ is a set of states of player 2
         self.states = opponent.states
 
@@ -588,8 +586,6 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
             self.observation_probability[action] = {}
             for state in self.states:
                 self.observation_probability[action][state] = {}
-
-        print("Player 1's marginal distribution: {}".format(player1.observation_marginal_distribution))
 
         for (action, state) in action_state_tuples:
 
@@ -729,19 +725,15 @@ class POMDPModel(object):
                 found = True
                 break
             if not found:
-                print("Removing state {}".format(state))
                 removed_states.append(state)
 
         for state in removed_states:
             self.states.remove(state)
 
-        print("States: {}".format(self.states))
-
         # A new state transition function P' (θ'^t+1 | θ'^t , a_1 ) is equal
         # to P (θ^t+1 | θ^t , a_1 ) in the original model if θ'^t+1 = (θ^t , θ^t+1 )
         # and θ'^t = (θ^t−1 , θ^t ), i.e., the previous state in θ'^t+1 and the
         # current state in θ'^t are identical. Otherwise, it is 0.
-        print("Making P'")
         for action, theta_t_plus_one, theta_t in itertools.product(self.actions, self.states, self.states):
             probability = 0
             if theta_t_plus_one[0] is theta_t[1]:
