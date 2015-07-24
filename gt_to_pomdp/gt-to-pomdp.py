@@ -24,6 +24,9 @@ def main(inputfilename, outputfilename=None, policygraph=None, verbose=False):
     else:
         print(pomdp.to_Cassandra_format())
 
+    V,A = pomdp.to_value_function(pomdp.players[0])
+    print([(v,a) for v,a in zip(V,A)])
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parses a Game Theory model and converts it to a POMDP model.')
