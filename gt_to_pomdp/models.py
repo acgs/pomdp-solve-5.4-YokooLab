@@ -661,8 +661,6 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
             if answer_vector[(theta1, theta2)] == -0.0 or answer_vector[(theta1, theta2)] == 0.0:
                 answer_vector[(theta1, theta2)] = 0.0
 
-        print(equations[('P','R')])
-
         #Now, we can solve the system of linear equations. First, lets make lists out of the dictionaries so we can be sure they iterate in the same order.
         equation_matrix = []
         answer_matrix = []
@@ -675,8 +673,6 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
 
         coefficients = np.array(equation_matrix)
         answers = np.array(answer_matrix)
-        print(answers)
-        print(coefficients)
 
         solution = np.linalg.solve(coefficients, answers)
 
@@ -689,7 +685,6 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
 
 
     def _to_action_profile(self, state, action):
-        #print("In action profile with state {} and action {}".format(state, action))
         action_profile = [action]
         for i in range(len(state)):
             other_action = self.players[i+1].state_machine[state[i]]
@@ -900,8 +895,10 @@ class POMDPModel(object):
 
         #We'll make the sub-matricies ot give to T. They are |K| x |K| blocks, with T_a(k) as the kth diagonal submatrix
         t_submatricies = []
-        for action in self.actions:
-            t_submatricies.append(T_a[action])
+        for k in K:
+            t_submatricies.append(T_a[a[k]])
+        #for action in self.actions:
+            #t_submatricies.append(T_a[action])
 
         T = block_diag(*t_submatricies)
         O = np.zeros((len(S), len(K), len(self.observations), len(S), len(K)), dtype=np.float)
@@ -910,7 +907,7 @@ class POMDPModel(object):
 
         #Make O_a(k)
         O_a = {}
-        for action in self.actions:
+        for action in A:
             if action not in O_a:
                 O_a[action] = []
                 for i in range(len(self.states)):
@@ -921,9 +918,10 @@ class POMDPModel(object):
 
         #First, we build the sub-blocks of size |S| x |S| from the |Z| vectors from O_a(k)
         observation_subblocks = []
-        for action in self.actions:
+        for k in K:
+            action = a[k]
             for i, state in enumerate(self.states):
-                observation_subblocks.append(block_diag([ float(o) for o in O_a[action][i]]))
+                observation_subblocks.append(block_diag([float(o) for o in O_a[action][i]]))
 
         # now, we have |K| x |K| diagonal block matricies that are diagonal block matricies of the observation_subblocks
         O = block_diag(*observation_subblocks)
@@ -954,9 +952,20 @@ class POMDPModel(object):
                     subsubmatrix.append(diagonal_block)
                 pi_submatricies[k1][k2] = block_diag(*subsubmatrix)
 
-        Pi = np.bmat([[pi_submatricies[0][0], pi_submatricies[1][0]], [pi_submatricies[0][1], pi_submatricies[1][1]]])
+        # we need to build a list of the submatricies to pass to np.bmat, and need to do it in column major order
+        pi = []
+        for k1 in range(len(K)):
+            sub_pi = []
+            for k2 in range(len(K)):
+              sub_pi.append(pi_submatricies[k2][k1])
+            pi.append(sub_pi)
 
-        temp = np.dot(np.dot(np.multiply(float(self.discount), T), O), Pi)
+        Pi = np.bmat(pi)
+
+        temp = np.multiply(float(self.discount), T)
+        temp = np.dot(temp, O)
+        temp = np.dot(temp, Pi)
+        #temp = np.dot(np.dot(np.multiply(float(self.discount), T), O), Pi)
         temp = np.subtract(np.identity(temp.shape[0]), temp) # we can use temp.shape[0], because it is square.
         temp = np.linalg.inv(temp)
         V = np.dot(temp, R)
