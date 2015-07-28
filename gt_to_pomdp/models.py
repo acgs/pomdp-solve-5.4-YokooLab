@@ -32,6 +32,7 @@ class Player(object):
         self.state_machine = {}  # maps a state to an action
         self.state_transitions = {}  # 2 level dictionary that maps a state to a signal to a state.
         self.observation_marginal_distribution = {}  # 2 level dictionary that maps an action profile (set of actions) to observations (single element, in the case of 2 players) to probabilities.
+        self.payoff = {} # maps a pair of actions to a payoff (real value). Not initialized by calling from_lines.
 
         if lines is not None:
             p = Player.from_lines(lines)
@@ -233,39 +234,6 @@ class Player(object):
             s.append(str(state_transition) + ' '.join(str(self.state_transitions[state_transition])))
         return '\n'.join(s)
 
-
-def probability_lookup(signal_distribution, players, observation, action_profile):
-    """
-    using the provided observation (set of signals) and action_profile (set of actions), returns the probability
-    of observation given the action_profile.
-
-    Assumes that action_profile is sorted by player (e.g. action_profile[0] is the action for player1).
-
-    I.e. o_1 (ω_1 | (a_1 , f (θ^t ))). where (a_1 , f (θ^t ) is `action_profile` and  ω_1 is `observation`
-    """
-    #with the action profile, we can look up the probability table for that profile
-    probability_table = signal_distribution[action_profile]
-
-    #indexes in signal_distribution are based on the index of signals. We know the signals of other players from observation, but need to get 'our' signal
-    player1_signal_index = players[0].actions.index(action_profile[0])
-
-    # we'll collect the indicies of each other player's signal to do a lookup in the signal_distribution table.
-    indicies = [player1_signal_index]
-    for index, obs in enumerate(observation):
-        if index is 0:
-            continue
-
-        indicies.append(players[index].signals.index(obs))
-
-    #now we can look up the value using indicies
-    probability = probability_table #We'll 'reduce' probability table down to one value.
-    for index in indicies:
-        probability = probability[index]
-
-    return probability
-
-
-
 class GTModel(object):
 
 
@@ -311,7 +279,6 @@ class GTModel(object):
             self.players = model.players
             self.signal_distribution = model.signal_distribution
             self.payoff = model.payoff
-
 
     @staticmethod
     def from_file(filename):
@@ -524,9 +491,9 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         self.title = ''
         self.discount = 0.0
         self.gt = None
-        self.states = set()  # A set of states of other players (player 2 in a 2 player game)
-        self.actions = set()  # A set of actions for player 1
-        self.observations = set()  # A set of observations/signals of player 1.
+        self.states = []  # A set of states of other players (player 2 in a 2 player game)
+        self.actions = []  # A set of actions for player 1
+        self.observations = []  # A set of observations/signals of player 1.
         # Note that this is an observation of the entire world - that is, the joint observations of all other players.
 
 
@@ -538,9 +505,21 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         #Additional data to help translation
         self.players = []
         self.signal_distribution = []
+        self.player1 = None
+
+        self._V = {}  # The expected discounted payoff for player 1. Maps a state pair (θ_1, θ_2) to a real value.
+        # Calculated as:
+        # V_{θ_1,θ_2} = g_1 ((f(θ_1 ), f(θ_2))) +
+        # δ * Sum_{ω_1, ω_2 in } (o((ω_1, ω_2 ) | (f(θ_1 ), f(θ_2 ))) · V_{T(θ_1, ω_1 ),T(θ_2, ω_2 )} .
 
         if gt_model is not None:
             self.from_gt(gt_model)
+
+    @property
+    def V(self):
+        if len(self._V) == 0:
+            self._V = self._calculate_expected_payoff()
+        return self._V
 
     def from_gt(self, gt_model):
         """
@@ -557,6 +536,7 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
         self.signal_distribution = gt_model.signal_distribution
 
         player1 = gt_model.players[0]
+        self.player1 = player1
 
         #We need to build a joint-FSA from all other players
         opponent = gt_model.players[1]
@@ -569,10 +549,10 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
 
         # self.states is a list of tuples (maybe of length 1)
         # actions are the set of actions of player 1. Again, if all players use FSA M, we can pick any player.
-        self.actions = set(player1.actions)
+        self.actions = player1.actions
 
         # observations are the set of observations of player 1.
-        self.observations = set(player1.signals)
+        self.observations = player1.signals
 
         # Observation probability maps an observation given an action/state tuple to a probability
         # Then there are |observations| x |actions| x |states| many entries
@@ -633,8 +613,78 @@ Private Monitoring: A POMDP Approach by YongJoon Joe.
             payoff_matrix = gt_model.payoff[action_profile]
 
             payoff = payoff_matrix[0] # g_1 ((a_1 , f (θ^t ))).
+            #We'll pull out the payoff function for player1 - this will be used to generate the expected payoff later.
+            self.player1.payoff[action_profile] = payoff
 
             self.payoff[(action, state)] = payoff
+
+    def _calculate_expected_payoff(self):
+        """
+        Computes the expected payoff function V_{θ_1,θ_2} for player 1
+        # V_{θ_1,θ_2} = g_1 ((f(θ_1 ), f(θ_2))) +
+        # δ * Sum_{ω_1, ω_2 in } (o((ω_1, ω_2 ) | (f(θ_1 ), f(θ_2 ))) · V_{T(θ_1, ω_1 ),T(θ_2, ω_2 )} .
+        While this function can be computed by the GTModel, we'll just do it here,
+        since it is more relevant to the PseudoPOMDP and POMDP models.
+
+        This function uses the numpy linalg package to solve the system of linear equations.
+        :return V_{θ_1,θ_2}: a dictionary with keys (θ_1,θ_2) (i.e. state pair) that maps to a real value.
+        """
+        #equations will become our matrix of coefficients
+        equations = {}
+        answer_vector = {}
+        state_pairs = [sp for sp in itertools.product(self.states, repeat=2)]
+
+        #Now, we iterate over all state pairs
+        for theta1, theta2 in state_pairs:
+            coefficients_dict = {}
+            for state_pair in state_pairs:
+                coefficients_dict[state_pair] = 0
+
+            f_theta1 = self.player1.state_machine[theta1]
+            f_theta2 = self.player1.state_machine[theta2]
+            # each coefficient is given by δ * (o((ω_1, ω_2 ) | (f(θ_1 ), f(θ_2 ))) * V_{T(θ_1, ω_1 ),T(θ_2, ω_2 )}.
+            # It is possible to get multiple values for a single coefficient,
+            # so we'll sum them (since the coefficents are generated in a sum)
+            for observation1, observation2 in itertools.product(self.observations, repeat=2):
+                coefficients_dict[(self.player1.state_transitions[theta1][observation1],
+                                  self.player1.state_transitions[theta2][observation2])] +=\
+                float(self.discount * \
+                self.signal_distribution[(f_theta1, f_theta2)][self.observations.index(observation1)][self.observations.index(observation2)])
+
+            #We need to subtract 1 from the coefficient corresponding to V_{θ_1,θ_2}
+            coefficients_dict[(theta1, theta2)] -= 1
+
+            #add coefficients_dict as a row to equations
+            equations[(theta1, theta2)] = coefficients_dict
+            #Now, we make the answer vector from -g_1(f(θ_1), f(θ_2))
+            answer_vector[(theta1, theta2)] = float(-1 * self.player1.payoff[(f_theta1, f_theta2)])
+            if answer_vector[(theta1, theta2)] == -0.0 or answer_vector[(theta1, theta2)] == 0.0:
+                answer_vector[(theta1, theta2)] = 0.0
+
+        print(equations[('P','R')])
+
+        #Now, we can solve the system of linear equations. First, lets make lists out of the dictionaries so we can be sure they iterate in the same order.
+        equation_matrix = []
+        answer_matrix = []
+        for state_pair in state_pairs:
+            coefficient_row = []
+            for state_pair2 in state_pairs:
+                coefficient_row.append(equations[state_pair][state_pair2])
+            equation_matrix.append(coefficient_row)
+            answer_matrix.append(answer_vector[state_pair])
+
+        coefficients = np.array(equation_matrix)
+        answers = np.array(answer_matrix)
+        print(answers)
+        print(coefficients)
+
+        solution = np.linalg.solve(coefficients, answers)
+
+        V = {}
+        for i, state_pair in enumerate(state_pairs):
+            V[state_pair] = solution[i]
+
+        return V
 
 
 
@@ -690,6 +740,7 @@ class POMDPModel(object):
         # is θ^t+1 when the current state is θ^t and the action of player 1 is a_1
         self.payoff = {}  # A function that maps an action/state tuple to a real value.
         self.players = []
+        self.V = {} #  The Expected Payoff function for player1 in the POMDP - assuming other players use the same FSA.
 
         if pseudo_pomdp_model is not None:
             self.from_pseudo_pomdp(pseudo_pomdp_model)
@@ -704,6 +755,9 @@ class POMDPModel(object):
         # actions and observations are identical
         self.actions = pseudo_pomdp_model.actions
         self.observations = pseudo_pomdp_model.observations
+
+        #We also just take V from pseudo_pomdp.
+        self.V = pseudo_pomdp_model.V
 
         # The key idea of this translation is to introduce a set of new
         # combined states Θ' , where Θ' = Θ^2 . Namely, we assume
@@ -936,10 +990,6 @@ class POMDPModel(object):
 
 
 
-
-
-
-
     def to_Cassandra_format(self):
         """
         Returns a string formatted in Cassandra file format. This string may be directly output to a file (i.e. it contains all whitespace necessary)
@@ -1002,5 +1052,6 @@ class POMDPModel(object):
         s.append('Observation probabilities: {}'.format(self.observation_probability))
         s.append('State Transition probabilities: {}'.format(self.state_transition))
         s.append('Payoffs: {}'.format(self.payoff))
+        s.append('Expected Payoff: {}'.format(self.V))
         return '\n'.join(s)
 
