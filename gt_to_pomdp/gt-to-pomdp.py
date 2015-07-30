@@ -25,7 +25,7 @@ def main(inputfilename, outputfilename=None, policygraph=None, verbose=False):
         print(pomdp.to_Cassandra_format())
 
     V,A = pomdp.to_value_function(pomdp.players[0])
-    print([(v,a) for v,a in zip(V,A)])
+    print(pomdp.value_function_to_Cassandra_format(V, A))
 
 
 if __name__ == "__main__":

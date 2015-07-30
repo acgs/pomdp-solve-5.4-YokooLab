@@ -1,7 +1,7 @@
 # encoding: utf-8
 
 __author__ = 'Victor Szczepanski'
-import operator #used for reshaping a matrix
+import operator  #used for reshaping a matrix
 import functools
 import itertools
 from decimal import *
@@ -19,9 +19,37 @@ PseudoPOMDPModel
 POMDPModel
 """
 
+# Just convenient names to make it more clear, mainly in documentation
+State = str
+Signal = str
+Action = str
+
 class Player(object):
     """
-    A Player represents an FSA - finite state automaton.
+    Represent a pre-FSA - finite state automaton without initial starting state.
+
+    Note:
+        `observation_marginal_distribution` is only initialized as a flat, empty Dict by constructor.
+        It should be filled in by something else that knows about the marginal distribution, like a `GTModel`.
+        `payoff` is only initialized as a flat, empty Dict by constructor.
+        It should be filled in by something else that knows about its (marginal) payoff, like a `GTModel`.
+
+    Args:
+        lines (Optional[list[str]]): ordered sequence of strings to parse and build this Player from.
+
+    Attributes:
+        name (str): name of the Player
+        states (list[State]): ordered sequence of states
+        actions (list[Action]): ordered sequence of actions
+        signals (list[Signal]): ordered sequence of signals
+        state_machine (Dict[State, Action]): mapping from states to actions - this specifies the action to take in a state
+        state_transitions (Dict[State, Dict[Signal, State]]): mapping from states to signals to states -
+            this specifies the transitions (edges) of the pre-FSA.
+        observation_marginal_distribtuion (Dict[Tuple[Action], Dict[Signal, Decimal]]): mapping from sets of actions to observations to probabilities -
+            this specifies the marginal distribution for this player's observation probability, given an action profile.
+        payoff (Dict[Tuple[Action], Decimal]): mapping from sets of actions to a payoff -
+            this is the immediate reward for this player given an action profile.
+
     """
 
     def __init__(self, lines=None):
@@ -167,7 +195,6 @@ class Player(object):
 
                 my_transition = to_tuple(self.state_transitions[my_state][my_signal])
 
-
                 their_transition = to_tuple(other_player.state_transitions[their_state][their_signal])
 
                 joint_player.state_transitions[my_state_tuple + t][m_tuple + o] = \
@@ -224,7 +251,7 @@ class Player(object):
         return player
 
     def __str__(self):
-        s = []
+        s = list()
         s.append('Automaton {}'.format(str(self.name)))
         s.append('States: {}'.format(' '.join(flatten_tuple(self.states))))
         s.append('Actions: {}'.format(' '.join(flatten_tuple(self.actions))))
@@ -283,7 +310,7 @@ class GTModel(object):
     @staticmethod
     def from_file(filename):
         """
-        Constructs a new GTModel from a file.
+        Construct a new GTModel from a file.
         :param filename:
         :return:
         """
@@ -387,14 +414,15 @@ class GTModel(object):
     @staticmethod
     def _parse_variables(line):
         """
-        Takes a variables line formated q=0.001 s=0.001 g=0.3 ...
-        and parses it into a dictionary as described by GTModel.variables
-        :param line:
+        Take a variables line and parse it into a dictionary as described by GTModel.variables
+
+        Just a convenience function. Parsed numbers are converted to Decimal.
+        :param line: string formatted as q=0.001 s=0.001 g=0.3 ...
         :return variables: a dictionary that maps string variable names to float values
         """
         variables = {}
-        vars = line.split()
-        for assignment in vars:
+        vs = line.split()
+        for assignment in vs:
             if '=' in assignment:
                 split_assignment = assignment.split('=')
                 variables[split_assignment[0]] = Decimal(split_assignment[1])
@@ -405,7 +433,9 @@ class GTModel(object):
     @staticmethod
     def _parse_matrix(lines, variables):
         """
-        Takes a collection of lines of the form:
+        Parse an iterable of strings that represent an action pair -> matrix mapping.
+
+        Take a collection of lines of the form:
         C,C : 1-4*s-4*q q q q s s q s s
         C,D : q s s 1-4*s-4*q q q q s s
         C,E : q s s q s s 1-4*s-4*q q q
@@ -428,13 +458,13 @@ class GTModel(object):
         E,D: x 1+g-b
         E,E: 1-b 1-b
 
-        and builds a dictionary that maps the action tuples to flat matricies of values, where the values are converted based on
+        and build a dictionary that maps the action tuples to flat matricies of values, where the values are converted based on
         the input variables.
 
-        Assumes any variable encountered in lines can be found in variables' keyset.
-        :param lines: list of strings representing the matrix
-        :param variables: dictionary that maps a variable name to a floating point value.
-        :return mapping: dictionary that maps an action tuple (action profile) to a flat matrix of floating point values.
+        any variable encountered in `lines` is assumed to be found in the keyset of `variables`.
+        :param lines: iterable of strings representing the matricies
+        :param variables: dict that maps a variable name to a floating point value.
+        :return mapping: dict that maps an action tuple (action profile) to a flat matrix of floating point values.
         """
         mapping = {}
         for line in lines:
@@ -455,9 +485,19 @@ class GTModel(object):
 
     @staticmethod
     def _shape(flat, dims):
+        """
+        Shape a flat matrix into a len(`dims`)-D matrix along dimensions `dims`.
+
+        Note - this function is recursive, so it can be slow for large dimensions.
+        Just used as a helper for parsing payoff or signal distribution matricies.
+
+        :param flat: the flat matrix to shape
+        :param dims: sequence of dimensions along which to shape the matrix - specifies the size of each dimension of resulting matrix
+        :return: a len(`dims`) dimensional matrix (nested lists) where the ith dimension has size (length) `dims`[i]
+        """
         subdims = dims[1:]
         subsize = functools.reduce(operator.mul, subdims, 1)
-        if dims[0]*subsize!=len(flat):
+        if dims[0]*subsize != len(flat):
             raise ValueError("Size does not match or invalid")
         if not subdims:
             return flat
@@ -483,7 +523,7 @@ class GTModel(object):
 
 class PseudoPOMDPModel(object):
     """
-    Describes a PseudoPOMDP model, as defined in Automated Equilibrium Analysis of Repeated Games with
+    Describe a PseudoPOMDP model, as defined in Automated Equilibrium Analysis of Repeated Games with
 Private Monitoring: A POMDP Approach by YongJoon Joe.
     """
 
@@ -724,9 +764,9 @@ class POMDPModel(object):
         self.title = ''
         self.discount = 0.0
         self.gt = None
-        self.states = set()  # A set of states of other players (player 2 in a 2 player game)
-        self.actions = set()  # A set of actions for player 1
-        self.observations = set()  # A set of observations/signals of player 1.
+        self.states = []  # A set of states of other players (player 2 in a 2 player game)
+        self.actions = []  # A set of actions for player 1
+        self.observations = []  # A set of observations/signals of player 1.
         # Note that this is an observation of the entire world - that is, the joint observations of all other players.
 
 
@@ -881,7 +921,7 @@ class POMDPModel(object):
 
         R = np.hstack((r[k] for k in K))
 
-        T_a = {} # maps action to state to state to real
+        T_a = {}  # maps action to state to state to real
 
         # self.state_transition.append((theta_t_plus_one, (theta_t, action), probability))
         # Rearrange self.state_transition so we can index by action.
@@ -897,15 +937,10 @@ class POMDPModel(object):
         t_submatricies = []
         for k in K:
             t_submatricies.append(T_a[a[k]])
-        #for action in self.actions:
-            #t_submatricies.append(T_a[action])
 
-        T = block_diag(*t_submatricies)
-        O = np.zeros((len(S), len(K), len(self.observations), len(S), len(K)), dtype=np.float)
+        T = block_diag(*t_submatricies)  # * black magic unpacks the t_submatricies list.
 
-        # self.observation_probability[observation1][(action, theta_prime)] = upper/lower
-
-        #Make O_a(k)
+        # Make O_a(k) - the observation probability indexed by actions
         O_a = {}
         for action in A:
             if action not in O_a:
@@ -923,11 +958,8 @@ class POMDPModel(object):
             for i, state in enumerate(self.states):
                 observation_subblocks.append(block_diag([float(o) for o in O_a[action][i]]))
 
-        # now, we have |K| x |K| diagonal block matricies that are diagonal block matricies of the observation_subblocks
-        O = block_diag(*observation_subblocks)
-
-        #This time, we'll just fill Pi out directly, instead of constructing submatricies.
-        Pi = np.zeros((len(self.observations), len(S), len(K), len(S), len(K)))
+        # now, we have |K| * |K| diagonal block matricies that are diagonal block matricies of the observation_subblocks
+        O = block_diag(*observation_subblocks)  # * black magic unpacks the observation_subblocks list.
 
         # Pi is made of sub-matricies Pi_{k1,k2}.
         # Each sub-matrix is made of |S| diagonal blocks (i.e. Pi_{k1,k2} is diagonal block matrix).
@@ -943,11 +975,11 @@ class POMDPModel(object):
             for k2, state3 in enumerate(K):
                 #pi_submatricies[k1][k2] selects a Pi_{k1,k2}
                 subsubmatrix = []
-                for s, state in enumerate(S):
+                for state in S:  # we don't use state here, because we're just collecting diagonal blocks.
                     #pi_submatricies[k1][k2][s] selects a diagonal block
-                    diagonal_block = np.zeros((len(self.observations),1))
+                    diagonal_block = np.zeros((len(self.observations), 1))
                     for z, observation in enumerate(self.observations):
-                        #z selects an element of pi_submatrices[k1][k2][s];pi_submatrices[k1][k2][s][z] is a real number.
+                        # z selects an element of pi_submatrices[k1][k2][s];pi_submatrices[k1][k2][s][z] is a real number.
                         diagonal_block[z][0] = ((1 if player1.state_transitions[state2][observation] == state3 else 0))
                     subsubmatrix.append(diagonal_block)
                 pi_submatricies[k1][k2] = block_diag(*subsubmatrix)
@@ -962,11 +994,11 @@ class POMDPModel(object):
 
         Pi = np.bmat(pi)
 
-        temp = np.multiply(float(self.discount), T)
-        temp = np.dot(temp, O)
+        # V = (I−γTOΠ)^{−1}R
+        temp = np.multiply(float(self.discount), T)  # multiply does scalar multiplication
+        temp = np.dot(temp, O)  # dot does matrix multiplication
         temp = np.dot(temp, Pi)
-        #temp = np.dot(np.dot(np.multiply(float(self.discount), T), O), Pi)
-        temp = np.subtract(np.identity(temp.shape[0]), temp) # we can use temp.shape[0], because it is square.
+        temp = np.subtract(np.identity(temp.shape[0]), temp)  # we can use temp.shape[0], because it is square.
         temp = np.linalg.inv(temp)
         V = np.dot(temp, R)
 
@@ -996,7 +1028,22 @@ class POMDPModel(object):
         ak = [a[k] for k in K]
         return V, ak
 
+    def value_function_to_Cassandra_format(self, V, ak):
+        """
+         Takes a Value Function V and associated actions ak and outputs them in the Cassandra alpha file format.
+        :param V: the value function - list of vectors ordered by ak
+        :param ak: the actions associated with each vector in V
+        :return string: The action/vector pairs formatted in Cassandra alpha file format.
+        """
+        if len(V) != len(ak):
+            raise IndexError("Lengths of V and ak must be equal.")
 
+        s = []
+        for action, vector in zip(ak, V):
+            s.append(str(self.actions.index(action)))
+            s.append(' '.join([str(v) for v in vector]))
+            s.append('')
+        return '\n'.join(s)
 
 
     def to_Cassandra_format(self):
@@ -1016,7 +1063,7 @@ class POMDPModel(object):
         s.append('states: {}'.format(' '.join(state_string)))
         s.append('actions: {}'.format(' '.join(self.actions)))
         s.append('observations: {}'.format(' '.join(self.observations)))
-        s.append('\n')
+        s.append('')
 
         #We don't have a start state from GT.
         #s.append('start: ')
