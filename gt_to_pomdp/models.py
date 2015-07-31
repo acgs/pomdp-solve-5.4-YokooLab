@@ -1,7 +1,15 @@
 # encoding: utf-8
+"""Define the various models used by gt_to_pomdp.
+
+This module defines the objects that represent the various models needed to convert a Game Theory model to a POMDP.
+
+The objects are intended to have as weak coupling as possible, but each model exposes a function to build itself from a 'previous' model.
+
+The general order of conversion is GTModel -> PseudoPOMDPModel -> POMDPModel
+"""
 
 __author__ = 'Victor Szczepanski'
-import operator  #used for reshaping a matrix
+import operator  # used for reshaping a matrix
 import functools
 import itertools
 from decimal import *
@@ -11,18 +19,13 @@ from scipy.linalg import block_diag
 
 from gt_to_pomdp.utils import *
 
-"""
-Defines the various models used by gt_to_pomdp:
-Player
-GameTheoryModel
-PseudoPOMDPModel
-POMDPModel
-"""
+
 
 # Just convenient names to make it more clear, mainly in documentation
 State = str
 Signal = str
 Action = str
+
 
 class Player(object):
     """
@@ -35,21 +38,24 @@ class Player(object):
         It should be filled in by something else that knows about its (marginal) payoff, like a `GTModel`.
 
     Args:
-        lines (Optional[list[str]]): ordered sequence of strings to parse and build this Player from.
+        lines (Optional[List[str]]): ordered sequence of strings to parse and build this Player from.
 
     Attributes:
         name (str): name of the Player
-        states (list[State]): ordered sequence of states
-        actions (list[Action]): ordered sequence of actions
-        signals (list[Signal]): ordered sequence of signals
-        state_machine (Dict[State, Action]): mapping from states to actions - this specifies the action to take in a state
-        state_transitions (Dict[State, Dict[Signal, State]]): mapping from states to signals to states -
-            this specifies the transitions (edges) of the pre-FSA.
-        observation_marginal_distribtuion (Dict[Tuple[Action], Dict[Signal, Decimal]]): mapping from sets of actions to observations to probabilities -
-            this specifies the marginal distribution for this player's observation probability, given an action profile.
-        payoff (Dict[Tuple[Action], Decimal]): mapping from sets of actions to a payoff -
-            this is the immediate reward for this player given an action profile.
 
+        states (List[State]): ordered sequence of states
+
+        actions (List[Action]): ordered sequence of actions
+
+        signals (List[Signal]): ordered sequence of signals
+
+        state_machine (Dict[State, Action]): mapping from states to actions - this specifies the action to take in a state
+
+        state_transitions (Dict[State, Dict[Signal, State]]): mapping from states to signals to states - this specifies the transitions (edges) of the pre-FSA.
+
+        observation_marginal_distribtuion (Dict[Tuple[Action], Dict[Signal, Decimal]]): mapping from sets of actions to observations to probabilities - this specifies the marginal distribution for this player's observation probability, given an action profile.
+
+        payoff (Dict[Tuple[Action], Decimal]): mapping from sets of actions to a payoff - this is the immediate reward for this player given an action profile.
     """
 
     def __init__(self, lines=None):
@@ -60,7 +66,7 @@ class Player(object):
         self.state_machine = {}  # maps a state to an action
         self.state_transitions = {}  # 2 level dictionary that maps a state to a signal to a state.
         self.observation_marginal_distribution = {}  # 2 level dictionary that maps an action profile (set of actions) to observations (single element, in the case of 2 players) to probabilities.
-        self.payoff = {} # maps a pair of actions to a payoff (real value). Not initialized by calling from_lines.
+        self.payoff = {}  # maps a pair of actions to a payoff (real value). Not initialized by calling from_lines.
 
         if lines is not None:
             p = Player.from_lines(lines)
@@ -74,21 +80,27 @@ class Player(object):
             # something else needs to fill in our observation_marginal_distribution, since we need the joint distribution.
 
     def build_marginal_distribution(self, joint_distribution, my_dimension):
-        """
-        Using a joint distribution table of probabilities for observations, constructs the marginal distribution for this player.
-        Sets this player's observation_marginal_distribution
-        :param joint_distribution: The joint distribution (n-dimensional matrix, where the number of players is n) of observation probabilities for all players
-        :param action_profiles: The set of action profiles to consider.
-        :param my_dimension: defines the dimension to consider the marginal distribution for - for player 1, this is 0 (the first dimension). For player n, this is n-1 (the last dimension)
-        :return:
+        """Using a observation joint distribution table of probabilities, construct the marginal distribution for this player.
+        Set this player's `observation_marginal_distribution`
+
+        Args:
+            joint_distribution (Dict[tuple[Action], list[list[float], list[float], ... , list[float]]]):
+                The joint distribution (n-dimensional matrix, where the number of players is n)
+                 of observation probabilities for all players.
+                 Maps an action tuple to a matrix where the length of each row is len(`self.signals`)
+                 and there are len(`action tuple`) == len(`players`) dimensions.
+
+            action_profiles (tuple[Action]): The set of action profiles to consider.
+            my_dimension (int): The dimension to consider the marginal distribution for - for player 1, this is 0 (the first dimension). For player n, this is n-1 (the last dimension)
         """
         self.observation_marginal_distribution = {}
         for action_profile in joint_distribution:
             self.observation_marginal_distribution[action_profile] = {}
-            for observation in range(len(self.signals)): #since joint_distribution is indexed by signal index.
+            for observation in range(len(self.signals)):  # joint_distribution is indexed by signal index.
                 sum_observation_probabilities = Decimal(0.0)
-                #now iterate over joint_distribution.
-                #we know how many dimensions there are from action_profile - we sum over all others except our dimension, which we fix.
+                # now iterate over joint_distribution.
+                # we know how many dimensions there are from action_profile
+                # we sum over all others except our dimension, which we fix.
                 dims = []
                 for dim in range(len(action_profile)):
                     if dim == my_dimension:
@@ -107,15 +119,18 @@ class Player(object):
 
                 self.observation_marginal_distribution[action_profile][self.signals[observation]] = sum_observation_probabilities
 
-
-
-
     def join(self, other_player=None):
-        """
-        Joins this player's FSA with another player's FSA.
-        If `other_player` is None, returns this Player - it is idempotent.
-        :param other_player:
-        :return:
+        """Join this player's FSA with another player's FSA.
+
+        Create a joint pre-FSA from this player and `other_player`.
+        If `other_player` is None, returns this Player.
+
+        Note:
+            This function is not idempotent - calling it with the same player as `other_player` will create a new joint player.
+        Args:
+            other_player (Player): The Player to join with this Player.
+        Returns:
+            Player: The Player representing the joint pre-FSA of this Player and `other_player`.
         """
         if other_player is None:
             return self
@@ -123,7 +138,7 @@ class Player(object):
         joint_player = Player()
 
         joint_player.name = self.name + other_player.name
-        #We create joint states by doing the cartesian product of this player's states and the other player's states.
+        # We create joint states by doing the cartesian product of this player's states and the other player's states.
 
         for my_state in self.states:
             m = to_tuple(my_state)
@@ -131,7 +146,7 @@ class Player(object):
             for other_state in other_player.states:
                 o = to_tuple(other_state)
 
-                joint_player.states.append(m + o) #will just append other_state to it.
+                joint_player.states.append(m + o)  # will just append other_state to it.
 
         for my_action in self.actions:
             m = to_tuple(my_action)
@@ -139,7 +154,7 @@ class Player(object):
             for other_action in other_player.actions:
                 o = to_tuple(other_action)
 
-                joint_player.actions.append(m + o) #will just append other_state to it.
+                joint_player.actions.append(m + o)  # will just append other_state to it.
 
         for my_signal in self.signals:
             m = to_tuple(my_signal)
@@ -147,12 +162,12 @@ class Player(object):
             for other_signal in other_player.signals:
                 o = to_tuple(other_signal)
 
-                joint_player.signals.append(m + o) #will just append other_state to it.
+                joint_player.signals.append(m + o)  # will just append other_state to it.
 
         # The new state machine maps a set of states to a set of actions
 
         for state in joint_player.states:
-            #state could be split into many 'substates' - but we know the last one is from the other player.
+            # state could be split into many 'substates' - but we know the last one is from the other player.
             my_state = state[:-1]
             if len(my_state) == 1:
                 my_state = my_state[0]
@@ -161,9 +176,9 @@ class Player(object):
             m = to_tuple(my_state)
             t = to_tuple(their_state)
 
-            joint_player.state_machine[m + t] = to_tuple(self.state_machine[my_state]) +  to_tuple(other_player.state_machine[their_state])
+            joint_player.state_machine[m + t] = to_tuple(self.state_machine[my_state]) + to_tuple(other_player.state_machine[their_state])
 
-        #The new state transitions maps a set of 2 level state/signals to a set of states.
+        # The new state transitions maps a set of 2 level state/signals to a set of states.
         for state in joint_player.states:
 
             my_state = state[:-1]
@@ -184,7 +199,6 @@ class Player(object):
 
                 m_tuple = to_tuple(my_signal)
 
-
                 their_signal = signal[-1]
                 o = their_signal
                 if type(their_signal) is not tuple and type(m_tuple) is tuple:
@@ -204,37 +218,52 @@ class Player(object):
 
     @staticmethod
     def from_lines(lines):
-        """
-        Parses a Player configuration from a set of strings and returns a Player.
-        :param lines:
-        :return:
+        """Parse a Player configuration from a set of strings and return a Player.
+
+        .. seealso::
+            Class :gt_to_pomdp:models:GTModel
+                Describes the full Shun format for an input Game Theory model.
+                The description of an Automaton is contained in this format.
+
+        Parse an automaton description in Shun format and create a new Player from it.
+
+        Note:
+            The automaton description itself does not provide the `payoff` information - this should be filled in by
+            an external program.
+        Args:
+            lines (List[str]): ordered sequence of strings that describe the automaton in Shun format to parse.
+        Returns:
+            Player: a new Player that represents the automaton parsed from `lines`
+
+        Raises:
+            SyntaxError: If some line in `lines` is not formatted correctly.
         """
 
-        #parsing state machine
-        #states: name, states, actions, signals, state_machine, state_transitions, end
-        #we use integers for faster comparison: 1, 2, 3, 4, 5, 6, 7
+        # parsing state machine
+        # states: name, states, actions, signals, state_machine, state_transitions, end
+        # we use integers for faster comparison: 1, 2, 3, 4, 5, 6, 7
 
         player = Player()
 
         state = 1
 
         for line in lines:
-            #ignore all blank lines
+            # ignore all blank lines
             if len(line.strip()) is 0:
                 continue
-            if state is 1: #name
+            if state is 1:  # name
                 player.name = line.split()[1]
                 state = 2
-            elif state is 2: #states
+            elif state is 2:  # states
                 player.states = line[line.index(':')+1:].lstrip().rstrip().split()
                 state = 3
-            elif state is 3: #actions
+            elif state is 3:  # actions
                 player.actions = line[line.index(':')+1:].lstrip().rstrip().split()
                 state = 4
-            elif state is 4: #signals
+            elif state is 4:  # signals
                 player.signals = line[line.index(':')+1:].lstrip().rstrip().split()
                 state = 5
-            elif state is 5: #state_machine
+            elif state is 5:  # state_machine
                 state_action_pair = line.lstrip().rstrip().split()
                 if len(state_action_pair) > 2:
                     state = 6
@@ -256,45 +285,70 @@ class Player(object):
         s.append('States: {}'.format(' '.join(flatten_tuple(self.states))))
         s.append('Actions: {}'.format(' '.join(flatten_tuple(self.actions))))
         s.append('Signals: {}'.format(' '.join(flatten_tuple(self.signals))))
-        s.append('\n'.join(['{} {}'.format(key, value) for key,value in self.state_machine.items()]))
+        s.append('\n'.join(['{} {}'.format(key, value) for key, value in self.state_machine.items()]))
         for state_transition in self.state_transitions:
             s.append(str(state_transition) + ' '.join(str(self.state_transitions[state_transition])))
         return '\n'.join(s)
 
-class GTModel(object):
 
+class GTModel(object):
+    """Represent a Game Theory Model.
+
+    A Game Theory Model consists of a discount rate, a set of variables for substitution, a set of automaton (players),
+    a set of signal distributions for every action profile, and a payoff function for every action profile.
+
+    A GTModel can be parsed from a ``Shun Game Theory Model``. The format of the input file is as follows::
+
+        Title :
+        Discount Rate : FLOAT
+        Variables :
+        Players :
+
+        Automaton
+        States:
+        Actions :
+        Signals :
+        STATE ACTION
+        STATE SIGNAL STATE
+
+        Signal Distribution
+        ACTION,ACTION :
+
+        Payoff Matrix
+        ACTION,ACTION :
+
+    Args:
+        filename (str): The path to a Shun Game Theory Model file to parse.
+
+    Attributes:
+        name (str): The title of this model.
+
+        discount (float): The discount factor
+
+        variables (Dict[str, float]): mapping of variable name to its value
+
+        player_names (List[str]): sequence of player names.
+
+        players (List[Player]): sequence of Players.
+
+        signal_distribution (Dict[tuple(Action), List[List[float]]): Dictionary that maps a tuple of actions (action profile) to an N dimensional matrix (list of lists) where N is the number of players, and each dimension is length s, where s is the number of signals (observations) that player can have.
+
+        payoff (Dict[tuple(Action), Dict[str, float]]): mapping of a tuple of actions (action profile) to a dictionary that maps player names to values (floats)
+    """
 
     def __init__(self, filename=None):
         self.title = ""
         self.discount = 0.0
 
         self.variables = {}
-        """
-        Dictionary that maps a variable to its value.
-        """
 
         self.player_names = []
-        """
-        List of strings of player names
-        """
 
         self.players = []
-        """
-        List of a player objects.
-        """
 
         self.signal_distribution = {}
-        """
-        Dictionary that maps a tuple of actions (action profile) to an N dimensional matrix (list of lists) where N
-         is the number of players, and each dimension is length s, where s is the number of signals (observations)
-         that player can have.
-        """
 
         self.payoff = {}
-        """
-        Dictionary that maps a tuple of actions (action profile) to a dictionary that maps player names to values (floats)
-        """
-
 
         if filename is not None:
             model = GTModel.from_file(filename)
@@ -310,7 +364,7 @@ class GTModel(object):
     @staticmethod
     def from_file(filename):
         """
-        Construct a new GTModel from a file.
+
         :param filename:
         :return:
         """
@@ -524,7 +578,8 @@ class GTModel(object):
 class PseudoPOMDPModel(object):
     """
     Describe a PseudoPOMDP model, as defined in Automated Equilibrium Analysis of Repeated Games with
-Private Monitoring: A POMDP Approach by YongJoon Joe.
+    Private Monitoring: A POMDP Approach by YongJoon Joe.
+
     """
 
     def __init__(self, gt_model=None):
@@ -885,17 +940,20 @@ class POMDPModel(object):
 
 
     def to_value_function(self, player1):
-        """
-        Returns the value function for player1's pre-FSA.
-        See "A Variance Analysis for POMDP Policy Evaluation", Fard, Pineau, and Sun,
-         AAAI-2008 for a description of the translation procedure.
+        """Return the value function for player1's pre-FSA.
 
-         pomdp-solve expects each an action paired with each alpha vector, so we return a list of actions
-         corresponding to the respective alpha vector in V.
-        :param player1: The player representing the policy graph / pre-FSA to generate the value function for.
-        :returns V, A: V - the |S||K| dimensional vector that is the value function,
-         where each row is an alpha vector corresponding to its respective state in the pre-FSA of player1.
-         A - the |S| dimensional vector that lists the actions of each alpha vector in V.
+        See "A Variance Analysis for POMDP Policy Evaluation", Fard, Pineau, and Sun, AAAI-2008 for a description of the translation procedure.
+
+        pomdp-solve expects each an action paired with each alpha vector, so we return a list of actions
+        corresponding to the respective alpha vector in V.
+
+        Args:
+            player1 (Player): The player representing the policy graph / pre-FSA to generate the value function for.
+
+        Returns:
+            V, A:
+                V - the len(`S`) * len(`K`) dimensional vector that is the value function, where each row is an alpha vector corresponding to its respective state in the pre-FSA of player1.
+                A - the len(`S`) dimensional vector that lists the actions of each alpha vector in V.
         """
         K = np.array([k for k in player1.state_machine.keys()], ndmin=1)
         S = self.states
@@ -1029,11 +1087,12 @@ class POMDPModel(object):
         return V, ak
 
     def value_function_to_Cassandra_format(self, V, ak):
-        """
-         Takes a Value Function V and associated actions ak and outputs them in the Cassandra alpha file format.
-        :param V: the value function - list of vectors ordered by ak
-        :param ak: the actions associated with each vector in V
-        :return string: The action/vector pairs formatted in Cassandra alpha file format.
+        """Takes a Value Function V and associated actions ak and outputs them in the Cassandra alpha file format.
+        Args:
+            V: the value function - list of vectors ordered by ak
+            ak: the actions associated with each vector in V
+        Returns:
+            str: The action/vector pairs formatted in Cassandra alpha file format.
         """
         if len(V) != len(ak):
             raise IndexError("Lengths of V and ak must be equal.")
@@ -1047,9 +1106,12 @@ class POMDPModel(object):
 
 
     def to_Cassandra_format(self):
-        """
-        Returns a string formatted in Cassandra file format. This string may be directly output to a file (i.e. it contains all whitespace necessary)
-        :return string: this POMDP formatted in Cassandra format.
+        """Returns a string formatted in Cassandra file format.
+
+        This string may be directly output to a file (i.e. it contains all whitespace necessary)
+
+        Returns:
+            str: this POMDP formatted in Cassandra format.
         """
         s = []
         s.append('# TITLE: {}'.format(self.title))

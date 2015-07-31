@@ -5,11 +5,11 @@ This module defines the main entry point to the Game Theory to POMDP conversion 
 It is built to be used from the command line, but can just as easily be imported by other software.
 
 .. seealso::
-    Module :gt_to_pomdp:models:`GTModel`
+    Module `GTModel`
         The object that represents a Game Theory Model
-    Module :gt_to_pomdp:models:`PseudoPOMDPModel`
+    Module `PseudoPOMDPModel`
         The object that represents the intermediate POMDP model, converted from a GTModel.
-    Module :gt_to_pomdp:models:`POMDPModel`
+    Module `POMDPModel`
         The object that represents the final POMDP model, converted from a PseudoPOMDPModel.
 
 Examples:
@@ -17,17 +17,19 @@ Examples:
     python 3 is the only python on your system, then the command may be run with just python.
 
     To have the conversion output to stdout, simply run this module with a Game Theory model::
-        $ python3 gt-to-pomdp.py example.dat
+        $ python3 gt_to_pomdp.py example.dat
 
     There are two optional command line arguments: -pomdpmodel and -verbose.
-    -pomdpmodel specifies the output file name for the POMDP model::
-        $ python3 gt-to-pomdp.py example.dat -pomdpmodel example_pomdp.POMDP
 
-    -verbose enables verbose output of intermediate conversions on stdout::
-        $ python3 gt-to-pomdp.py example.dat -verbose True
+    pomdpmodel specifies the output file name for the POMDP model
 
-    Of course, they may be combined to show intermediate conversions on stdout and output the POMDP to a file::
-        $ python3 gt-to-pomdp.py example.dat -pomdpmodel example_pomdp.POMDP -verbose True
+        $ python3 gt_to_pomdp.py example.dat -pomdpmodel example_pomdp.POMDP
+
+    -verbose enables verbose output of intermediate conversions on stdout:
+        $ python3 gt_to_pomdp.py example.dat -verbose True
+
+    Of course, they may be combined to show intermediate conversions on stdout and output the POMDP to a file:
+        $ python3 gt_to_pomdp.py example.dat -pomdpmodel example_pomdp.POMDP -verbose True
 
 The output POMDP (either to stdout or to file) is in Cassandra format,
 so it may be passed directly to the pomdp-solve software, written by Cassandra.
@@ -46,7 +48,7 @@ def main(inputfilename, outputfilename=None, verbose=False):
     """Parse a Shun Game Theory Model.
 
     ..seealso::
-        Module :gt_to_pomdp:models:`GTModel`
+        Class `GTModel`
             The object that represents a Game Theory Model. Documentaion describes the Shun Game Theory format.
 
     Parse a plaintext file `inputfilename` into a GTModel and convert it to a POMDP.

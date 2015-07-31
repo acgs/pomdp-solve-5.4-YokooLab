@@ -1,0 +1,7 @@
+gt_to_pomdp.gt_to_pomdp module
+==============================
+
+.. automodule:: gt_to_pomdp.gt_to_pomdp
+    :members:
+    :undoc-members:
+    :show-inheritance:

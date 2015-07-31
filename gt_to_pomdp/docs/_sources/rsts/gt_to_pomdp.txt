@@ -1,0 +1,20 @@
+gt_to_pomdp package
+===================
+
+Submodules
+----------
+
+.. toctree::
+
+   gt_to_pomdp.conf
+   gt_to_pomdp.gt_to_pomdp
+   gt_to_pomdp.models
+   gt_to_pomdp.utils
+
+Module contents
+---------------
+
+.. automodule:: gt_to_pomdp
+    :members:
+    :undoc-members:
+    :show-inheritance:

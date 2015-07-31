@@ -1,0 +1,164 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>gt_to_pomdp.gt_to_pomdp module &mdash; GT to POMDP 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="GT to POMDP 1.0 documentation" href="../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-gt_to_pomdp.gt_to_pomdp">
+<span id="gt-to-pomdp-gt-to-pomdp-module"></span><h1>gt_to_pomdp.gt_to_pomdp module<a class="headerlink" href="#module-gt_to_pomdp.gt_to_pomdp" title="Permalink to this headline">¶</a></h1>
+<p>Generate a Cassandra POMDP and Value Function from a Shun Game Theory Model.</p>
+<p>This module defines the main entry point to the Game Theory to POMDP conversion program.
+It is built to be used from the command line, but can just as easily be imported by other software.</p>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<dl class="last docutils">
+<dt>Module <cite>GTModel</cite></dt>
+<dd>The object that represents a Game Theory Model</dd>
+<dt>Module <cite>PseudoPOMDPModel</cite></dt>
+<dd>The object that represents the intermediate POMDP model, converted from a GTModel.</dd>
+<dt>Module <cite>POMDPModel</cite></dt>
+<dd>The object that represents the final POMDP model, converted from a PseudoPOMDPModel.</dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<p>This software is not compatible with python 2, so all examples specify python3. Of course, if
+python 3 is the only python on your system, then the command may be run with just python.</p>
+<dl class="docutils">
+<dt>To have the conversion output to stdout, simply run this module with a Game Theory model::</dt>
+<dd>$ python3 gt_to_pomdp.py example.dat</dd>
+</dl>
+<p>There are two optional command line arguments: -pomdpmodel and -verbose.</p>
+<p>pomdpmodel specifies the output file name for the POMDP model</p>
+<blockquote>
+<div>$ python3 gt_to_pomdp.py example.dat -pomdpmodel example_pomdp.POMDP</div></blockquote>
+<dl class="docutils">
+<dt>-verbose enables verbose output of intermediate conversions on stdout:</dt>
+<dd>$ python3 gt_to_pomdp.py example.dat -verbose True</dd>
+<dt>Of course, they may be combined to show intermediate conversions on stdout and output the POMDP to a file:</dt>
+<dd>$ python3 gt_to_pomdp.py example.dat -pomdpmodel example_pomdp.POMDP -verbose True</dd>
+</dl>
+<p>The output POMDP (either to stdout or to file) is in Cassandra format,
+so it may be passed directly to the pomdp-solve software, written by Cassandra.</p>
+<p>This software makes no guarantee of the correctness of the pomdp-solve program.
+The output of gt-to-pomdp is a valid pomdp-solve input as of 7/31/2015. Future versions of pomdp-solve may
+break this format.</p>
+<dl class="function">
+<dt id="gt_to_pomdp.gt_to_pomdp.main">
+<code class="descclassname">gt_to_pomdp.gt_to_pomdp.</code><code class="descname">main</code><span class="sig-paren">(</span><em>inputfilename</em>, <em>outputfilename=None</em>, <em>verbose=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/gt_to_pomdp.html#main"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.gt_to_pomdp.main" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse a Shun Game Theory Model.</p>
+<dl class="docutils">
+<dt>..seealso::</dt>
+<dd><dl class="first last docutils">
+<dt>Class <cite>GTModel</cite></dt>
+<dd>The object that represents a Game Theory Model. Documentaion describes the Shun Game Theory format.</dd>
+</dl>
+</dd>
+</dl>
+<p>Parse a plaintext file <cite>inputfilename</cite> into a GTModel and convert it to a POMDP.
+Show intermediate steps if <cite>verbose</cite> is true.
+Output POMDP to <cite>outputfilename</cite>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>(str)</strong> (<em>inputfilename</em>) &#8211; the path (may be relative) to a Shun formatted Game Theory file.</li>
+<li><strong>(Optional[str])</strong> (<em>outputfilename</em>) &#8211; the path (may be relative) to output the POMDP to.</li>
+<li><strong>(bool)</strong> (<em>verbose</em>) &#8211; whether to output intermediate conversions to stdout.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/rsts/gt_to_pomdp.gt_to_pomdp.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2015, Victor Szczepanski.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.6</a>
+      
+      |
+      <a href="../_sources/rsts/gt_to_pomdp.gt_to_pomdp.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

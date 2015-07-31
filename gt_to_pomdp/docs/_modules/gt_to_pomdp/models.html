@@ -1,0 +1,1260 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>gt_to_pomdp.models &mdash; GT to POMDP 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="GT to POMDP 1.0 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for gt_to_pomdp.models</h1><div class="highlight"><pre>
+<span class="c"># encoding: utf-8</span>
+<span class="sd">&quot;&quot;&quot;Define the various models used by gt_to_pomdp.</span>
+
+<span class="sd">This module defines the objects that represent the various models needed to convert a Game Theory model to a POMDP.</span>
+
+<span class="sd">The objects are intended to have as weak coupling as possible, but each model exposes a function to build itself from a &#39;previous&#39; model.</span>
+
+<span class="sd">The general order of conversion is GTModel -&gt; PseudoPOMDPModel -&gt; POMDPModel</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s">&#39;Victor Szczepanski&#39;</span>
+<span class="kn">import</span> <span class="nn">operator</span>  <span class="c"># used for reshaping a matrix</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">from</span> <span class="nn">decimal</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="n">getcontext</span><span class="p">()</span><span class="o">.</span><span class="n">prec</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.linalg</span> <span class="kn">import</span> <span class="n">block_diag</span>
+
+<span class="kn">from</span> <span class="nn">gt_to_pomdp.utils</span> <span class="kn">import</span> <span class="o">*</span>
+
+
+
+<span class="c"># Just convenient names to make it more clear, mainly in documentation</span>
+<span class="n">State</span> <span class="o">=</span> <span class="nb">str</span>
+<span class="n">Signal</span> <span class="o">=</span> <span class="nb">str</span>
+<span class="n">Action</span> <span class="o">=</span> <span class="nb">str</span>
+
+
+<div class="viewcode-block" id="Player"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.Player">[docs]</a><span class="k">class</span> <span class="nc">Player</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Represent a pre-FSA - finite state automaton without initial starting state.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        `observation_marginal_distribution` is only initialized as a flat, empty Dict by constructor.</span>
+<span class="sd">        It should be filled in by something else that knows about the marginal distribution, like a `GTModel`.</span>
+<span class="sd">        `payoff` is only initialized as a flat, empty Dict by constructor.</span>
+<span class="sd">        It should be filled in by something else that knows about its (marginal) payoff, like a `GTModel`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        lines (Optional[List[str]]): ordered sequence of strings to parse and build this Player from.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        name (str): name of the Player</span>
+
+<span class="sd">        states (List[State]): ordered sequence of states</span>
+
+<span class="sd">        actions (List[Action]): ordered sequence of actions</span>
+
+<span class="sd">        signals (List[Signal]): ordered sequence of signals</span>
+
+<span class="sd">        state_machine (Dict[State, Action]): mapping from states to actions - this specifies the action to take in a state</span>
+
+<span class="sd">        state_transitions (Dict[State, Dict[Signal, State]]): mapping from states to signals to states - this specifies the transitions (edges) of the pre-FSA.</span>
+
+<span class="sd">        observation_marginal_distribtuion (Dict[Tuple[Action], Dict[Signal, Decimal]]): mapping from sets of actions to observations to probabilities - this specifies the marginal distribution for this player&#39;s observation probability, given an action profile.</span>
+
+<span class="sd">        payoff (Dict[Tuple[Action], Decimal]): mapping from sets of actions to a payoff - this is the immediate reward for this player given an action profile.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lines</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">states</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">actions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signals</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_machine</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># maps a state to an action</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_transitions</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># 2 level dictionary that maps a state to a signal to a state.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">observation_marginal_distribution</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># 2 level dictionary that maps an action profile (set of actions) to observations (single element, in the case of 2 players) to probabilities.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">payoff</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># maps a pair of actions to a payoff (real value). Not initialized by calling from_lines.</span>
+
+        <span class="k">if</span> <span class="n">lines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">Player</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">states</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">states</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">actions</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">actions</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">signals</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">signals</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state_machine</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">state_machine</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state_transitions</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">state_transitions</span>
+
+            <span class="c"># something else needs to fill in our observation_marginal_distribution, since we need the joint distribution.</span>
+
+<div class="viewcode-block" id="Player.build_marginal_distribution"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.Player.build_marginal_distribution">[docs]</a>    <span class="k">def</span> <span class="nf">build_marginal_distribution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_distribution</span><span class="p">,</span> <span class="n">my_dimension</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Using a observation joint distribution table of probabilities, construct the marginal distribution for this player.</span>
+<span class="sd">        Set this player&#39;s `observation_marginal_distribution`</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            joint_distribution (Dict[tuple[Action], list[list[float], list[float], ... , list[float]]]):</span>
+<span class="sd">                The joint distribution (n-dimensional matrix, where the number of players is n)</span>
+<span class="sd">                 of observation probabilities for all players.</span>
+<span class="sd">                 Maps an action tuple to a matrix where the length of each row is len(`self.signals`)</span>
+<span class="sd">                 and there are len(`action tuple`) == len(`players`) dimensions.</span>
+
+<span class="sd">            action_profiles (tuple[Action]): The set of action profiles to consider.</span>
+<span class="sd">            my_dimension (int): The dimension to consider the marginal distribution for - for player 1, this is 0 (the first dimension). For player n, this is n-1 (the last dimension)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">observation_marginal_distribution</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">action_profile</span> <span class="ow">in</span> <span class="n">joint_distribution</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">observation_marginal_distribution</span><span class="p">[</span><span class="n">action_profile</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">observation</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="p">)):</span>  <span class="c"># joint_distribution is indexed by signal index.</span>
+                <span class="n">sum_observation_probabilities</span> <span class="o">=</span> <span class="n">Decimal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+                <span class="c"># now iterate over joint_distribution.</span>
+                <span class="c"># we know how many dimensions there are from action_profile</span>
+                <span class="c"># we sum over all others except our dimension, which we fix.</span>
+                <span class="n">dims</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">action_profile</span><span class="p">)):</span>
+                    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="n">my_dimension</span><span class="p">:</span>
+                        <span class="n">dims</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">observation</span><span class="p">])</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">dims</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="p">))])</span>
+
+                <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">dims</span><span class="p">)]</span>
+
+                <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
+                    <span class="n">distribution</span> <span class="o">=</span> <span class="n">joint_distribution</span><span class="p">[</span><span class="n">action_profile</span><span class="p">]</span>
+                    <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dim</span><span class="p">:</span>
+                        <span class="n">distribution</span> <span class="o">=</span> <span class="n">distribution</span><span class="p">[</span><span class="n">d</span><span class="p">]</span>
+
+                    <span class="n">sum_observation_probabilities</span> <span class="o">+=</span> <span class="n">distribution</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">observation_marginal_distribution</span><span class="p">[</span><span class="n">action_profile</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="p">[</span><span class="n">observation</span><span class="p">]]</span> <span class="o">=</span> <span class="n">sum_observation_probabilities</span>
+</div>
+<div class="viewcode-block" id="Player.join"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.Player.join">[docs]</a>    <span class="k">def</span> <span class="nf">join</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other_player</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Join this player&#39;s FSA with another player&#39;s FSA.</span>
+
+<span class="sd">        Create a joint pre-FSA from this player and `other_player`.</span>
+<span class="sd">        If `other_player` is None, returns this Player.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This function is not idempotent - calling it with the same player as `other_player` will create a new joint player.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            other_player (Player): The Player to join with this Player.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Player: The Player representing the joint pre-FSA of this Player and `other_player`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">other_player</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+        <span class="n">joint_player</span> <span class="o">=</span> <span class="n">Player</span><span class="p">()</span>
+
+        <span class="n">joint_player</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="n">other_player</span><span class="o">.</span><span class="n">name</span>
+        <span class="c"># We create joint states by doing the cartesian product of this player&#39;s states and the other player&#39;s states.</span>
+
+        <span class="k">for</span> <span class="n">my_state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">my_state</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">other_state</span> <span class="ow">in</span> <span class="n">other_player</span><span class="o">.</span><span class="n">states</span><span class="p">:</span>
+                <span class="n">o</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">other_state</span><span class="p">)</span>
+
+                <span class="n">joint_player</span><span class="o">.</span><span class="n">states</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span> <span class="o">+</span> <span class="n">o</span><span class="p">)</span>  <span class="c"># will just append other_state to it.</span>
+
+        <span class="k">for</span> <span class="n">my_action</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">my_action</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">other_action</span> <span class="ow">in</span> <span class="n">other_player</span><span class="o">.</span><span class="n">actions</span><span class="p">:</span>
+                <span class="n">o</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">other_action</span><span class="p">)</span>
+
+                <span class="n">joint_player</span><span class="o">.</span><span class="n">actions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span> <span class="o">+</span> <span class="n">o</span><span class="p">)</span>  <span class="c"># will just append other_state to it.</span>
+
+        <span class="k">for</span> <span class="n">my_signal</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">my_signal</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">other_signal</span> <span class="ow">in</span> <span class="n">other_player</span><span class="o">.</span><span class="n">signals</span><span class="p">:</span>
+                <span class="n">o</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">other_signal</span><span class="p">)</span>
+
+                <span class="n">joint_player</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span> <span class="o">+</span> <span class="n">o</span><span class="p">)</span>  <span class="c"># will just append other_state to it.</span>
+
+        <span class="c"># The new state machine maps a set of states to a set of actions</span>
+
+        <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">joint_player</span><span class="o">.</span><span class="n">states</span><span class="p">:</span>
+            <span class="c"># state could be split into many &#39;substates&#39; - but we know the last one is from the other player.</span>
+            <span class="n">my_state</span> <span class="o">=</span> <span class="n">state</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">my_state</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">my_state</span> <span class="o">=</span> <span class="n">my_state</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">their_state</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+            <span class="n">m</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">my_state</span><span class="p">)</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">their_state</span><span class="p">)</span>
+
+            <span class="n">joint_player</span><span class="o">.</span><span class="n">state_machine</span><span class="p">[</span><span class="n">m</span> <span class="o">+</span> <span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_machine</span><span class="p">[</span><span class="n">my_state</span><span class="p">])</span> <span class="o">+</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">other_player</span><span class="o">.</span><span class="n">state_machine</span><span class="p">[</span><span class="n">their_state</span><span class="p">])</span>
+
+        <span class="c"># The new state transitions maps a set of 2 level state/signals to a set of states.</span>
+        <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">joint_player</span><span class="o">.</span><span class="n">states</span><span class="p">:</span>
+
+            <span class="n">my_state</span> <span class="o">=</span> <span class="n">state</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">my_state</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">my_state</span> <span class="o">=</span> <span class="n">my_state</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">my_state_tuple</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">my_state</span><span class="p">)</span>
+
+            <span class="n">their_state</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">their_state</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">signal</span> <span class="ow">in</span> <span class="n">joint_player</span><span class="o">.</span><span class="n">signals</span><span class="p">:</span>
+
+                <span class="n">my_signal</span> <span class="o">=</span> <span class="n">signal</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">my_signal</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">my_signal</span> <span class="o">=</span> <span class="n">my_signal</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+                <span class="n">m_tuple</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">my_signal</span><span class="p">)</span>
+
+                <span class="n">their_signal</span> <span class="o">=</span> <span class="n">signal</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">o</span> <span class="o">=</span> <span class="n">their_signal</span>
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">their_signal</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">tuple</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">m_tuple</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">tuple</span><span class="p">:</span>
+                    <span class="n">o</span> <span class="o">=</span> <span class="p">(</span><span class="n">their_signal</span><span class="p">,)</span>
+
+                <span class="k">if</span> <span class="p">(</span><span class="n">my_state</span><span class="p">,</span> <span class="n">their_state</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">joint_player</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">:</span>
+                    <span class="n">joint_player</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">my_state_tuple</span> <span class="o">+</span> <span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+                <span class="n">my_transition</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">my_state</span><span class="p">][</span><span class="n">my_signal</span><span class="p">])</span>
+
+                <span class="n">their_transition</span> <span class="o">=</span> <span class="n">to_tuple</span><span class="p">(</span><span class="n">other_player</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">their_state</span><span class="p">][</span><span class="n">their_signal</span><span class="p">])</span>
+
+                <span class="n">joint_player</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">my_state_tuple</span> <span class="o">+</span> <span class="n">t</span><span class="p">][</span><span class="n">m_tuple</span> <span class="o">+</span> <span class="n">o</span><span class="p">]</span> <span class="o">=</span> \
+                    <span class="p">(</span><span class="n">my_transition</span> <span class="o">+</span> <span class="n">their_transition</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">joint_player</span>
+</div>
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Player.from_lines"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.Player.from_lines">[docs]</a>    <span class="k">def</span> <span class="nf">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse a Player configuration from a set of strings and return a Player.</span>
+
+<span class="sd">        .. seealso::</span>
+<span class="sd">            Class :gt_to_pomdp:models:GTModel</span>
+<span class="sd">                Describes the full Shun format for an input Game Theory model.</span>
+<span class="sd">                The description of an Automaton is contained in this format.</span>
+
+<span class="sd">        Parse an automaton description in Shun format and create a new Player from it.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The automaton description itself does not provide the `payoff` information - this should be filled in by</span>
+<span class="sd">            an external program.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            lines (List[str]): ordered sequence of strings that describe the automaton in Shun format to parse.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Player: a new Player that represents the automaton parsed from `lines`</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            SyntaxError: If some line in `lines` is not formatted correctly.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c"># parsing state machine</span>
+        <span class="c"># states: name, states, actions, signals, state_machine, state_transitions, end</span>
+        <span class="c"># we use integers for faster comparison: 1, 2, 3, 4, 5, 6, 7</span>
+
+        <span class="n">player</span> <span class="o">=</span> <span class="n">Player</span><span class="p">()</span>
+
+        <span class="n">state</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+            <span class="c"># ignore all blank lines</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="ow">is</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">1</span><span class="p">:</span>  <span class="c"># name</span>
+                <span class="n">player</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="mi">2</span>
+            <span class="k">elif</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">2</span><span class="p">:</span>  <span class="c"># states</span>
+                <span class="n">player</span><span class="o">.</span><span class="n">states</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="mi">3</span>
+            <span class="k">elif</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">3</span><span class="p">:</span>  <span class="c"># actions</span>
+                <span class="n">player</span><span class="o">.</span><span class="n">actions</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="mi">4</span>
+            <span class="k">elif</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">4</span><span class="p">:</span>  <span class="c"># signals</span>
+                <span class="n">player</span><span class="o">.</span><span class="n">signals</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="mi">5</span>
+            <span class="k">elif</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">5</span><span class="p">:</span>  <span class="c"># state_machine</span>
+                <span class="n">state_action_pair</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">state_action_pair</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">state</span> <span class="o">=</span> <span class="mi">6</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">player</span><span class="o">.</span><span class="n">state_machine</span><span class="p">[</span><span class="n">state_action_pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()]</span> <span class="o">=</span> <span class="n">state_action_pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">6</span><span class="p">:</span>
+                <span class="n">state1</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="n">state2</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">state1</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">player</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">:</span>
+                    <span class="n">player</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">state1</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+                <span class="n">player</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">state1</span><span class="p">][</span><span class="n">signal</span><span class="p">]</span> <span class="o">=</span> <span class="n">state2</span>
+
+        <span class="k">return</span> <span class="n">player</span>
+</div>
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Automaton {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;States: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">flatten_tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">))))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Actions: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">flatten_tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">))))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Signals: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">flatten_tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="p">))))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s">&#39;{} {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_machine</span><span class="o">.</span><span class="n">items</span><span class="p">()]))</span>
+        <span class="k">for</span> <span class="n">state_transition</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">:</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">state_transition</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">state_transition</span><span class="p">])))</span>
+        <span class="k">return</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="GTModel"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.GTModel">[docs]</a><span class="k">class</span> <span class="nc">GTModel</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represent a Game Theory Model.</span>
+
+<span class="sd">    A Game Theory Model consists of a discount rate, a set of variables for substitution, a set of automaton (players),</span>
+<span class="sd">    a set of signal distributions for every action profile, and a payoff function for every action profile.</span>
+
+<span class="sd">    A GTModel can be parsed from a ``Shun Game Theory Model``. The format of the input file is as follows::</span>
+
+<span class="sd">        Title :</span>
+<span class="sd">        Discount Rate : FLOAT</span>
+<span class="sd">        Variables :</span>
+<span class="sd">        Players :</span>
+
+<span class="sd">        Automaton</span>
+<span class="sd">        States:</span>
+<span class="sd">        Actions :</span>
+<span class="sd">        Signals :</span>
+<span class="sd">        STATE ACTION</span>
+<span class="sd">        STATE SIGNAL STATE</span>
+
+<span class="sd">        Signal Distribution</span>
+<span class="sd">        ACTION,ACTION :</span>
+
+<span class="sd">        Payoff Matrix</span>
+<span class="sd">        ACTION,ACTION :</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename (str): The path to a Shun Game Theory Model file to parse.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        name (str): The title of this model.</span>
+
+<span class="sd">        discount (float): The discount factor</span>
+
+<span class="sd">        variables (Dict[str, float]): mapping of variable name to its value</span>
+
+<span class="sd">        player_names (List[str]): sequence of player names.</span>
+
+<span class="sd">        players (List[Player]): sequence of Players.</span>
+
+<span class="sd">        signal_distribution (Dict[tuple(Action), List[List[float]]): Dictionary that maps a tuple of actions (action profile) to an N dimensional matrix (list of lists) where N is the number of players, and each dimension is length s, where s is the number of signals (observations) that player can have.</span>
+
+<span class="sd">        payoff (Dict[tuple(Action), Dict[str, float]]): mapping of a tuple of actions (action profile) to a dictionary that maps player names to values (floats)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discount</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">variables</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">player_names</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">players</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">signal_distribution</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">payoff</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="n">filename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">GTModel</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">title</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">discount</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">discount</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">variables</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">variables</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">player_names</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">player_names</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">players</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">players</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">signal_distribution</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">signal_distribution</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">payoff</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">payoff</span>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="GTModel.from_file"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.GTModel.from_file">[docs]</a>    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param filename:</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">GTModel</span><span class="p">()</span>
+
+
+        <span class="c">#state machine for parsing.</span>
+        <span class="c">#States: title, discount, variables, player_names, player, signal, payoff, end</span>
+        <span class="c">#Transitions (after reading one line):</span>
+        <span class="c">#   title -&gt; discount</span>
+        <span class="c">#   discount -&gt; variables</span>
+        <span class="c">#   variables -&gt; player_names</span>
+        <span class="c">#   player_names -&gt; player</span>
+        <span class="c">#   player -&gt; player</span>
+        <span class="c">#   player -&gt;(&#39;Signal Distribution&#39;) signal</span>
+        <span class="c">#   signal -&gt; signal</span>
+        <span class="c">#   signal -&gt; (&#39;Payoff Matrix&#39;) payoff</span>
+        <span class="c">#   payoff -&gt; payoff</span>
+        <span class="c">#   payoff -&gt;(empty) end</span>
+        <span class="c">#   end -&gt; end #absorbs all additional input</span>
+
+        <span class="c">#We&#39;ll just use integers for faster comparison, so each state is a number 1,2,3,4,5,6,7, or 8.</span>
+
+
+        <span class="n">state</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="c">#player_lines collects lines to pass to the player constructor</span>
+        <span class="n">player_lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">signal_lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">payoff_lines</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">1</span><span class="p">:</span> <span class="c">#title</span>
+                    <span class="n">model</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+                    <span class="n">state</span> <span class="o">=</span> <span class="mi">2</span>
+                <span class="k">elif</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">2</span><span class="p">:</span> <span class="c">#discount</span>
+                    <span class="n">model</span><span class="o">.</span><span class="n">discount</span> <span class="o">=</span> <span class="n">Decimal</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">lstrip</span><span class="p">())</span>
+                    <span class="n">state</span> <span class="o">=</span> <span class="mi">3</span>
+                <span class="k">elif</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">3</span><span class="p">:</span> <span class="c">#variables</span>
+                    <span class="n">model</span><span class="o">.</span><span class="n">variables</span> <span class="o">=</span> <span class="n">GTModel</span><span class="o">.</span><span class="n">_parse_variables</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+                    <span class="n">state</span> <span class="o">=</span> <span class="mi">4</span>
+                <span class="k">elif</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">4</span><span class="p">:</span> <span class="c">#player_names</span>
+                    <span class="n">model</span><span class="o">.</span><span class="n">player_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="s">&#39;&#39;</span> <span class="ow">and</span> <span class="n">name</span> <span class="o">!=</span> <span class="s">&#39; &#39;</span><span class="p">]</span>
+                    <span class="n">state</span> <span class="o">=</span> <span class="mi">5</span>
+                <span class="k">elif</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">5</span><span class="p">:</span> <span class="c">#player</span>
+                    <span class="k">if</span> <span class="s">&#39;Signal Distribution&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                        <span class="n">state</span> <span class="o">=</span> <span class="mi">6</span>
+                        <span class="k">continue</span>
+
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">player_lines</span><span class="p">)</span> <span class="ow">is</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="ow">is</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="ow">is</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="c"># build new player from collected strings and reset player_lines</span>
+                        <span class="n">new_player</span> <span class="o">=</span> <span class="n">Player</span><span class="p">(</span><span class="n">player_lines</span><span class="p">)</span>
+                        <span class="n">model</span><span class="o">.</span><span class="n">players</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_player</span><span class="p">)</span>
+                        <span class="n">player_lines</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">player_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">lstrip</span><span class="p">())</span>
+                <span class="k">elif</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">6</span><span class="p">:</span> <span class="c">#signal</span>
+                    <span class="k">if</span> <span class="s">&#39;Payoff Matrix&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                        <span class="n">state</span> <span class="o">=</span> <span class="mi">7</span>
+                        <span class="k">continue</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="ow">is</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="c">#build new signal distribution matrix from collected strings and clear signal_lines</span>
+                        <span class="n">matrix</span> <span class="o">=</span> <span class="n">GTModel</span><span class="o">.</span><span class="n">_parse_matrix</span><span class="p">(</span><span class="n">signal_lines</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">variables</span><span class="p">)</span>
+                        <span class="n">signal_lines</span> <span class="o">=</span> <span class="p">[]</span>
+
+
+                        <span class="c">#we want to reshape each matrix based on the signals/observations of each player.</span>
+                        <span class="n">observation_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">player</span><span class="o">.</span><span class="n">signals</span><span class="p">)</span> <span class="k">for</span> <span class="n">player</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">players</span><span class="p">]</span>
+
+                        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">matrix</span><span class="p">:</span>
+                            <span class="n">matrix</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">GTModel</span><span class="o">.</span><span class="n">_shape</span><span class="p">(</span><span class="n">matrix</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">observation_sizes</span><span class="p">)</span>
+
+                        <span class="n">model</span><span class="o">.</span><span class="n">signal_distribution</span> <span class="o">=</span> <span class="n">matrix</span>
+
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">signal_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">7</span><span class="p">:</span> <span class="c">#payoff</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="ow">is</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">state</span> <span class="o">=</span> <span class="mi">8</span>
+                        <span class="k">continue</span>
+                    <span class="n">payoff_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="c">#We hold off on parsing payoff_lines until end of file.</span>
+                <span class="k">elif</span> <span class="n">state</span> <span class="ow">is</span> <span class="mi">8</span><span class="p">:</span> <span class="c">#end</span>
+                    <span class="k">continue</span>
+
+        <span class="c">#build new payoff matrix</span>
+        <span class="n">matrix</span> <span class="o">=</span> <span class="n">GTModel</span><span class="o">.</span><span class="n">_parse_matrix</span><span class="p">(</span><span class="n">payoff_lines</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">variables</span><span class="p">)</span>
+
+        <span class="c">#We don&#39;t need to reshape payoff matrix, since values are always 1-D</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">payoff</span> <span class="o">=</span> <span class="n">matrix</span>
+
+        <span class="c">#build each player&#39;s marginal distribution</span>
+
+        <span class="k">for</span> <span class="n">dim</span><span class="p">,</span> <span class="n">player</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">players</span><span class="p">):</span>
+            <span class="n">player</span><span class="o">.</span><span class="n">build_marginal_distribution</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">signal_distribution</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">model</span>
+</div>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_parse_variables</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Take a variables line and parse it into a dictionary as described by GTModel.variables</span>
+
+<span class="sd">        Just a convenience function. Parsed numbers are converted to Decimal.</span>
+<span class="sd">        :param line: string formatted as q=0.001 s=0.001 g=0.3 ...</span>
+<span class="sd">        :return variables: a dictionary that maps string variable names to float values</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">vs</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">assignment</span> <span class="ow">in</span> <span class="n">vs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s">&#39;=&#39;</span> <span class="ow">in</span> <span class="n">assignment</span><span class="p">:</span>
+                <span class="n">split_assignment</span> <span class="o">=</span> <span class="n">assignment</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;=&#39;</span><span class="p">)</span>
+                <span class="n">variables</span><span class="p">[</span><span class="n">split_assignment</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Decimal</span><span class="p">(</span><span class="n">split_assignment</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">variables</span>
+
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_parse_matrix</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">variables</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse an iterable of strings that represent an action pair -&gt; matrix mapping.</span>
+
+<span class="sd">        Take a collection of lines of the form:</span>
+<span class="sd">        C,C : 1-4*s-4*q q q q s s q s s</span>
+<span class="sd">        C,D : q s s 1-4*s-4*q q q q s s</span>
+<span class="sd">        C,E : q s s q s s 1-4*s-4*q q q</span>
+<span class="sd">        D,C : q 1-4*s-4*q q s q s s q s</span>
+<span class="sd">        D,D : s q s q 1-4*s-4*q q s q s</span>
+<span class="sd">        D,E : s q s s q s q 1-4*s-4*q q</span>
+<span class="sd">        E,C : q q 1-4*s-4*q s s q s s q</span>
+<span class="sd">        E,D : s s q q q 1-4*s-4*q s s q</span>
+<span class="sd">        E,E : s s q s s q q q 1-4*s-4*q</span>
+
+<span class="sd">        or</span>
+
+<span class="sd">        C,C: 1 1</span>
+<span class="sd">        C,D: -l 1+g</span>
+<span class="sd">        C,E: 1-b 1</span>
+<span class="sd">        D,C: 1+g -l</span>
+<span class="sd">        D,D: 0 0</span>
+<span class="sd">        D,E: 1+g-b x</span>
+<span class="sd">        E,C: 1 1-b</span>
+<span class="sd">        E,D: x 1+g-b</span>
+<span class="sd">        E,E: 1-b 1-b</span>
+
+<span class="sd">        and build a dictionary that maps the action tuples to flat matricies of values, where the values are converted based on</span>
+<span class="sd">        the input variables.</span>
+
+<span class="sd">        any variable encountered in `lines` is assumed to be found in the keyset of `variables`.</span>
+<span class="sd">        :param lines: iterable of strings representing the matricies</span>
+<span class="sd">        :param variables: dict that maps a variable name to a floating point value.</span>
+<span class="sd">        :return mapping: dict that maps an action tuple (action profile) to a flat matrix of floating point values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mapping</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+            <span class="n">actions</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">line</span><span class="p">[:</span><span class="n">line</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">))</span> <span class="c">#make tuple of actions</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="c">#make list of value expressions</span>
+
+            <span class="c">#replace all variables in each expression with values</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)):</span>
+                <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">variables</span><span class="p">[</span><span class="n">c</span><span class="p">])</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">variables</span> <span class="k">else</span> <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span>
+
+                <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">Decimal</span><span class="p">(</span><span class="nb">eval</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span> <span class="c">#actually evaluate any expressions</span>
+
+            <span class="n">mapping</span><span class="p">[</span><span class="n">actions</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span>
+
+        <span class="k">return</span> <span class="n">mapping</span>
+
+
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_shape</span><span class="p">(</span><span class="n">flat</span><span class="p">,</span> <span class="n">dims</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Shape a flat matrix into a len(`dims`)-D matrix along dimensions `dims`.</span>
+
+<span class="sd">        Note - this function is recursive, so it can be slow for large dimensions.</span>
+<span class="sd">        Just used as a helper for parsing payoff or signal distribution matricies.</span>
+
+<span class="sd">        :param flat: the flat matrix to shape</span>
+<span class="sd">        :param dims: sequence of dimensions along which to shape the matrix - specifies the size of each dimension of resulting matrix</span>
+<span class="sd">        :return: a len(`dims`) dimensional matrix (nested lists) where the ith dimension has size (length) `dims`[i]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">subdims</span> <span class="o">=</span> <span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">subsize</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">,</span> <span class="n">subdims</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">subsize</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">flat</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Size does not match or invalid&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">subdims</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">flat</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">GTModel</span><span class="o">.</span><span class="n">_shape</span><span class="p">(</span><span class="n">flat</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">subsize</span><span class="p">],</span> <span class="n">subdims</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">flat</span><span class="p">),</span> <span class="n">subsize</span><span class="p">)]</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Title: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Discount Rate: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">discount</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Variables: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Players: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">player_names</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">player</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">players</span><span class="p">:</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">player</span><span class="p">))</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Signal Distribution&#39;</span><span class="p">)</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signal_distribution</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Payoff Matrix&#39;</span><span class="p">)</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">payoff</span><span class="p">))</span>
+        <span class="k">return</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="PseudoPOMDPModel"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.PseudoPOMDPModel">[docs]</a><span class="k">class</span> <span class="nc">PseudoPOMDPModel</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Describe a PseudoPOMDP model, as defined in Automated Equilibrium Analysis of Repeated Games with</span>
+<span class="sd">    Private Monitoring: A POMDP Approach by YongJoon Joe.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gt_model</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discount</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gt</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">states</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c"># A set of states of other players (player 2 in a 2 player game)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">actions</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c"># A set of actions for player 1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">observations</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c"># A set of observations/signals of player 1.</span>
+        <span class="c"># Note that this is an observation of the entire world - that is, the joint observations of all other players.</span>
+
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># A function that maps an observation given an action/state tuple to a probability</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_transition</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># A function that represents the conditional probability that the next state</span>
+        <span class="c"># is θ^t+1 when the current state is θ^t and the action of player 1 is a_1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">payoff</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># A function that maps an action/state tuple to a real value.</span>
+
+        <span class="c">#Additional data to help translation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">players</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signal_distribution</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">player1</span> <span class="o">=</span> <span class="bp">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_V</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># The expected discounted payoff for player 1. Maps a state pair (θ_1, θ_2) to a real value.</span>
+        <span class="c"># Calculated as:</span>
+        <span class="c"># V_{θ_1,θ_2} = g_1 ((f(θ_1 ), f(θ_2))) +</span>
+        <span class="c"># δ * Sum_{ω_1, ω_2 in } (o((ω_1, ω_2 ) | (f(θ_1 ), f(θ_2 ))) · V_{T(θ_1, ω_1 ),T(θ_2, ω_2 )} .</span>
+
+        <span class="k">if</span> <span class="n">gt_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">from_gt</span><span class="p">(</span><span class="n">gt_model</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">V</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_expected_payoff</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_V</span>
+
+<div class="viewcode-block" id="PseudoPOMDPModel.from_gt"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.PseudoPOMDPModel.from_gt">[docs]</a>    <span class="k">def</span> <span class="nf">from_gt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gt_model</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Translates a GTModel into this PseudoPOMDPModel. Sets all of this model&#39;s attributes.</span>
+<span class="sd">        :param gt_model: the GTModel to translate from.</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">gt_model</span><span class="o">.</span><span class="n">title</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discount</span> <span class="o">=</span> <span class="n">gt_model</span><span class="o">.</span><span class="n">discount</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gt</span> <span class="o">=</span> <span class="n">gt_model</span>
+        <span class="c"># states are the cartesian product of all states in gt_model of players except player 1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">players</span> <span class="o">=</span> <span class="n">gt_model</span><span class="o">.</span><span class="n">players</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signal_distribution</span> <span class="o">=</span> <span class="n">gt_model</span><span class="o">.</span><span class="n">signal_distribution</span>
+
+        <span class="n">player1</span> <span class="o">=</span> <span class="n">gt_model</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">player1</span> <span class="o">=</span> <span class="n">player1</span>
+
+        <span class="c">#We need to build a joint-FSA from all other players</span>
+        <span class="n">opponent</span> <span class="o">=</span> <span class="n">gt_model</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">player</span> <span class="ow">in</span> <span class="n">gt_model</span><span class="o">.</span><span class="n">players</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">player</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">player1</span> <span class="ow">and</span> <span class="n">player</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">gt_model</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">opponent</span> <span class="o">=</span> <span class="n">opponent</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">player</span><span class="p">)</span>
+
+        <span class="c">#Θ is a set of states of player 2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">states</span> <span class="o">=</span> <span class="n">opponent</span><span class="o">.</span><span class="n">states</span>
+
+        <span class="c"># self.states is a list of tuples (maybe of length 1)</span>
+        <span class="c"># actions are the set of actions of player 1. Again, if all players use FSA M, we can pick any player.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">actions</span> <span class="o">=</span> <span class="n">player1</span><span class="o">.</span><span class="n">actions</span>
+
+        <span class="c"># observations are the set of observations of player 1.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">observations</span> <span class="o">=</span> <span class="n">player1</span><span class="o">.</span><span class="n">signals</span>
+
+        <span class="c"># Observation probability maps an observation given an action/state tuple to a probability</span>
+        <span class="c"># Then there are |observations| x |actions| x |states| many entries</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">action_state_tuples</span> <span class="o">=</span> <span class="p">[(</span><span class="n">action_state</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">action_state</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">action_state</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">)]</span>
+
+        <span class="c">#Note that each action_state_tuple in action_state_tuples is a tuple (maybe of length 1)</span>
+
+        <span class="n">observation_profiles</span> <span class="o">=</span> <span class="p">[</span><span class="n">observation_profile</span> <span class="k">for</span> <span class="n">observation_profile</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">gt_model</span><span class="o">.</span><span class="n">players</span><span class="p">))]</span>
+
+        <span class="k">for</span> <span class="n">action</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span><span class="p">[</span><span class="n">action</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span><span class="p">[</span><span class="n">action</span><span class="p">][</span><span class="n">state</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span> <span class="ow">in</span> <span class="n">action_state_tuples</span><span class="p">:</span>
+
+            <span class="c"># we&#39;ll loop over each state to find the action profile (a_1, a_2, ...)</span>
+            <span class="n">action_profile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_action_profile</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">observation</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">:</span> <span class="c">#gets the combinations of observations possible.</span>
+                <span class="c"># O(ω_1 | a_1 , θ^t ) = o_1 (ω_1 | (a_1 , f (θ^t ))).</span>
+                <span class="n">probability</span> <span class="o">=</span> <span class="n">player1</span><span class="o">.</span><span class="n">observation_marginal_distribution</span><span class="p">[</span><span class="n">action_profile</span><span class="p">][</span><span class="n">observation</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span><span class="p">[</span><span class="n">action</span><span class="p">][</span><span class="n">state</span><span class="p">][</span><span class="n">observation</span><span class="p">]</span> <span class="o">=</span> <span class="n">probability</span>
+
+        <span class="c"># state_transition function P (θ^t+1 | θ^t , a_1 ) represents the conditional probability that</span>
+        <span class="c"># the next state is θ^t+1 when the current state is θ^t and the</span>
+        <span class="c"># action of player 1 is a_1</span>
+        <span class="c"># P (θ^t+1 | θ^t , a_1 ) = sum_{ω_2 in Omega | T(θ t, ω_2) = θ t+1}  o_2 (ω_2 | (a_1 , f (θ^t ))).</span>
+        <span class="c"># So, we make a tuple (state2, (state1, action), value), where state2 =  θ^t+1 and state1 = θ^t</span>
+        <span class="c"># Note that ω_2 is the observation of player 2</span>
+
+
+        <span class="c">#initialize self.state_transition:</span>
+        <span class="k">for</span> <span class="n">theta_t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state_transition</span><span class="p">[</span><span class="n">theta_t</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">action</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">state_transition</span><span class="p">[</span><span class="n">theta_t</span><span class="p">][</span><span class="n">action</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="n">theta_t</span><span class="p">)</span> <span class="ow">in</span> <span class="n">action_state_tuples</span><span class="p">:</span>
+            <span class="n">action_profile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_action_profile</span><span class="p">(</span><span class="n">theta_t</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">theta_t_plusone</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">:</span>
+                <span class="n">probability</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">for</span> <span class="n">omega2</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">player1</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">theta_t</span><span class="p">][</span><span class="n">omega2</span><span class="p">]</span> <span class="o">!=</span> <span class="n">theta_t_plusone</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">probability</span> <span class="o">+=</span> <span class="n">opponent</span><span class="o">.</span><span class="n">observation_marginal_distribution</span><span class="p">[</span><span class="n">action_profile</span><span class="p">][</span><span class="n">omega2</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">state_transition</span><span class="p">[</span><span class="n">theta_t</span><span class="p">][</span><span class="n">action</span><span class="p">][</span><span class="n">theta_t_plusone</span><span class="p">]</span> <span class="o">=</span> <span class="n">probability</span>
+
+        <span class="c"># payoff R : A × S → R is given as:</span>
+        <span class="c"># R(a_1 , θ^t ) = g_1 ((a_1 , f (θ^t ))).</span>
+        <span class="c"># g_i (a) = sum_{ω∈Ω^2} π_i (a_i , ω_i )o(ω | a)</span>
+        <span class="c"># So, we make a tuple (action, state, payoff) where action = a_1, state = θ^t, and payoff is a real value (floating point)</span>
+        <span class="c">#Player i’s realized payoff is determined by her own action and signal and denoted π_i (a_i , ω_i )</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span> <span class="ow">in</span> <span class="n">action_state_tuples</span><span class="p">:</span>
+            <span class="n">action_profile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_action_profile</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
+            <span class="n">payoff_matrix</span> <span class="o">=</span> <span class="n">gt_model</span><span class="o">.</span><span class="n">payoff</span><span class="p">[</span><span class="n">action_profile</span><span class="p">]</span>
+
+            <span class="n">payoff</span> <span class="o">=</span> <span class="n">payoff_matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="c"># g_1 ((a_1 , f (θ^t ))).</span>
+            <span class="c">#We&#39;ll pull out the payoff function for player1 - this will be used to generate the expected payoff later.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">player1</span><span class="o">.</span><span class="n">payoff</span><span class="p">[</span><span class="n">action_profile</span><span class="p">]</span> <span class="o">=</span> <span class="n">payoff</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">payoff</span><span class="p">[(</span><span class="n">action</span><span class="p">,</span> <span class="n">state</span><span class="p">)]</span> <span class="o">=</span> <span class="n">payoff</span>
+</div>
+    <span class="k">def</span> <span class="nf">_calculate_expected_payoff</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes the expected payoff function V_{θ_1,θ_2} for player 1</span>
+<span class="sd">        # V_{θ_1,θ_2} = g_1 ((f(θ_1 ), f(θ_2))) +</span>
+<span class="sd">        # δ * Sum_{ω_1, ω_2 in } (o((ω_1, ω_2 ) | (f(θ_1 ), f(θ_2 ))) · V_{T(θ_1, ω_1 ),T(θ_2, ω_2 )} .</span>
+<span class="sd">        While this function can be computed by the GTModel, we&#39;ll just do it here,</span>
+<span class="sd">        since it is more relevant to the PseudoPOMDP and POMDP models.</span>
+
+<span class="sd">        This function uses the numpy linalg package to solve the system of linear equations.</span>
+<span class="sd">        :return V_{θ_1,θ_2}: a dictionary with keys (θ_1,θ_2) (i.e. state pair) that maps to a real value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#equations will become our matrix of coefficients</span>
+        <span class="n">equations</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">answer_vector</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">state_pairs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span> <span class="k">for</span> <span class="n">sp</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="mi">2</span><span class="p">)]</span>
+
+        <span class="c">#Now, we iterate over all state pairs</span>
+        <span class="k">for</span> <span class="n">theta1</span><span class="p">,</span> <span class="n">theta2</span> <span class="ow">in</span> <span class="n">state_pairs</span><span class="p">:</span>
+            <span class="n">coefficients_dict</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">state_pair</span> <span class="ow">in</span> <span class="n">state_pairs</span><span class="p">:</span>
+                <span class="n">coefficients_dict</span><span class="p">[</span><span class="n">state_pair</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+            <span class="n">f_theta1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">player1</span><span class="o">.</span><span class="n">state_machine</span><span class="p">[</span><span class="n">theta1</span><span class="p">]</span>
+            <span class="n">f_theta2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">player1</span><span class="o">.</span><span class="n">state_machine</span><span class="p">[</span><span class="n">theta2</span><span class="p">]</span>
+            <span class="c"># each coefficient is given by δ * (o((ω_1, ω_2 ) | (f(θ_1 ), f(θ_2 ))) * V_{T(θ_1, ω_1 ),T(θ_2, ω_2 )}.</span>
+            <span class="c"># It is possible to get multiple values for a single coefficient,</span>
+            <span class="c"># so we&#39;ll sum them (since the coefficents are generated in a sum)</span>
+            <span class="k">for</span> <span class="n">observation1</span><span class="p">,</span> <span class="n">observation2</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+                <span class="n">coefficients_dict</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">player1</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">theta1</span><span class="p">][</span><span class="n">observation1</span><span class="p">],</span>
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">player1</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">theta2</span><span class="p">][</span><span class="n">observation2</span><span class="p">])]</span> <span class="o">+=</span>\
+                <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">discount</span> <span class="o">*</span> \
+                <span class="bp">self</span><span class="o">.</span><span class="n">signal_distribution</span><span class="p">[(</span><span class="n">f_theta1</span><span class="p">,</span> <span class="n">f_theta2</span><span class="p">)][</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">observation1</span><span class="p">)][</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">observation2</span><span class="p">)])</span>
+
+            <span class="c">#We need to subtract 1 from the coefficient corresponding to V_{θ_1,θ_2}</span>
+            <span class="n">coefficients_dict</span><span class="p">[(</span><span class="n">theta1</span><span class="p">,</span> <span class="n">theta2</span><span class="p">)]</span> <span class="o">-=</span> <span class="mi">1</span>
+
+            <span class="c">#add coefficients_dict as a row to equations</span>
+            <span class="n">equations</span><span class="p">[(</span><span class="n">theta1</span><span class="p">,</span> <span class="n">theta2</span><span class="p">)]</span> <span class="o">=</span> <span class="n">coefficients_dict</span>
+            <span class="c">#Now, we make the answer vector from -g_1(f(θ_1), f(θ_2))</span>
+            <span class="n">answer_vector</span><span class="p">[(</span><span class="n">theta1</span><span class="p">,</span> <span class="n">theta2</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">player1</span><span class="o">.</span><span class="n">payoff</span><span class="p">[(</span><span class="n">f_theta1</span><span class="p">,</span> <span class="n">f_theta2</span><span class="p">)])</span>
+            <span class="k">if</span> <span class="n">answer_vector</span><span class="p">[(</span><span class="n">theta1</span><span class="p">,</span> <span class="n">theta2</span><span class="p">)]</span> <span class="o">==</span> <span class="o">-</span><span class="mf">0.0</span> <span class="ow">or</span> <span class="n">answer_vector</span><span class="p">[(</span><span class="n">theta1</span><span class="p">,</span> <span class="n">theta2</span><span class="p">)]</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">answer_vector</span><span class="p">[(</span><span class="n">theta1</span><span class="p">,</span> <span class="n">theta2</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="c">#Now, we can solve the system of linear equations. First, lets make lists out of the dictionaries so we can be sure they iterate in the same order.</span>
+        <span class="n">equation_matrix</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">answer_matrix</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">state_pair</span> <span class="ow">in</span> <span class="n">state_pairs</span><span class="p">:</span>
+            <span class="n">coefficient_row</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">state_pair2</span> <span class="ow">in</span> <span class="n">state_pairs</span><span class="p">:</span>
+                <span class="n">coefficient_row</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">equations</span><span class="p">[</span><span class="n">state_pair</span><span class="p">][</span><span class="n">state_pair2</span><span class="p">])</span>
+            <span class="n">equation_matrix</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">coefficient_row</span><span class="p">)</span>
+            <span class="n">answer_matrix</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">answer_vector</span><span class="p">[</span><span class="n">state_pair</span><span class="p">])</span>
+
+        <span class="n">coefficients</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">equation_matrix</span><span class="p">)</span>
+        <span class="n">answers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">answer_matrix</span><span class="p">)</span>
+
+        <span class="n">solution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">coefficients</span><span class="p">,</span> <span class="n">answers</span><span class="p">)</span>
+
+        <span class="n">V</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">state_pair</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">state_pairs</span><span class="p">):</span>
+            <span class="n">V</span><span class="p">[</span><span class="n">state_pair</span><span class="p">]</span> <span class="o">=</span> <span class="n">solution</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">V</span>
+
+
+
+    <span class="k">def</span> <span class="nf">_to_action_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">action</span><span class="p">):</span>
+        <span class="n">action_profile</span> <span class="o">=</span> <span class="p">[</span><span class="n">action</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="p">)):</span>
+            <span class="n">other_action</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">state_machine</span><span class="p">[</span><span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+            <span class="n">action_profile</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">other_action</span><span class="p">)</span>
+        <span class="n">action_profile</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">action</span> <span class="k">for</span> <span class="n">action</span> <span class="ow">in</span> <span class="n">action_profile</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">action_profile</span>
+
+
+
+<div class="viewcode-block" id="PseudoPOMDPModel.__str__"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.PseudoPOMDPModel.__str__">[docs]</a>    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        self.states = set()  # A set of states of other players (player 2 in a 2 player game)</span>
+<span class="sd">        self.actions = set()  # A set of actions for player 1</span>
+<span class="sd">        self.observations = set()  # A set of observations/signals of player 1.</span>
+<span class="sd">        # Note that this is an observation of the entire world - that is, the joint observations of all other players.</span>
+
+
+<span class="sd">        self.observation_probability = []  # A function that maps an observation given an action/state tuple to a probability</span>
+<span class="sd">        self.state_transition = []  # A function that represents the conditional probability that the next state</span>
+<span class="sd">        # is θ^t+1 when the current state is θ^t and the action of player 1 is a_1</span>
+<span class="sd">        self.payoff = []  # A function that maps an action/state tuple to a real value.</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;States: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Actions: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s">&#39;Observations: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">)))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Observation probabilities: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;State Transition probabilities: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_transition</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Payoffs: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">payoff</span><span class="p">))</span>
+        <span class="k">return</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</div></div>
+<div class="viewcode-block" id="POMDPModel"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.POMDPModel">[docs]</a><span class="k">class</span> <span class="nc">POMDPModel</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pseudo_pomdp_model</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discount</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gt</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">states</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c"># A set of states of other players (player 2 in a 2 player game)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">actions</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c"># A set of actions for player 1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">observations</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c"># A set of observations/signals of player 1.</span>
+        <span class="c"># Note that this is an observation of the entire world - that is, the joint observations of all other players.</span>
+
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># A function that maps an observation given an action/state tuple to a probability</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_transition</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c"># A function that represents the conditional probability that the next state</span>
+        <span class="c"># is θ^t+1 when the current state is θ^t and the action of player 1 is a_1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">payoff</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># A function that maps an action/state tuple to a real value.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">players</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="p">{}</span> <span class="c">#  The Expected Payoff function for player1 in the POMDP - assuming other players use the same FSA.</span>
+
+        <span class="k">if</span> <span class="n">pseudo_pomdp_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">from_pseudo_pomdp</span><span class="p">(</span><span class="n">pseudo_pomdp_model</span><span class="p">)</span>
+
+<div class="viewcode-block" id="POMDPModel.from_pseudo_pomdp"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.POMDPModel.from_pseudo_pomdp">[docs]</a>    <span class="k">def</span> <span class="nf">from_pseudo_pomdp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pseudo_pomdp_model</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">title</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discount</span> <span class="o">=</span> <span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">discount</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gt</span> <span class="o">=</span> <span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">gt</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">players</span> <span class="o">=</span> <span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">players</span>
+
+        <span class="c"># actions and observations are identical</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">actions</span> <span class="o">=</span> <span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">actions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">observations</span> <span class="o">=</span> <span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">observations</span>
+
+        <span class="c">#We also just take V from pseudo_pomdp.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">V</span>
+
+        <span class="c"># The key idea of this translation is to introduce a set of new</span>
+        <span class="c"># combined states Θ&#39; , where Θ&#39; = Θ^2 . Namely, we assume</span>
+        <span class="c"># that a state θ&#39;^t in the standard POMDP model represents</span>
+        <span class="c"># the combination of the previous and current states (θ^t−1 , θ^t )</span>
+        <span class="c"># in our model present in the previous subsection.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">states</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">states</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="mi">2</span><span class="p">)]</span>
+        <span class="c">#remove any unreachable states (i.e. pairs that do not exist in the state_transition function of pseudo_pomdp_model.</span>
+
+        <span class="n">removed_states</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">:</span>
+            <span class="n">found</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="k">for</span> <span class="n">action</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">a</span> <span class="o">=</span> <span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">state_transition</span><span class="p">[</span><span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="n">action</span><span class="p">][</span><span class="n">state</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+                    <span class="k">if</span> <span class="n">a</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">KeyError</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="n">found</span> <span class="o">=</span> <span class="bp">True</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span>
+                <span class="n">removed_states</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">removed_states</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+        <span class="c"># A new state transition function P&#39; (θ&#39;^t+1 | θ&#39;^t , a_1 ) is equal</span>
+        <span class="c"># to P (θ^t+1 | θ^t , a_1 ) in the original model if θ&#39;^t+1 = (θ^t , θ^t+1 )</span>
+        <span class="c"># and θ&#39;^t = (θ^t−1 , θ^t ), i.e., the previous state in θ&#39;^t+1 and the</span>
+        <span class="c"># current state in θ&#39;^t are identical. Otherwise, it is 0.</span>
+        <span class="k">for</span> <span class="n">action</span><span class="p">,</span> <span class="n">theta_t_plus_one</span><span class="p">,</span> <span class="n">theta_t</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">):</span>
+            <span class="n">probability</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">theta_t_plus_one</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="n">theta_t</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">probability</span> <span class="o">=</span> <span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">state_transition</span><span class="p">[</span><span class="n">theta_t_plus_one</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="n">action</span><span class="p">][</span><span class="n">theta_t_plus_one</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">state_transition</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">theta_t_plus_one</span><span class="p">,</span> <span class="p">(</span><span class="n">theta_t</span><span class="p">,</span> <span class="n">action</span><span class="p">),</span> <span class="n">probability</span><span class="p">))</span>
+
+        <span class="c"># Next,</span>
+        <span class="c"># let us examine how to define O&#39;(ω_1 | a_1 , (θ^t , θ^t+1 )). This</span>
+        <span class="c"># is identical to the posterior probability that the observation</span>
+        <span class="c"># was ω 1 , when the state transits from θ t to θ t+1 . Thus, this</span>
+        <span class="c"># is defined as:</span>
+        <span class="c">#     O&#39;(ω_1 | a_1 , (θ^t , θ^t+1 )) =</span>
+        <span class="c">#         (sum_{ω_2 ∈Ω&#39;} O(ω_1 , ω_2 | (a_1 , f (θ^t ))) )</span>
+        <span class="c">#         ----------------------------------------------</span>
+        <span class="c">#         (sum_{ω∈Ω} sum_{ω_2 ∈Ω&#39;} O(ω, ω_2 | (a_1 , f (θ^t ))))</span>
+        <span class="c"># ,</span>
+        <span class="c"># where Ω&#39; = {ω 2 | T (θ t , ω 2 ) = θ t+1 }</span>
+
+        <span class="c">#Initialize observation_probability table</span>
+        <span class="k">for</span> <span class="n">observation</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span><span class="p">[</span><span class="n">observation</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">observation1</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">theta_prime</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">):</span>
+            <span class="n">theta_t</span> <span class="o">=</span> <span class="n">theta_prime</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">theta_t_plus_one</span> <span class="o">=</span> <span class="n">theta_prime</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">lower</span> <span class="o">=</span> <span class="mi">0</span>
+
+            <span class="c"># (sum_{ω_2 ∈Ω} O(ω_1 , ω_2 | (a_1 , f (θ^t ))) )</span>
+
+            <span class="c"># Since it is O(ω_1 , ω_2 | (a_1 , f (θ^t ))) ), we will split it to o_1(ω_1 | a_1, f(θ^t )) x o_2(ω_2 | a_1, f(θ^t ))</span>
+            <span class="k">for</span> <span class="n">observation2</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">theta_t</span><span class="p">][</span><span class="n">observation2</span><span class="p">]</span> <span class="o">!=</span> <span class="n">theta_t_plus_one</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                <span class="n">obs2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gt</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">observation_marginal_distribution</span><span class="p">[</span><span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">_to_action_profile</span><span class="p">(</span><span class="n">theta_t</span><span class="p">,</span> <span class="n">action</span><span class="p">)][</span><span class="n">observation2</span><span class="p">]</span>
+                <span class="n">obs1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gt</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">observation_marginal_distribution</span><span class="p">[</span><span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">_to_action_profile</span><span class="p">(</span><span class="n">theta_t</span><span class="p">,</span> <span class="n">action</span><span class="p">)][</span><span class="n">observation1</span><span class="p">]</span>
+
+                <span class="n">upper</span> <span class="o">+=</span> <span class="n">obs2</span> <span class="o">*</span> <span class="n">obs1</span>
+
+            <span class="c"># (sum_{ω∈Ω} sum_{ω_2 ∈Ω&#39;} O(ω, ω_2 | (a_1 , f (θ^t ))))</span>
+            <span class="k">for</span> <span class="n">observation</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">observation2</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">theta_t</span><span class="p">][</span><span class="n">observation2</span><span class="p">]</span> <span class="o">!=</span> <span class="n">theta_t_plus_one</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">obs2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gt</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">observation_marginal_distribution</span><span class="p">[</span><span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">_to_action_profile</span><span class="p">(</span><span class="n">theta_t</span><span class="p">,</span> <span class="n">action</span><span class="p">)][</span><span class="n">observation2</span><span class="p">]</span>
+                    <span class="n">obs1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gt</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">observation_marginal_distribution</span><span class="p">[</span><span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">_to_action_profile</span><span class="p">(</span><span class="n">theta_t</span><span class="p">,</span> <span class="n">action</span><span class="p">)][</span><span class="n">observation</span><span class="p">]</span>
+                    <span class="n">lower</span> <span class="o">+=</span> <span class="n">obs2</span> <span class="o">*</span> <span class="n">obs1</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span><span class="p">[</span><span class="n">observation1</span><span class="p">][(</span><span class="n">action</span><span class="p">,</span> <span class="n">theta_prime</span><span class="p">)]</span> <span class="o">=</span> <span class="n">upper</span><span class="o">/</span><span class="n">lower</span>
+
+
+        <span class="c">#Finally, the expected payoff function, R&#39; (a_1 , (θ^t−1 , θ^t )), is</span>
+        <span class="c">#given as R(a_1 , θ^t ).</span>
+        <span class="k">for</span> <span class="n">action</span><span class="p">,</span> <span class="n">theta_prime</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">):</span>
+            <span class="n">theta_t</span> <span class="o">=</span> <span class="n">theta_prime</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">payoff</span><span class="p">[(</span><span class="n">action</span><span class="p">,</span> <span class="n">theta_prime</span><span class="p">)]</span> <span class="o">=</span> <span class="n">pseudo_pomdp_model</span><span class="o">.</span><span class="n">payoff</span><span class="p">[(</span><span class="n">action</span><span class="p">,</span> <span class="n">theta_t</span><span class="p">)]</span>
+
+</div>
+<div class="viewcode-block" id="POMDPModel.to_value_function"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.POMDPModel.to_value_function">[docs]</a>    <span class="k">def</span> <span class="nf">to_value_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">player1</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the value function for player1&#39;s pre-FSA.</span>
+
+<span class="sd">        See &quot;A Variance Analysis for POMDP Policy Evaluation&quot;, Fard, Pineau, and Sun, AAAI-2008 for a description of the translation procedure.</span>
+
+<span class="sd">        pomdp-solve expects each an action paired with each alpha vector, so we return a list of actions</span>
+<span class="sd">        corresponding to the respective alpha vector in V.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            player1 (Player): The player representing the policy graph / pre-FSA to generate the value function for.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            V, A:</span>
+<span class="sd">                V - the len(`S`) * len(`K`) dimensional vector that is the value function, where each row is an alpha vector corresponding to its respective state in the pre-FSA of player1.</span>
+<span class="sd">                A - the len(`S`) dimensional vector that lists the actions of each alpha vector in V.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">K</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">player1</span><span class="o">.</span><span class="n">state_machine</span><span class="o">.</span><span class="n">keys</span><span class="p">()],</span> <span class="n">ndmin</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">,</span> <span class="n">ndmin</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c">#set up matricies to use: V, R, T, O, and Π, and vectors a(k) and r^k.</span>
+
+        <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">S</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">K</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">K</span><span class="p">:</span>
+            <span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">player1</span><span class="o">.</span><span class="n">state_machine</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+
+        <span class="n">r</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">K</span><span class="p">:</span>
+            <span class="n">r</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">K</span><span class="p">:</span>
+            <span class="n">payoff</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">S</span><span class="p">:</span>
+                <span class="n">payoff</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">payoff</span><span class="p">[(</span><span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">s</span><span class="p">)]))</span>
+            <span class="n">r</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">payoff</span>
+
+        <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">r</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">K</span><span class="p">))</span>
+
+        <span class="n">T_a</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># maps action to state to state to real</span>
+
+        <span class="c"># self.state_transition.append((theta_t_plus_one, (theta_t, action), probability))</span>
+        <span class="c"># Rearrange self.state_transition so we can index by action.</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">theta_t_plus_one</span><span class="p">,</span> <span class="p">(</span><span class="n">theta_t</span><span class="p">,</span> <span class="n">action</span><span class="p">),</span> <span class="n">probability</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_transition</span><span class="p">:</span>
+            <span class="n">theta_t_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">theta_t</span><span class="p">)</span>
+            <span class="n">theta_t_plus_one_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">theta_t_plus_one</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">action</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">T_a</span><span class="p">:</span>
+                <span class="n">T_a</span><span class="p">[</span><span class="n">action</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">S</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">S</span><span class="p">)))</span>
+
+            <span class="n">T_a</span><span class="p">[</span><span class="n">action</span><span class="p">][</span><span class="n">theta_t_index</span><span class="p">][</span><span class="n">theta_t_plus_one_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">probability</span>
+
+        <span class="c">#We&#39;ll make the sub-matricies ot give to T. They are |K| x |K| blocks, with T_a(k) as the kth diagonal submatrix</span>
+        <span class="n">t_submatricies</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">K</span><span class="p">:</span>
+            <span class="n">t_submatricies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">T_a</span><span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">]])</span>
+
+        <span class="n">T</span> <span class="o">=</span> <span class="n">block_diag</span><span class="p">(</span><span class="o">*</span><span class="n">t_submatricies</span><span class="p">)</span>  <span class="c"># * black magic unpacks the t_submatricies list.</span>
+
+        <span class="c"># Make O_a(k) - the observation probability indexed by actions</span>
+        <span class="n">O_a</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">action</span> <span class="ow">in</span> <span class="n">A</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">action</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">O_a</span><span class="p">:</span>
+                <span class="n">O_a</span><span class="p">[</span><span class="n">action</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">)):</span>
+                    <span class="n">O_a</span><span class="p">[</span><span class="n">action</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">observation</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">):</span>
+                    <span class="n">O_a</span><span class="p">[</span><span class="n">action</span><span class="p">][</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span><span class="p">[</span><span class="n">observation</span><span class="p">][(</span><span class="n">action</span><span class="p">,</span> <span class="n">state</span><span class="p">)])</span>
+
+        <span class="c">#First, we build the sub-blocks of size |S| x |S| from the |Z| vectors from O_a(k)</span>
+        <span class="n">observation_subblocks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">K</span><span class="p">:</span>
+            <span class="n">action</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">):</span>
+                <span class="n">observation_subblocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block_diag</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">o</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">O_a</span><span class="p">[</span><span class="n">action</span><span class="p">][</span><span class="n">i</span><span class="p">]]))</span>
+
+        <span class="c"># now, we have |K| * |K| diagonal block matricies that are diagonal block matricies of the observation_subblocks</span>
+        <span class="n">O</span> <span class="o">=</span> <span class="n">block_diag</span><span class="p">(</span><span class="o">*</span><span class="n">observation_subblocks</span><span class="p">)</span>  <span class="c"># * black magic unpacks the observation_subblocks list.</span>
+
+        <span class="c"># Pi is made of sub-matricies Pi_{k1,k2}.</span>
+        <span class="c"># Each sub-matrix is made of |S| diagonal blocks (i.e. Pi_{k1,k2} is diagonal block matrix).</span>
+        <span class="c"># Each diagonal block is made of a vector |Z|.</span>
+        <span class="c"># The components of the vectors of size |Z| are 1 if k_2 is the next state of the FSA when the FSA is in k_1 and observes z. Otherwise 0.</span>
+
+        <span class="c"># We build the submatricies for all s in S from the sub-matrix [(Pi_{k1,k2})_s]_z</span>
+        <span class="n">pi_submatricies</span> <span class="o">=</span> <span class="p">{}</span>
+
+
+        <span class="k">for</span> <span class="n">k1</span><span class="p">,</span> <span class="n">state2</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+            <span class="n">pi_submatricies</span><span class="p">[</span><span class="n">k1</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">k2</span><span class="p">,</span> <span class="n">state3</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+                <span class="c">#pi_submatricies[k1][k2] selects a Pi_{k1,k2}</span>
+                <span class="n">subsubmatrix</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">S</span><span class="p">:</span>  <span class="c"># we don&#39;t use state here, because we&#39;re just collecting diagonal blocks.</span>
+                    <span class="c">#pi_submatricies[k1][k2][s] selects a diagonal block</span>
+                    <span class="n">diagonal_block</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">),</span> <span class="mi">1</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">observation</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">):</span>
+                        <span class="c"># z selects an element of pi_submatrices[k1][k2][s];pi_submatrices[k1][k2][s][z] is a real number.</span>
+                        <span class="n">diagonal_block</span><span class="p">[</span><span class="n">z</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">((</span><span class="mi">1</span> <span class="k">if</span> <span class="n">player1</span><span class="o">.</span><span class="n">state_transitions</span><span class="p">[</span><span class="n">state2</span><span class="p">][</span><span class="n">observation</span><span class="p">]</span> <span class="o">==</span> <span class="n">state3</span> <span class="k">else</span> <span class="mi">0</span><span class="p">))</span>
+                    <span class="n">subsubmatrix</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">diagonal_block</span><span class="p">)</span>
+                <span class="n">pi_submatricies</span><span class="p">[</span><span class="n">k1</span><span class="p">][</span><span class="n">k2</span><span class="p">]</span> <span class="o">=</span> <span class="n">block_diag</span><span class="p">(</span><span class="o">*</span><span class="n">subsubmatrix</span><span class="p">)</span>
+
+        <span class="c"># we need to build a list of the submatricies to pass to np.bmat, and need to do it in column major order</span>
+        <span class="n">pi</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">K</span><span class="p">)):</span>
+            <span class="n">sub_pi</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">k2</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">K</span><span class="p">)):</span>
+              <span class="n">sub_pi</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pi_submatricies</span><span class="p">[</span><span class="n">k2</span><span class="p">][</span><span class="n">k1</span><span class="p">])</span>
+            <span class="n">pi</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub_pi</span><span class="p">)</span>
+
+        <span class="n">Pi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bmat</span><span class="p">(</span><span class="n">pi</span><span class="p">)</span>
+
+        <span class="c"># V = (I−γTOΠ)^{−1}R</span>
+        <span class="n">temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">discount</span><span class="p">),</span> <span class="n">T</span><span class="p">)</span>  <span class="c"># multiply does scalar multiplication</span>
+        <span class="n">temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">temp</span><span class="p">,</span> <span class="n">O</span><span class="p">)</span>  <span class="c"># dot does matrix multiplication</span>
+        <span class="n">temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">temp</span><span class="p">,</span> <span class="n">Pi</span><span class="p">)</span>
+        <span class="n">temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">temp</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">temp</span><span class="p">)</span>  <span class="c"># we can use temp.shape[0], because it is square.</span>
+        <span class="n">temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">temp</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>
+
+
+
+        <span class="c">#we&#39;ll split V up into sublists based on |S|: every |S| elements in V belong to one list.</span>
+        <span class="n">temp</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="p">((</span><span class="n">V</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])):</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">z</span> <span class="o">&lt;</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">S</span><span class="p">)):</span>
+                <span class="n">t</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">V</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">z</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">temp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+
+
+        <span class="c"># for i in range(len(V[0])):</span>
+        <span class="c">#     t = []</span>
+        <span class="c">#     for s in range(len(S)):</span>
+        <span class="c">#         t.append(V[0][i])</span>
+        <span class="c">#     temp.append(t)</span>
+
+        <span class="n">V</span> <span class="o">=</span> <span class="n">temp</span>
+        <span class="n">ak</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">K</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">V</span><span class="p">,</span> <span class="n">ak</span>
+</div>
+<div class="viewcode-block" id="POMDPModel.value_function_to_Cassandra_format"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.POMDPModel.value_function_to_Cassandra_format">[docs]</a>    <span class="k">def</span> <span class="nf">value_function_to_Cassandra_format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">ak</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Takes a Value Function V and associated actions ak and outputs them in the Cassandra alpha file format.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            V: the value function - list of vectors ordered by ak</span>
+<span class="sd">            ak: the actions associated with each vector in V</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            str: The action/vector pairs formatted in Cassandra alpha file format.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ak</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span><span class="s">&quot;Lengths of V and ak must be equal.&quot;</span><span class="p">)</span>
+
+        <span class="n">s</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">action</span><span class="p">,</span> <span class="n">vector</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ak</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">action</span><span class="p">)))</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">vector</span><span class="p">]))</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="POMDPModel.to_Cassandra_format"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.POMDPModel.to_Cassandra_format">[docs]</a>    <span class="k">def</span> <span class="nf">to_Cassandra_format</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a string formatted in Cassandra file format.</span>
+
+<span class="sd">        This string may be directly output to a file (i.e. it contains all whitespace necessary)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: this POMDP formatted in Cassandra format.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;# TITLE: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;# Automatically generated by gt_to_pomdp script.&#39;</span><span class="p">)</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;discount: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">discount</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;values: reward&#39;</span><span class="p">)</span> <span class="c">#Right now, we&#39;ll hard code this, since the input from GT doesn&#39;t state whether we minimize or maximize</span>
+        <span class="n">state_string</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">:</span>
+            <span class="n">state_string</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_statetuple_to_Cassandra</span><span class="p">(</span><span class="n">state</span><span class="p">))</span>
+
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;states: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">state_string</span><span class="p">)))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;actions: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">)))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;observations: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">)))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;&#39;</span><span class="p">)</span>
+
+        <span class="c">#We don&#39;t have a start state from GT.</span>
+        <span class="c">#s.append(&#39;start: &#39;)</span>
+
+        <span class="c"># T: &lt;action&gt; : &lt;start-state&gt; : &lt;end-state&gt; %f</span>
+
+        <span class="k">for</span> <span class="n">theta_t_plusone</span><span class="p">,</span> <span class="p">(</span><span class="n">theta_t</span><span class="p">,</span> <span class="n">action</span><span class="p">),</span> <span class="n">probability</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_transition</span><span class="p">:</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;T: {} : {} : {} {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_statetuple_to_Cassandra</span><span class="p">(</span><span class="n">theta_t</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_statetuple_to_Cassandra</span><span class="p">(</span><span class="n">theta_t_plusone</span><span class="p">),</span> <span class="n">probability</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">observation</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">):</span>
+            <span class="c">#O: action : end-state : observation %f</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;O: {} : {} : {} {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_statetuple_to_Cassandra</span><span class="p">(</span><span class="n">state</span><span class="p">),</span> <span class="n">observation</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span><span class="p">[</span><span class="n">observation</span><span class="p">][(</span><span class="n">action</span><span class="p">,</span> <span class="n">state</span><span class="p">)]))</span>
+
+        <span class="k">for</span> <span class="n">action</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">payoff</span><span class="p">:</span>
+            <span class="n">state_string</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+            <span class="n">substate_string</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">substate</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
+                <span class="n">substate_string</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">substate</span><span class="p">))</span>
+            <span class="n">state_string</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">substate_string</span><span class="p">))</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;R: {} : {}: * : * {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="n">state_string</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">payoff</span><span class="p">[(</span><span class="n">action</span><span class="p">,</span> <span class="n">state</span><span class="p">)]))</span>
+
+        <span class="k">return</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">_statetuple_to_Cassandra</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Formats a POMDP tuple to a combined state that Cassandra format likes.</span>
+<span class="sd">        :param tuple:</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">state_string</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="n">substate_string</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">substate</span> <span class="ow">in</span> <span class="nb">tuple</span><span class="p">:</span>
+            <span class="n">substate_string</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">substate</span><span class="p">))</span>
+        <span class="n">state_string</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">substate_string</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">state_string</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;States: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Actions: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actions</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s">&#39;Observations: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observations</span><span class="p">)))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Observation probabilities: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">observation_probability</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;State Transition probabilities: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_transition</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Payoffs: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">payoff</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;Expected Payoff: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">))</span>
+        <span class="k">return</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</pre></div></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2015, Victor Szczepanski.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.6</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

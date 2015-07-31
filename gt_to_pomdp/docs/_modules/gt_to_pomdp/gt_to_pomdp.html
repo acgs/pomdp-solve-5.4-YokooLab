@@ -1,0 +1,180 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>gt_to_pomdp.gt_to_pomdp &mdash; GT to POMDP 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="GT to POMDP 1.0 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for gt_to_pomdp.gt_to_pomdp</h1><div class="highlight"><pre>
+<span class="c"># encoding: utf-8</span>
+<span class="sd">&quot;&quot;&quot;Generate a Cassandra POMDP and Value Function from a Shun Game Theory Model.</span>
+
+<span class="sd">This module defines the main entry point to the Game Theory to POMDP conversion program.</span>
+<span class="sd">It is built to be used from the command line, but can just as easily be imported by other software.</span>
+
+<span class="sd">.. seealso::</span>
+<span class="sd">    Module `GTModel`</span>
+<span class="sd">        The object that represents a Game Theory Model</span>
+<span class="sd">    Module `PseudoPOMDPModel`</span>
+<span class="sd">        The object that represents the intermediate POMDP model, converted from a GTModel.</span>
+<span class="sd">    Module `POMDPModel`</span>
+<span class="sd">        The object that represents the final POMDP model, converted from a PseudoPOMDPModel.</span>
+
+<span class="sd">Examples:</span>
+<span class="sd">    This software is not compatible with python 2, so all examples specify python3. Of course, if</span>
+<span class="sd">    python 3 is the only python on your system, then the command may be run with just python.</span>
+
+<span class="sd">    To have the conversion output to stdout, simply run this module with a Game Theory model::</span>
+<span class="sd">        $ python3 gt_to_pomdp.py example.dat</span>
+
+<span class="sd">    There are two optional command line arguments: -pomdpmodel and -verbose.</span>
+
+<span class="sd">    pomdpmodel specifies the output file name for the POMDP model</span>
+
+<span class="sd">        $ python3 gt_to_pomdp.py example.dat -pomdpmodel example_pomdp.POMDP</span>
+
+<span class="sd">    -verbose enables verbose output of intermediate conversions on stdout:</span>
+<span class="sd">        $ python3 gt_to_pomdp.py example.dat -verbose True</span>
+
+<span class="sd">    Of course, they may be combined to show intermediate conversions on stdout and output the POMDP to a file:</span>
+<span class="sd">        $ python3 gt_to_pomdp.py example.dat -pomdpmodel example_pomdp.POMDP -verbose True</span>
+
+<span class="sd">The output POMDP (either to stdout or to file) is in Cassandra format,</span>
+<span class="sd">so it may be passed directly to the pomdp-solve software, written by Cassandra.</span>
+
+<span class="sd">This software makes no guarantee of the correctness of the pomdp-solve program.</span>
+<span class="sd">The output of gt-to-pomdp is a valid pomdp-solve input as of 7/31/2015. Future versions of pomdp-solve may</span>
+<span class="sd">break this format.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">from</span> <span class="nn">gt_to_pomdp.models</span> <span class="kn">import</span> <span class="o">*</span>
+
+
+<div class="viewcode-block" id="main"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.gt_to_pomdp.html#gt_to_pomdp.gt_to_pomdp.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">inputfilename</span><span class="p">,</span> <span class="n">outputfilename</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Parse a Shun Game Theory Model.</span>
+
+<span class="sd">    ..seealso::</span>
+<span class="sd">        Class `GTModel`</span>
+<span class="sd">            The object that represents a Game Theory Model. Documentaion describes the Shun Game Theory format.</span>
+
+<span class="sd">    Parse a plaintext file `inputfilename` into a GTModel and convert it to a POMDP.</span>
+<span class="sd">    Show intermediate steps if `verbose` is true.</span>
+<span class="sd">    Output POMDP to `outputfilename`.</span>
+
+<span class="sd">    :param inputfilename (str): the path (may be relative) to a Shun formatted Game Theory file.</span>
+<span class="sd">    :param outputfilename (Optional[str]): the path (may be relative) to output the POMDP to.</span>
+<span class="sd">    :param verbose (bool): whether to output intermediate conversions to stdout.</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">gt</span> <span class="o">=</span> <span class="n">GTModel</span><span class="p">(</span><span class="n">inputfilename</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">gt</span><span class="p">)</span>
+    <span class="n">ppomdp</span> <span class="o">=</span> <span class="n">PseudoPOMDPModel</span><span class="p">(</span><span class="n">gt</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&quot;PseudoPOMDP&quot;</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">ppomdp</span><span class="p">)</span>
+    <span class="n">pomdp</span> <span class="o">=</span> <span class="n">POMDPModel</span><span class="p">(</span><span class="n">ppomdp</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&quot;POMDP&quot;</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">pomdp</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">pomdp</span><span class="o">.</span><span class="n">to_Cassandra_format</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">outputfilename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">outputfilename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">pomdp</span><span class="o">.</span><span class="n">to_Cassandra_format</span><span class="p">())</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">pomdp</span><span class="o">.</span><span class="n">to_Cassandra_format</span><span class="p">())</span>
+
+    <span class="c"># We use capitals here as it is the convention of the POMDP literature.</span>
+    <span class="n">V</span><span class="p">,</span> <span class="n">A</span> <span class="o">=</span> <span class="n">pomdp</span><span class="o">.</span><span class="n">to_value_function</span><span class="p">(</span><span class="n">pomdp</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">pomdp</span><span class="o">.</span><span class="n">value_function_to_Cassandra_format</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">A</span><span class="p">))</span>
+
+</div>
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s">&#39;Parses a Game Theory model and converts it to a POMDP model.&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;gtmodel&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;The input file name for the Game Theory model.&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;-pomdpmodel&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;The output file name for the POMDP model.&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;-verbose&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;Verbosity of output. If true, will output in verbose mode.&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">verbose</span><span class="p">)</span>
+    <span class="n">main</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">gtmodel</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">pomdpmodel</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">verbose</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2015, Victor Szczepanski.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.6</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
