@@ -576,10 +576,22 @@ class GTModel(object):
 
 
 class PseudoPOMDPModel(object):
-    """
-    Describe a PseudoPOMDP model, as defined in Automated Equilibrium Analysis of Repeated Games with
-    Private Monitoring: A POMDP Approach by YongJoon Joe.
+    """Describe a PseudoPOMDP model.
 
+    A PseudoPOMDPModel is the intermediate POMDP described in Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach by YongJoon Joe.
+    Provides a method to convert from a GTModel.
+
+    Args:
+        gt_model (Optional[GTModel]): A Game Theory model to convert from.
+    Attributes:
+        title (str): the title of this PseudoPOMDPModel.
+        discount (float): the discount factor
+        gt (GTModel): the GTModel this PseudoPOMDPModel was converted from.
+        states (List[STATE]): the states of other players
+        actions (List[ACTION]): the actions of player 1
+        observations (List[str]): the observations of player 1
+        observation_probability (Dict[tuple[ACTION,STATE], Dict[str, float]): mapping from an action/state tuple to an observation to a probability. Represents the probability of an observation given an action/state.
+        state_transition (Dict[STATE], Dict[ACTION, Dict[STATE, float]]]): mapping from a state θ^t to an action to a state θ^t+1 to a probability. Represents the conditional probability of transitioning to state θ^t+1 given θ^t and an action.
     """
 
     def __init__(self, gt_model=None):
@@ -612,15 +624,21 @@ class PseudoPOMDPModel(object):
 
     @property
     def V(self):
+        """
+        The expected payoff of player 1 in this pseudoPOMDPModel.
+        """
         if len(self._V) == 0:
             self._V = self._calculate_expected_payoff()
         return self._V
 
     def from_gt(self, gt_model):
-        """
-        Translates a GTModel into this PseudoPOMDPModel. Sets all of this model's attributes.
-        :param gt_model: the GTModel to translate from.
-        :return:
+        """Translates a GTModel into this PseudoPOMDPModel.
+
+        Sets all of this model's attributes.
+        Follows the procedure described in Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach by YongJoon Joe.
+
+        Args:
+            gt_model (GTModel): the GTModel to translate from.
         """
         self.title = gt_model.title
         self.discount = gt_model.discount
@@ -716,13 +734,17 @@ class PseudoPOMDPModel(object):
     def _calculate_expected_payoff(self):
         """
         Computes the expected payoff function V_{θ_1,θ_2} for player 1
-        # V_{θ_1,θ_2} = g_1 ((f(θ_1 ), f(θ_2))) +
-        # δ * Sum_{ω_1, ω_2 in } (o((ω_1, ω_2 ) | (f(θ_1 ), f(θ_2 ))) · V_{T(θ_1, ω_1 ),T(θ_2, ω_2 )} .
+
+        In particular, computes the following function::
+            V_{θ_1,θ_2} = g_1 ((f(θ_1 ), f(θ_2))) +
+            δ * Sum_{ω_1, ω_2 in } (o((ω_1, ω_2 ) | (f(θ_1 ), f(θ_2 ))) · V_{T(θ_1, ω_1 ),T(θ_2, ω_2 )} .
+
         While this function can be computed by the GTModel, we'll just do it here,
         since it is more relevant to the PseudoPOMDP and POMDP models.
-
-        This function uses the numpy linalg package to solve the system of linear equations.
-        :return V_{θ_1,θ_2}: a dictionary with keys (θ_1,θ_2) (i.e. state pair) that maps to a real value.
+        Note:
+            This function uses the numpy linalg package to solve the system of linear equations.
+        Returns:
+            Dict[tuple(STATE,STATE), float]: a dictionary with keys (θ_1,θ_2) (i.e. state pair) that maps to a real value.
         """
         #equations will become our matrix of coefficients
         equations = {}
@@ -777,9 +799,19 @@ class PseudoPOMDPModel(object):
 
         return V
 
-
-
     def _to_action_profile(self, state, action):
+        """Returns the action profile for taking action `action` in state `state`.
+
+        In particular, this function finds f(`state`) for all other players (i.e. the action to take in state `state`) and returns a tuple of those actions appended to `action`.
+        This is used to look up things like the payoff or observation probability.
+
+        Args:
+            state (STATE): a state to look up the best action for
+            action (ACTION): the action of player 1 - just used as a convenience when building the full action profile. Not actually needed to compute f(`state`) for other players.
+
+        Returns:
+            tuple[ACTION, ACTION, ...]: A tuple of actions, where the first action is `action` and the remaining are f(`state`) for each other player in this PseudoPOMDPModel.
+        """
         action_profile = [action]
         for i in range(len(state)):
             other_action = self.players[i+1].state_machine[state[i]]
@@ -792,19 +824,8 @@ class PseudoPOMDPModel(object):
 
     def __str__(self):
         """
-        self.states = set()  # A set of states of other players (player 2 in a 2 player game)
-        self.actions = set()  # A set of actions for player 1
-        self.observations = set()  # A set of observations/signals of player 1.
-        # Note that this is an observation of the entire world - that is, the joint observations of all other players.
-
-
-        self.observation_probability = []  # A function that maps an observation given an action/state tuple to a probability
-        self.state_transition = []  # A function that represents the conditional probability that the next state
-        # is θ^t+1 when the current state is θ^t and the action of player 1 is a_1
-        self.payoff = []  # A function that maps an action/state tuple to a real value.
-        :return:
         """
-        s = []
+        s = list()
         s.append('States: {}'.format(self.states))
         s.append('Actions: {}'.format(self.actions))
         s.append(('Observations: {}'.format(self.observations)))
@@ -814,6 +835,27 @@ class PseudoPOMDPModel(object):
         return '\n'.join(s)
 
 class POMDPModel(object):
+    """
+    Describe a Partially Observable Markov Decision Process Model.
+
+    This object encapsulates a POMDP Model and provides some functions to convert from a PseudoPOMDP and output itself in Cassandra format.
+
+    Args:
+        pseudo_pomdp_model (Optional[PseudoPOMDPModel]): if not None, constructs this POMDPModel by converting from `pseudo_pomdp_model`.
+
+    Attributes:
+        title (str): The title of this POMDPModel
+        discount (float): The discount factor
+        gt (GTModel): A reference to a GTModel - used to get at things like the joint distribution table.
+        states (List[tuple[STATE]]): A list of sets of states of the other player.
+        actions (List[ACTION]): List of actions for player 1
+        observations (List[str]): List of observations of player 1. Note that this is an observation of the entire world - that is, the joint observations of all other players.
+        observation_probability (Dict[tuple[ACTION,STATE], Dict[str,float]): Mapping from action/state tuple to mapping from observation to float.
+        state_transition (List[tuple[STATE,STATE,ACTION,float]]): List of tuples (θ^t, θ^t+1, a_1, probability) that represents the probability that the next state is θ^t+1 when the current state is θ^t and the action is a_1.
+        payoff (Dict[tuple[ACTION,STATE], float]): Mapping from action/state tuple to a payoff real value. Represents the immediate payoff of taking an action in a state.
+        players (List[Player]): The players in this POMDP - usually this is just two players: player 1 and a joint player of all other players.
+        V : The Expected Payoff for player 1, assuming other players use the same FSA as player 1.
+    """
 
     def __init__(self, pseudo_pomdp_model=None):
         self.title = ''
@@ -836,6 +878,14 @@ class POMDPModel(object):
             self.from_pseudo_pomdp(pseudo_pomdp_model)
 
     def from_pseudo_pomdp(self, pseudo_pomdp_model):
+        """Converts `pseudo_pomdp_model` into this `POMDPModel`.
+
+        Follows the procedure in Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach by YongJoon Joe.
+
+        Args:
+            pseudo_pomdp_model (PseudoPOMDPModel): The PseudoPOMDPModel to convert from.
+
+        """
         self.title = pseudo_pomdp_model.title
         self.discount = pseudo_pomdp_model.discount
         self.gt = pseudo_pomdp_model.gt
@@ -959,9 +1009,7 @@ class POMDPModel(object):
         S = self.states
         A = np.array(self.actions, ndmin=1)
 
-        #set up matricies to use: V, R, T, O, and Π, and vectors a(k) and r^k.
-
-        V = np.zeros((len(S), len(K)), dtype=np.float)
+        # set up matricies to use: V, R, T, O, and Π, and vectors a(k) and r^k.
 
         a = {}
         for k in K:
@@ -1060,27 +1108,18 @@ class POMDPModel(object):
         temp = np.linalg.inv(temp)
         V = np.dot(temp, R)
 
-
-
-        #we'll split V up into sublists based on |S|: every |S| elements in V belong to one list.
+        # we'll split V up into sublists based on |S|: every |S| elements in V belong to one list.
         temp = []
 
         i = 0
-        while i < ((V.shape[1])):
+        while i < V.shape[1]:
             t = []
             z = 0
             while z < (len(S)):
-                t.append(V[0,i])
+                t.append(V[0, i])
                 i += 1
                 z += 1
             temp.append(t)
-
-
-        # for i in range(len(V[0])):
-        #     t = []
-        #     for s in range(len(S)):
-        #         t.append(V[0][i])
-        #     temp.append(t)
 
         V = temp
         ak = [a[k] for k in K]
@@ -1104,7 +1143,6 @@ class POMDPModel(object):
             s.append('')
         return '\n'.join(s)
 
-
     def to_Cassandra_format(self):
         """Returns a string formatted in Cassandra file format.
 
@@ -1113,7 +1151,7 @@ class POMDPModel(object):
         Returns:
             str: this POMDP formatted in Cassandra format.
         """
-        s = []
+        s = list()
         s.append('# TITLE: {}'.format(self.title))
         s.append('# Automatically generated by gt_to_pomdp script.')
         s.append('discount: {}'.format(self.discount))
@@ -1149,21 +1187,21 @@ class POMDPModel(object):
 
         return '\n'.join(s)
 
-    def _statetuple_to_Cassandra(self, tuple):
+    def _statetuple_to_Cassandra(self, t):
+        """Formats a POMDP tuple to a combined state that Cassandra format likes.
+        Args:
+            t (tuple[STATE]): a tuple of STATEs that should be combined (concatenated)
+        Returns:
+            str: The concatenation of STATEs in `t`
         """
-        Formats a POMDP tuple to a combined state that Cassandra format likes.
-        :param tuple:
-        :return:
-        """
-        state_string = ''
         substate_string = []
-        for substate in tuple:
+        for substate in t:
             substate_string.append(''.join(substate))
         state_string = (''.join(substate_string))
         return state_string
 
     def __str__(self):
-        s = []
+        s = list()
         s.append('States: {}'.format(self.states))
         s.append('Actions: {}'.format(self.actions))
         s.append(('Observations: {}'.format(self.observations)))
