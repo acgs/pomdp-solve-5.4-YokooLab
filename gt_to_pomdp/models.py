@@ -218,14 +218,24 @@ class Player(object):
 
     @staticmethod
     def from_lines(lines):
-        """Parse a Player configuration from a set of strings and return a Player.
+        """Parse a `Player` configuration from a set of strings and return a `Player`.
 
         .. seealso::
             Class :gt_to_pomdp:models:GTModel
                 Describes the full Shun format for an input Game Theory model.
                 The description of an Automaton is contained in this format.
 
-        Parse an automaton description in Shun format and create a new Player from it.
+        Parse an automaton description in Shun format and create a new `Player` from it.
+
+        Some expressions may be given multiple times -
+        e.g. the same STATE ACTION pair may be given multiple times.
+        The parser will only use the last one, if an overwriting would occur.
+        So, if R, P are states, g is an observation, and there are two lines::
+
+            R g R
+            R g P
+
+        The parser will only use R g P.
 
         Note:
             The automaton description itself does not provide the `payoff` information - this should be filled in by
@@ -297,25 +307,41 @@ class GTModel(object):
     A Game Theory Model consists of a discount rate, a set of variables for substitution, a set of automaton (players),
     a set of signal distributions for every action profile, and a payoff function for every action profile.
 
-    A GTModel can be parsed from a ``Shun Game Theory Model``. The format of the input file is as follows::
+    A GTModel can be parsed from a ``Shun Game Theory Model``. The format of the input file can be given as a regular expression as follows::
 
-        Title :
-        Discount Rate : FLOAT
-        Variables :
-        Players :
+        Title[ ]*:[ ]*[a-z|A-Z|0-9|' '|\\t]*[\\n]
+        Discount Rate[ ]*:[ ]*FLOAT[\\n]
+        Variables[ ]*:[ ]*([a-z|A-Z|0-9]+'='FLOAT)*[\\n]
+        Players[ ]*:[ ]*([a-z|A-Z|0-9]+' ')+[\\n]
+        [\\n]
+        (
+        Automaton[ ]+[a-z|A-Z|0-9]+[\\n]
+        States[ ]*:[ ]*([a-z|A-z]+' ')+[\\n]
+        Actions[ ]*:[ ]*([a-z|A-z]+' ')+[\\n]
+        Signals[ ]*:[ ]*([a-z|A-z]+' ')+[\\n]
+        (STATE ACTION[\\n])+
+        (STATE SIGNAL STATE[\\n])+
+        ){Players} # number of players
+        [\\n]
+        Signal Distribution[\\n]
+        (
+        ACTION{players}[ ]*:[ ]*(FLOAT[ ]){Product_{p in players} (p.signals)}[\\n] # Product of number of signals of each player.
+        ){Product_{p in players} (p.actions)} #Product of number of actions for each player.
+        [\\n]
+        Payoff Matrix[\\n]
+        (
+        ACTION{players} : (FLOAT[ ]){Players}[\\n] # number of players
+        ){Product_{p in players} (p.actions)} #Product of number of actions for each player.
 
-        Automaton
-        States:
-        Actions :
-        Signals :
-        STATE ACTION
-        STATE SIGNAL STATE
+    Note that newlines in the regex are explicitly listed above. Some expressions may be given multiple times -
+    e.g. in the Automaton description, the same STATE ACTION pair may be given multiple times.
+    The parser will only use the last one, if an overwriting would occur. So, if R, P are states, g is an observation,
+    and there are two lines::
 
-        Signal Distribution
-        ACTION,ACTION :
+        R g R
+        R g P
 
-        Payoff Matrix
-        ACTION,ACTION :
+    The parser will only use R g P.
 
     Args:
         filename (str): The path to a Shun Game Theory Model file to parse.
@@ -363,10 +389,12 @@ class GTModel(object):
 
     @staticmethod
     def from_file(filename):
-        """
+        """Parse a `Shun Game Theory Model`` and build a new `GTModel` from it.
 
-        :param filename:
-        :return:
+        Returns:
+            GTModel : The result of parsing the Game Theory file.
+        Raises:
+            SyntaxError : If the input file at `filename` has a syntax error.
         """
         model = GTModel()
 
@@ -387,11 +415,9 @@ class GTModel(object):
         #   end -> end #absorbs all additional input
 
         #We'll just use integers for faster comparison, so each state is a number 1,2,3,4,5,6,7, or 8.
-
-
         state = 1
 
-        #player_lines collects lines to pass to the player constructor
+        # player_lines collects lines to pass to the player constructor
         player_lines = []
         signal_lines = []
         payoff_lines = []
@@ -827,7 +853,7 @@ class PseudoPOMDPModel(object):
 
         return V
 
-    def _to_action_profile(self, state, action) -> tuple:
+    def _to_action_profile(self, state: str, action: str) -> tuple:
         """Returns the action profile for taking action `action` in state `state`.
 
         In particular, this function finds f(`state`) for all other players (i.e. the action to take in state `state`) and returns a tuple of those actions appended to `action`.
@@ -849,8 +875,6 @@ class PseudoPOMDPModel(object):
         return action_profile
 
     def __str__(self):
-        """
-        """
         s = list()
         s.append('States: {}'.format(self.states))
         s.append('Actions: {}'.format(self.actions))
@@ -884,7 +908,7 @@ class POMDPModel(object):
         V : The Expected Payoff for player 1, assuming other players use the same FSA as player 1.
     """
 
-    def __init__(self, pseudo_pomdp_model=None):
+    def __init__(self, pseudo_pomdp_model: PseudoPOMDPModel=None):
         self.title = ''
         self.discount = 0.0
         self.gt = None
@@ -904,7 +928,7 @@ class POMDPModel(object):
         if pseudo_pomdp_model is not None:
             self.from_pseudo_pomdp(pseudo_pomdp_model)
 
-    def from_pseudo_pomdp(self, pseudo_pomdp_model):
+    def from_pseudo_pomdp(self, pseudo_pomdp_model: PseudoPOMDPModel):
         """Converts `pseudo_pomdp_model` into this `POMDPModel`.
 
         Follows the procedure in "Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach" by YongJoon Joe.
@@ -1220,7 +1244,7 @@ class POMDPModel(object):
         Pi = np.bmat(pi)
         return Pi
 
-    def value_function_to_Cassandra_format(self, V, ak):
+    def value_function_to_Cassandra_format(self, V: list, ak: list) -> str:
         """Takes a Value Function V and associated actions ak and outputs them in the Cassandra alpha file format.
 
         pomdp-solve expects an alpha file format as::
@@ -1238,8 +1262,8 @@ class POMDPModel(object):
         The return string may be directly output to a file.
 
         Args:
-            V: the value function - list of vectors ordered by ak
-            ak: the actions associated with each vector in V
+            V (list[list[float]]): the value function - list of vectors ordered by ak
+            ak (list[str]): the actions associated with each vector in V
         Returns:
             str: The action/vector pairs formatted in Cassandra alpha file format.
         """
@@ -1253,7 +1277,7 @@ class POMDPModel(object):
             s.append('')
         return '\n'.join(s)
 
-    def to_Cassandra_format(self):
+    def to_Cassandra_format(self)-> str:
         """Returns a string formatted in Cassandra file format.
 
         This string may be directly output to a file (i.e. it contains all whitespace necessary)
@@ -1300,7 +1324,7 @@ class POMDPModel(object):
         return '\n'.join(s)
 
     @staticmethod
-    def _statetuple_to_Cassandra(t):
+    def _statetuple_to_Cassandra(t: tuple)-> str:
         """Formats a POMDP tuple to a combined state that Cassandra format likes.
         Args:
             t (tuple[STATE]): a tuple of STATEs that should be combined (concatenated)

@@ -49,26 +49,41 @@
 <p>Represent a Game Theory Model.</p>
 <p>A Game Theory Model consists of a discount rate, a set of variables for substitution, a set of automaton (players),
 a set of signal distributions for every action profile, and a payoff function for every action profile.</p>
-<p>A GTModel can be parsed from a <code class="docutils literal"><span class="pre">Shun</span> <span class="pre">Game</span> <span class="pre">Theory</span> <span class="pre">Model</span></code>. The format of the input file is as follows:</p>
-<div class="highlight-python"><div class="highlight"><pre>Title :
-Discount Rate : FLOAT
-Variables :
-Players :
-
-Automaton
-States:
-Actions :
-Signals :
-STATE ACTION
-STATE SIGNAL STATE
-
-Signal Distribution
-ACTION,ACTION :
-
-Payoff Matrix
-ACTION,ACTION :
+<p>A GTModel can be parsed from a <code class="docutils literal"><span class="pre">Shun</span> <span class="pre">Game</span> <span class="pre">Theory</span> <span class="pre">Model</span></code>. The format of the input file can be given as a regular expression as follows:</p>
+<div class="highlight-python"><div class="highlight"><pre>Title[ ]*:[ ]*[a-z|A-Z|0-9|&#39; &#39;|\t]*[\n]
+Discount Rate[ ]*:[ ]*FLOAT[\n]
+Variables[ ]*:[ ]*([a-z|A-Z|0-9]+&#39;=&#39;FLOAT)*[\n]
+Players[ ]*:[ ]*([a-z|A-Z|0-9]+&#39; &#39;)+[\n]
+[\n]
+(
+Automaton[ ]+[a-z|A-Z|0-9]+[\n]
+States[ ]*:[ ]*([a-z|A-z]+&#39; &#39;)+[\n]
+Actions[ ]*:[ ]*([a-z|A-z]+&#39; &#39;)+[\n]
+Signals[ ]*:[ ]*([a-z|A-z]+&#39; &#39;)+[\n]
+(STATE ACTION[\n])+
+(STATE SIGNAL STATE[\n])+
+){Players} # number of players
+[\n]
+Signal Distribution[\n]
+(
+ACTION{players}[ ]*:[ ]*(FLOAT[ ]){Product_{p in players} (p.signals)}[\n] # Product of number of signals of each player.
+){Product_{p in players} (p.actions)} #Product of number of actions for each player.
+[\n]
+Payoff Matrix[\n]
+(
+ACTION{players} : (FLOAT[ ]){Players}[\n] # number of players
+){Product_{p in players} (p.actions)} #Product of number of actions for each player.
 </pre></div>
 </div>
+<p>Note that newlines in the regex are explicitly listed above. Some expressions may be given multiple times -
+e.g. in the Automaton description, the same STATE ACTION pair may be given multiple times.
+The parser will only use the last one, if an overwriting would occur. So, if R, P are states, g is an observation,
+and there are two lines:</p>
+<div class="highlight-python"><div class="highlight"><pre>R g R
+R g P
+</pre></div>
+</div>
+<p>The parser will only use R g P.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -92,13 +107,16 @@ ACTION,ACTION :
 <dl class="staticmethod">
 <dt id="gt_to_pomdp.models.GTModel.from_file">
 <em class="property">static </em><code class="descname">from_file</code><span class="sig-paren">(</span><em>filename</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#GTModel.from_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.GTModel.from_file" title="Permalink to this definition">¶</a></dt>
-<dd><table class="docutils field-list" frame="void" rules="none">
+<dd><p>Parse a <cite>Shun Game Theory Model`</cite> and build a new <cite>GTModel</cite> from it.</p>
+<table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>filename</strong> &#8211; </td>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><em>GTModel</em> &#8211;
+The result of parsing the Game Theory file.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><code class="xref py py-exc docutils literal"><span class="pre">SyntaxError</span></code> &#8211;
+If the input file at <cite>filename</cite> has a syntax error.</td>
 </tr>
 </tbody>
 </table>
@@ -286,7 +304,7 @@ and there are len(<cite>action tuple</cite>) == len(<cite>players</cite>) dimens
 <dl class="staticmethod">
 <dt id="gt_to_pomdp.models.Player.from_lines">
 <em class="property">static </em><code class="descname">from_lines</code><span class="sig-paren">(</span><em>lines</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#Player.from_lines"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.Player.from_lines" title="Permalink to this definition">¶</a></dt>
-<dd><p>Parse a Player configuration from a set of strings and return a Player.</p>
+<dd><p>Parse a <cite>Player</cite> configuration from a set of strings and return a <cite>Player</cite>.</p>
 <div class="admonition seealso">
 <p class="first admonition-title">See also</p>
 <dl class="last docutils">
@@ -295,7 +313,16 @@ and there are len(<cite>action tuple</cite>) == len(<cite>players</cite>) dimens
 The description of an Automaton is contained in this format.</dd>
 </dl>
 </div>
-<p>Parse an automaton description in Shun format and create a new Player from it.</p>
+<p>Parse an automaton description in Shun format and create a new <cite>Player</cite> from it.</p>
+<p>Some expressions may be given multiple times -
+e.g. the same STATE ACTION pair may be given multiple times.
+The parser will only use the last one, if an overwriting would occur.
+So, if R, P are states, g is an observation, and there are two lines:</p>
+<div class="highlight-python"><div class="highlight"><pre>R g R
+R g P
+</pre></div>
+</div>
+<p>The parser will only use R g P.</p>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
 <p class="last">The automaton description itself does not provide the <cite>payoff</cite> information - this should be filled in by

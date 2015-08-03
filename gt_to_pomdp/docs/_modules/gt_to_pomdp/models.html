@@ -258,14 +258,24 @@
 </div>
     <span class="nd">@staticmethod</span>
 <div class="viewcode-block" id="Player.from_lines"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.Player.from_lines">[docs]</a>    <span class="k">def</span> <span class="nf">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Parse a Player configuration from a set of strings and return a Player.</span>
+        <span class="sd">&quot;&quot;&quot;Parse a `Player` configuration from a set of strings and return a `Player`.</span>
 
 <span class="sd">        .. seealso::</span>
 <span class="sd">            Class :gt_to_pomdp:models:GTModel</span>
 <span class="sd">                Describes the full Shun format for an input Game Theory model.</span>
 <span class="sd">                The description of an Automaton is contained in this format.</span>
 
-<span class="sd">        Parse an automaton description in Shun format and create a new Player from it.</span>
+<span class="sd">        Parse an automaton description in Shun format and create a new `Player` from it.</span>
+
+<span class="sd">        Some expressions may be given multiple times -</span>
+<span class="sd">        e.g. the same STATE ACTION pair may be given multiple times.</span>
+<span class="sd">        The parser will only use the last one, if an overwriting would occur.</span>
+<span class="sd">        So, if R, P are states, g is an observation, and there are two lines::</span>
+
+<span class="sd">            R g R</span>
+<span class="sd">            R g P</span>
+
+<span class="sd">        The parser will only use R g P.</span>
 
 <span class="sd">        Note:</span>
 <span class="sd">            The automaton description itself does not provide the `payoff` information - this should be filled in by</span>
@@ -337,25 +347,41 @@
 <span class="sd">    A Game Theory Model consists of a discount rate, a set of variables for substitution, a set of automaton (players),</span>
 <span class="sd">    a set of signal distributions for every action profile, and a payoff function for every action profile.</span>
 
-<span class="sd">    A GTModel can be parsed from a ``Shun Game Theory Model``. The format of the input file is as follows::</span>
+<span class="sd">    A GTModel can be parsed from a ``Shun Game Theory Model``. The format of the input file can be given as a regular expression as follows::</span>
 
-<span class="sd">        Title :</span>
-<span class="sd">        Discount Rate : FLOAT</span>
-<span class="sd">        Variables :</span>
-<span class="sd">        Players :</span>
+<span class="sd">        Title[ ]*:[ ]*[a-z|A-Z|0-9|&#39; &#39;|\\t]*[\\n]</span>
+<span class="sd">        Discount Rate[ ]*:[ ]*FLOAT[\\n]</span>
+<span class="sd">        Variables[ ]*:[ ]*([a-z|A-Z|0-9]+&#39;=&#39;FLOAT)*[\\n]</span>
+<span class="sd">        Players[ ]*:[ ]*([a-z|A-Z|0-9]+&#39; &#39;)+[\\n]</span>
+<span class="sd">        [\\n]</span>
+<span class="sd">        (</span>
+<span class="sd">        Automaton[ ]+[a-z|A-Z|0-9]+[\\n]</span>
+<span class="sd">        States[ ]*:[ ]*([a-z|A-z]+&#39; &#39;)+[\\n]</span>
+<span class="sd">        Actions[ ]*:[ ]*([a-z|A-z]+&#39; &#39;)+[\\n]</span>
+<span class="sd">        Signals[ ]*:[ ]*([a-z|A-z]+&#39; &#39;)+[\\n]</span>
+<span class="sd">        (STATE ACTION[\\n])+</span>
+<span class="sd">        (STATE SIGNAL STATE[\\n])+</span>
+<span class="sd">        ){Players} # number of players</span>
+<span class="sd">        [\\n]</span>
+<span class="sd">        Signal Distribution[\\n]</span>
+<span class="sd">        (</span>
+<span class="sd">        ACTION{players}[ ]*:[ ]*(FLOAT[ ]){Product_{p in players} (p.signals)}[\\n] # Product of number of signals of each player.</span>
+<span class="sd">        ){Product_{p in players} (p.actions)} #Product of number of actions for each player.</span>
+<span class="sd">        [\\n]</span>
+<span class="sd">        Payoff Matrix[\\n]</span>
+<span class="sd">        (</span>
+<span class="sd">        ACTION{players} : (FLOAT[ ]){Players}[\\n] # number of players</span>
+<span class="sd">        ){Product_{p in players} (p.actions)} #Product of number of actions for each player.</span>
 
-<span class="sd">        Automaton</span>
-<span class="sd">        States:</span>
-<span class="sd">        Actions :</span>
-<span class="sd">        Signals :</span>
-<span class="sd">        STATE ACTION</span>
-<span class="sd">        STATE SIGNAL STATE</span>
+<span class="sd">    Note that newlines in the regex are explicitly listed above. Some expressions may be given multiple times -</span>
+<span class="sd">    e.g. in the Automaton description, the same STATE ACTION pair may be given multiple times.</span>
+<span class="sd">    The parser will only use the last one, if an overwriting would occur. So, if R, P are states, g is an observation,</span>
+<span class="sd">    and there are two lines::</span>
 
-<span class="sd">        Signal Distribution</span>
-<span class="sd">        ACTION,ACTION :</span>
+<span class="sd">        R g R</span>
+<span class="sd">        R g P</span>
 
-<span class="sd">        Payoff Matrix</span>
-<span class="sd">        ACTION,ACTION :</span>
+<span class="sd">    The parser will only use R g P.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        filename (str): The path to a Shun Game Theory Model file to parse.</span>
@@ -403,10 +429,12 @@
 
     <span class="nd">@staticmethod</span>
 <div class="viewcode-block" id="GTModel.from_file"><a class="viewcode-back" href="../../rsts/gt_to_pomdp.models.html#gt_to_pomdp.models.GTModel.from_file">[docs]</a>    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Parse a `Shun Game Theory Model`` and build a new `GTModel` from it.</span>
 
-<span class="sd">        :param filename:</span>
-<span class="sd">        :return:</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            GTModel : The result of parsing the Game Theory file.</span>
+<span class="sd">        Raises:</span>
+<span class="sd">            SyntaxError : If the input file at `filename` has a syntax error.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">model</span> <span class="o">=</span> <span class="n">GTModel</span><span class="p">()</span>
 
