@@ -55,10 +55,11 @@ def main(inputfilename, outputfilename=None, verbose=False):
     Show intermediate steps if `verbose` is true.
     Output POMDP to `outputfilename`.
 
-    :param inputfilename (str): the path (may be relative) to a Shun formatted Game Theory file.
-    :param outputfilename (Optional[str]): the path (may be relative) to output the POMDP to.
-    :param verbose (bool): whether to output intermediate conversions to stdout.
-    :return:
+    Args:
+        inputfilename (str): the path (may be relative) to a Shun formatted Game Theory file.
+        outputfilename (Optional[str]): the path (may be relative) to output the POMDP to.
+        verbose (bool): whether to output intermediate conversions to stdout.
+
     """
     gt = GTModel(inputfilename)
     if verbose:
@@ -87,7 +88,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parses a Game Theory model and converts it to a POMDP model.')
     parser.add_argument('gtmodel', type=str, help='The input file name for the Game Theory model.')
     parser.add_argument('-pomdpmodel', type=str, help='The output file name for the POMDP model.', default=None)
-    parser.add_argument('-verbose', type=bool, help='Verbosity of output. If true, will output in verbose mode.', default=False)
+    parser.add_argument('-verbose', type=bool, help='Verbosity of output.'
+                                                    ' If true, will output in verbose mode.', default=False)
 
     args = parser.parse_args()
     print(args.verbose)

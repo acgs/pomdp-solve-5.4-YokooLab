@@ -110,10 +110,46 @@ ACTION,ACTION :
 <dt id="gt_to_pomdp.models.POMDPModel">
 <em class="property">class </em><code class="descclassname">gt_to_pomdp.models.</code><code class="descname">POMDPModel</code><span class="sig-paren">(</span><em>pseudo_pomdp_model=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#POMDPModel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.POMDPModel" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/library/functions.html#object" title="(in Python v2.7)"><code class="xref py py-class docutils literal"><span class="pre">object</span></code></a></p>
+<p>Describe a Partially Observable Markov Decision Process Model.</p>
+<p>This object encapsulates a POMDP Model and provides some functions to convert from a PseudoPOMDP and output itself in Cassandra format.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>pseudo_pomdp_model</strong> (<em>Optional[PseudoPOMDPModel]</em>) &#8211; if not None, constructs this POMDPModel by converting from <cite>pseudo_pomdp_model</cite>.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Variables:</th><td class="field-body"><ul class="first last simple">
+<li><strong>title</strong> (<a class="reference external" href="https://docs.python.org/library/functions.html#str" title="(in Python v2.7)"><em>str</em></a>) &#8211; The title of this POMDPModel</li>
+<li><strong>discount</strong> (<a class="reference external" href="https://docs.python.org/library/functions.html#float" title="(in Python v2.7)"><em>float</em></a>) &#8211; The discount factor</li>
+<li><strong>gt</strong> (<a class="reference internal" href="#gt_to_pomdp.models.GTModel" title="gt_to_pomdp.models.GTModel"><em>GTModel</em></a>) &#8211; A reference to a GTModel - used to get at things like the joint distribution table.</li>
+<li><strong>states</strong> (<em>List[tuple[STATE]]</em>) &#8211; A list of sets of states of the other player.</li>
+<li><strong>actions</strong> (<em>List[ACTION]</em>) &#8211; List of actions for player 1</li>
+<li><strong>observations</strong> (<em>List[str]</em>) &#8211; List of observations of player 1. Note that this is an observation of the entire world - that is, the joint observations of all other players.</li>
+<li><strong>observation_probability</strong> (<em>Dict[tuple[ACTION,STATE], Dict[str,float]</em>) &#8211; Mapping from action/state tuple to mapping from observation to float.</li>
+<li><strong>state_transition</strong> (<em>List[tuple[STATE,STATE,ACTION,float]]</em>) &#8211; List of tuples (θ^t, θ^t+1, a_1, probability) that represents the probability that the next state is θ^t+1 when the current state is θ^t and the action is a_1.</li>
+<li><strong>payoff</strong> (<em>Dict[tuple[ACTION,STATE], float]</em>) &#8211; Mapping from action/state tuple to a payoff real value. Represents the immediate payoff of taking an action in a state.</li>
+<li><strong>players</strong> (<em>List[Player]</em>) &#8211; The players in this POMDP - usually this is just two players: player 1 and a joint player of all other players.</li>
+<li><a class="reference internal" href="#gt_to_pomdp.models.PseudoPOMDPModel.V" title="gt_to_pomdp.models.PseudoPOMDPModel.V"><strong>V</strong></a> &#8211; The Expected Payoff for player 1, assuming other players use the same FSA as player 1.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 <dl class="method">
 <dt id="gt_to_pomdp.models.POMDPModel.from_pseudo_pomdp">
 <code class="descname">from_pseudo_pomdp</code><span class="sig-paren">(</span><em>pseudo_pomdp_model</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#POMDPModel.from_pseudo_pomdp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.POMDPModel.from_pseudo_pomdp" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Converts <cite>pseudo_pomdp_model</cite> into this <cite>POMDPModel</cite>.</p>
+<p>Follows the procedure in &#8220;Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach&#8221; by YongJoon Joe.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>pseudo_pomdp_model</strong> (<a class="reference internal" href="#gt_to_pomdp.models.PseudoPOMDPModel" title="gt_to_pomdp.models.PseudoPOMDPModel"><em>PseudoPOMDPModel</em></a>) &#8211; The PseudoPOMDPModel to convert from.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="method">
 <dt id="gt_to_pomdp.models.POMDPModel.to_Cassandra_format">
@@ -133,19 +169,19 @@ this POMDP formatted in Cassandra format.</td>
 
 <dl class="method">
 <dt id="gt_to_pomdp.models.POMDPModel.to_value_function">
-<code class="descname">to_value_function</code><span class="sig-paren">(</span><em>player1</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#POMDPModel.to_value_function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.POMDPModel.to_value_function" title="Permalink to this definition">¶</a></dt>
+<code class="descname">to_value_function</code><span class="sig-paren">(</span><em>player1: gt_to_pomdp.models.Player</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#POMDPModel.to_value_function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.POMDPModel.to_value_function" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the value function for player1&#8217;s pre-FSA.</p>
 <p>See &#8220;A Variance Analysis for POMDP Policy Evaluation&#8221;, Fard, Pineau, and Sun, AAAI-2008 for a description of the translation procedure.</p>
 <p>pomdp-solve expects each an action paired with each alpha vector, so we return a list of actions
-corresponding to the respective alpha vector in V.</p>
+corresponding to the respective alpha vector in <cite>V</cite>.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>player1</strong> (<a class="reference internal" href="#gt_to_pomdp.models.Player" title="gt_to_pomdp.models.Player"><em>Player</em></a>) &#8211; The player representing the policy graph / pre-FSA to generate the value function for.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><em>V, A</em> &#8211;<p>V - the len(<cite>S</cite>) * len(<cite>K</cite>) dimensional vector that is the value function, where each row is an alpha vector corresponding to its respective state in the pre-FSA of player1.
-A - the len(<cite>S</cite>) dimensional vector that lists the actions of each alpha vector in V.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><em>V, A</em> &#8211;<p>V - the len(<cite>S</cite>) * len(<cite>K</cite>) dimensional vector that is the value function, where each row is an alpha vector corresponding to its respective state in the pre-FSA of <cite>player1</cite>.</p>
+<p>A - the len(<cite>S</cite>) dimensional vector that lists the actions of each alpha vector in <cite>V</cite>.</p>
 </td>
 </tr>
 </tbody>
@@ -155,15 +191,32 @@ A - the len(<cite>S</cite>) dimensional vector that lists the actions of each al
 <dl class="method">
 <dt id="gt_to_pomdp.models.POMDPModel.value_function_to_Cassandra_format">
 <code class="descname">value_function_to_Cassandra_format</code><span class="sig-paren">(</span><em>V</em>, <em>ak</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#POMDPModel.value_function_to_Cassandra_format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.POMDPModel.value_function_to_Cassandra_format" title="Permalink to this definition">¶</a></dt>
-<dd><p>Takes a Value Function V and associated actions ak and outputs them in the Cassandra alpha file format.
-:param V: the value function - list of vectors ordered by ak
-:param ak: the actions associated with each vector in V</p>
+<dd><p>Takes a Value Function V and associated actions ak and outputs them in the Cassandra alpha file format.</p>
+<p>pomdp-solve expects an alpha file format as:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">action_number</span>
+<span class="n">alpha</span><span class="o">-</span><span class="n">vector_coefficients</span>
+
+<span class="n">action_number</span>
+<span class="n">alpha</span><span class="o">-</span><span class="n">vector_coefficients</span>
+
+<span class="o">...</span>
+</pre></div>
+</div>
+<p>So, we look up the index of each action in ak and prepend that to each vector.
+The return string may be directly output to a file.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><em>str</em> &#8211;
-The action/vector pairs formatted in Cassandra alpha file format.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>V</strong> &#8211; the value function - list of vectors ordered by ak</li>
+<li><strong>ak</strong> &#8211; the actions associated with each vector in V</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><em>str</em> &#8211;
+The action/vector pairs formatted in Cassandra alpha file format.</p>
+</td>
 </tr>
 </tbody>
 </table>
@@ -192,13 +245,13 @@ It should be filled in by something else that knows about its (marginal) payoff,
 </tr>
 <tr class="field-even field"><th class="field-name">Variables:</th><td class="field-body"><ul class="first last simple">
 <li><strong>name</strong> (<a class="reference external" href="https://docs.python.org/library/functions.html#str" title="(in Python v2.7)"><em>str</em></a>) &#8211; name of the Player</li>
-<li><strong>states</strong> (<em>List[State]</em>) &#8211; ordered sequence of states</li>
-<li><strong>actions</strong> (<em>List[Action]</em>) &#8211; ordered sequence of actions</li>
-<li><strong>signals</strong> (<em>List[Signal]</em>) &#8211; ordered sequence of signals</li>
-<li><strong>state_machine</strong> (<em>Dict[State, Action]</em>) &#8211; mapping from states to actions - this specifies the action to take in a state</li>
-<li><strong>state_transitions</strong> (<em>Dict[State, Dict[Signal, State]]</em>) &#8211; mapping from states to signals to states - this specifies the transitions (edges) of the pre-FSA.</li>
-<li><strong>observation_marginal_distribtuion</strong> (<em>Dict[Tuple[Action], Dict[Signal, Decimal]]</em>) &#8211; mapping from sets of actions to observations to probabilities - this specifies the marginal distribution for this player&#8217;s observation probability, given an action profile.</li>
-<li><strong>payoff</strong> (<em>Dict[Tuple[Action], Decimal]</em>) &#8211; mapping from sets of actions to a payoff - this is the immediate reward for this player given an action profile.</li>
+<li><strong>states</strong> (List[<cite>STATE</cite>] | List[tuple]) &#8211; ordered sequence of states (or set of states, in a joint-player)</li>
+<li><strong>actions</strong> (List[<cite>ACTION</cite>]) &#8211; ordered sequence of actions</li>
+<li><strong>signals</strong> (List[<cite>SIGNAL</cite>]) &#8211; ordered sequence of signals</li>
+<li><strong>state_machine</strong> (Dict[<cite>STATE</cite>, <cite>ACTION</cite>]) &#8211; mapping from states to actions - this specifies the action to take in a state</li>
+<li><strong>state_transitions</strong> (Dict[<cite>STATE</cite>, Dict[<cite>SIGNAL</cite>, <cite>STATE</cite>]]) &#8211; mapping from states to signals to states - this specifies the transitions (edges) of the pre-FSA.</li>
+<li><strong>observation_marginal_distribtuion</strong> (Dict[Tuple[<cite>ACTION</cite>], Dict[<cite>SIGNAL</cite>, Decimal]]) &#8211; mapping from sets of actions to observations to probabilities - this specifies the marginal distribution for this player&#8217;s observation probability, given an action profile.</li>
+<li><strong>payoff</strong> (Dict[Tuple[<cite>ACTION</cite>], Decimal]) &#8211; mapping from sets of actions to a payoff - this is the immediate reward for this player given an action profile.</li>
 </ul>
 </td>
 </tr>
@@ -206,7 +259,7 @@ It should be filled in by something else that knows about its (marginal) payoff,
 </table>
 <dl class="method">
 <dt id="gt_to_pomdp.models.Player.build_marginal_distribution">
-<code class="descname">build_marginal_distribution</code><span class="sig-paren">(</span><em>joint_distribution</em>, <em>my_dimension</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#Player.build_marginal_distribution"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.Player.build_marginal_distribution" title="Permalink to this definition">¶</a></dt>
+<code class="descname">build_marginal_distribution</code><span class="sig-paren">(</span><em>joint_distribution</em>, <em>my_dimension: int</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#Player.build_marginal_distribution"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.Player.build_marginal_distribution" title="Permalink to this definition">¶</a></dt>
 <dd><p>Using a observation joint distribution table of probabilities, construct the marginal distribution for this player.
 Set this player&#8217;s <cite>observation_marginal_distribution</cite></p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -214,14 +267,14 @@ Set this player&#8217;s <cite>observation_marginal_distribution</cite></p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>joint_distribution</strong> (<em>Dict[tuple[Action], list[list[float], list[float], ... , list[float]]]</em>) &#8211; <dl class="docutils">
+<li><strong>joint_distribution</strong> (Dict[tuple[<cite>ACTION</cite>], list[list[float]]]) &#8211; <dl class="docutils">
 <dt>The joint distribution (n-dimensional matrix, where the number of players is n)</dt>
 <dd>of observation probabilities for all players.
 Maps an action tuple to a matrix where the length of each row is len(<cite>self.signals</cite>)
 and there are len(<cite>action tuple</cite>) == len(<cite>players</cite>) dimensions.</dd>
 </dl>
 </li>
-<li><strong>action_profiles</strong> (<em>tuple[Action]</em>) &#8211; The set of action profiles to consider.</li>
+<li><strong>action_profiles</strong> (tuple[<cite>ACTION</cite>]) &#8211; The set of action profiles to consider.</li>
 <li><strong>my_dimension</strong> (<a class="reference external" href="https://docs.python.org/library/functions.html#int" title="(in Python v2.7)"><em>int</em></a>) &#8211; The dimension to consider the marginal distribution for - for player 1, this is 0 (the first dimension). For player n, this is n-1 (the last dimension)</li>
 </ul>
 </td>
@@ -269,7 +322,7 @@ If some line in <cite>lines</cite> is not formatted correctly.</td>
 <code class="descname">join</code><span class="sig-paren">(</span><em>other_player=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#Player.join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.Player.join" title="Permalink to this definition">¶</a></dt>
 <dd><p>Join this player&#8217;s FSA with another player&#8217;s FSA.</p>
 <p>Create a joint pre-FSA from this player and <cite>other_player</cite>.
-If <cite>other_player</cite> is None, returns this Player.</p>
+If <cite>other_player</cite> is None, returns this <cite>Player</cite>.</p>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
 <p class="last">This function is not idempotent - calling it with the same player as <cite>other_player</cite> will create a new joint player.</p>
@@ -281,7 +334,7 @@ If <cite>other_player</cite> is None, returns this Player.</p>
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>other_player</strong> (<a class="reference internal" href="#gt_to_pomdp.models.Player" title="gt_to_pomdp.models.Player"><em>Player</em></a>) &#8211; The Player to join with this Player.</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><em>Player</em> &#8211;
-The Player representing the joint pre-FSA of this Player and <cite>other_player</cite>.</td>
+The <cite>Player</cite> representing the joint pre-FSA of this <cite>Player</cite> and <cite>other_player</cite>.</td>
 </tr>
 </tbody>
 </table>
@@ -293,33 +346,76 @@ The Player representing the joint pre-FSA of this Player and <cite>other_player<
 <dt id="gt_to_pomdp.models.PseudoPOMDPModel">
 <em class="property">class </em><code class="descclassname">gt_to_pomdp.models.</code><code class="descname">PseudoPOMDPModel</code><span class="sig-paren">(</span><em>gt_model=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#PseudoPOMDPModel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.PseudoPOMDPModel" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/library/functions.html#object" title="(in Python v2.7)"><code class="xref py py-class docutils literal"><span class="pre">object</span></code></a></p>
-<p>Describe a PseudoPOMDP model, as defined in Automated Equilibrium Analysis of Repeated Games with
-Private Monitoring: A POMDP Approach by YongJoon Joe.</p>
+<p>Describe a PseudoPOMDP model.</p>
+<p>A PseudoPOMDPModel is the intermediate POMDP described in &#8220;Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach&#8221; by YongJoon Joe.
+Provides a method to convert from a GTModel.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>gt_model</strong> (<em>Optional[GTModel]</em>) &#8211; A Game Theory model to convert from.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Variables:</th><td class="field-body"><ul class="first last simple">
+<li><strong>title</strong> (<a class="reference external" href="https://docs.python.org/library/functions.html#str" title="(in Python v2.7)"><em>str</em></a>) &#8211; the title of this PseudoPOMDPModel.</li>
+<li><strong>discount</strong> (<a class="reference external" href="https://docs.python.org/library/functions.html#float" title="(in Python v2.7)"><em>float</em></a>) &#8211; the discount factor</li>
+<li><strong>gt</strong> (<a class="reference internal" href="#gt_to_pomdp.models.GTModel" title="gt_to_pomdp.models.GTModel"><em>GTModel</em></a>) &#8211; the GTModel this PseudoPOMDPModel was converted from.</li>
+<li><strong>states</strong> (<em>List[STATE]</em>) &#8211; the states of other players</li>
+<li><strong>actions</strong> (<em>List[ACTION]</em>) &#8211; the actions of player 1</li>
+<li><strong>observations</strong> (<em>List[str]</em>) &#8211; the observations of player 1</li>
+<li><strong>observation_probability</strong> (<em>Dict[tuple[ACTION,STATE], Dict[str, float]</em>) &#8211; mapping from an action/state tuple to an observation to a probability. Represents the probability of an observation given an action/state.</li>
+<li><strong>state_transition</strong> (<em>Dict[STATE], Dict[ACTION, Dict[STATE, float]]]</em>) &#8211; mapping from a state θ^t to an action to a state θ^t+1 to a probability. Represents the conditional probability of transitioning to state θ^t+1 given θ^t and an action.</li>
+<li><strong>payoff</strong> (<em>Dict[tuple[ACTION,STATE], float</em>) &#8211; mapping from an action/state tuple to a payoff (real number). Represents the immediate payoff of taking ACTION in STATE.</li>
+<li><strong>players</strong> (<em>List[Player]</em>) &#8211; list of Players in the PseudoPOMDPModel - this structure is just used to help translate from GTModel.</li>
+<li><strong>signal_distribution</strong> (<em>Dict[tuple(Action), List[List[float]]</em>) &#8211; Dictionary that maps a tuple of actions (action profile) to an N dimensional matrix (list of lists) where N is the number of players, and each dimension is length s, where s is the number of signals (observations) that player can have.</li>
+<li><strong>player1</strong> (<a class="reference internal" href="#gt_to_pomdp.models.Player" title="gt_to_pomdp.models.Player"><em>Player</em></a>) &#8211; the Player to consider as the agent in a POMDP. Other players get joined into a joint Player.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 <dl class="attribute">
 <dt id="gt_to_pomdp.models.PseudoPOMDPModel.V">
 <code class="descname">V</code><a class="headerlink" href="#gt_to_pomdp.models.PseudoPOMDPModel.V" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>dict[tuple[STATE,STATE], float]: The expected payoff of player 1 in this pseudoPOMDPModel.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Access to V assumes this PseudoPOMDPModel has been properly built
+- it makes use of most of this PseudoPOMDPModel&#8217;s attributes.
+Accessing V prior to building this PseudoPOMDPModel may
+result in undefined behaviour (including Exceptions).</p>
+</div>
+<p>This is only calculated once, on the first access to V. Repeated accesses will just return the &#8216;cached&#8217; calculation.
+V is calculated as:</p>
+<div class="highlight-python"><div class="highlight"><pre>V_{θ_1,θ_2} = g_1 ((f(θ_1), f(θ_2))) +
+δ * Sum_{ω_1, ω_2 in Ω} (o((ω_1, ω_2) | (f(θ_1), f(θ_2))) ·
+V_{T(θ_1, ω_1),T(θ_2, ω_2)}
+</pre></div>
+</div>
+<p>Where f(STATE) is the action to take in STATE,
+o((ω_1, ω_2 ) | (f(θ_1), f(θ_2)) is the joint probability distribution for observation pair (ω_1, ω_2) given an action tuple,
+and T(θ_1, ω_1) is the state transition function given observation ω_1 and current state θ_1.</p>
+</dd></dl>
 
 <dl class="method">
 <dt id="gt_to_pomdp.models.PseudoPOMDPModel.__str__">
 <code class="descname">__str__</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#PseudoPOMDPModel.__str__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.PseudoPOMDPModel.__str__" title="Permalink to this definition">¶</a></dt>
-<dd><p>self.states = set()  # A set of states of other players (player 2 in a 2 player game)
-self.actions = set()  # A set of actions for player 1
-self.observations = set()  # A set of observations/signals of player 1.
-# Note that this is an observation of the entire world - that is, the joint observations of all other players.</p>
-<p>self.observation_probability = []  # A function that maps an observation given an action/state tuple to a probability
-self.state_transition = []  # A function that represents the conditional probability that the next state
-# is θ^t+1 when the current state is θ^t and the action of player 1 is a_1
-self.payoff = []  # A function that maps an action/state tuple to a real value.
-:return:</p>
-</dd></dl>
+<dd></dd></dl>
 
 <dl class="method">
 <dt id="gt_to_pomdp.models.PseudoPOMDPModel.from_gt">
 <code class="descname">from_gt</code><span class="sig-paren">(</span><em>gt_model</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gt_to_pomdp/models.html#PseudoPOMDPModel.from_gt"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#gt_to_pomdp.models.PseudoPOMDPModel.from_gt" title="Permalink to this definition">¶</a></dt>
-<dd><p>Translates a GTModel into this PseudoPOMDPModel. Sets all of this model&#8217;s attributes.
-:param gt_model: the GTModel to translate from.
-:return:</p>
+<dd><p>Translates a GTModel into this PseudoPOMDPModel.</p>
+<p>Sets all of this model&#8217;s attributes.
+Follows the procedure described in &#8220;Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach&#8221; by YongJoon Joe.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>gt_model</strong> (<a class="reference internal" href="#gt_to_pomdp.models.GTModel" title="gt_to_pomdp.models.GTModel"><em>GTModel</em></a>) &#8211; the GTModel to translate from.</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 </dd></dl>

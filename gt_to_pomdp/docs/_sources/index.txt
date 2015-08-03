@@ -9,7 +9,7 @@ Welcome to GT to POMDP's documentation!
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
 
 rsts/gt_to_pomdp
 rsts/gt_to_pomdp.models

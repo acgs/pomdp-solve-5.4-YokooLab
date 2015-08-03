@@ -22,9 +22,9 @@ from gt_to_pomdp.utils import *
 
 
 # Just convenient names to make it more clear, mainly in documentation
-State = str
-Signal = str
-Action = str
+STATE = str
+SIGNAL = str
+ACTION = str
 
 
 class Player(object):
@@ -43,19 +43,19 @@ class Player(object):
     Attributes:
         name (str): name of the Player
 
-        states (List[State]): ordered sequence of states
+        states (List[`STATE`] | List[tuple]): ordered sequence of states (or set of states, in a joint-player)
 
-        actions (List[Action]): ordered sequence of actions
+        actions (List[`ACTION`]): ordered sequence of actions
 
-        signals (List[Signal]): ordered sequence of signals
+        signals (List[`SIGNAL`]): ordered sequence of signals
 
-        state_machine (Dict[State, Action]): mapping from states to actions - this specifies the action to take in a state
+        state_machine (Dict[`STATE`, `ACTION`]): mapping from states to actions - this specifies the action to take in a state
 
-        state_transitions (Dict[State, Dict[Signal, State]]): mapping from states to signals to states - this specifies the transitions (edges) of the pre-FSA.
+        state_transitions (Dict[`STATE`, Dict[`SIGNAL`, `STATE`]]): mapping from states to signals to states - this specifies the transitions (edges) of the pre-FSA.
 
-        observation_marginal_distribtuion (Dict[Tuple[Action], Dict[Signal, Decimal]]): mapping from sets of actions to observations to probabilities - this specifies the marginal distribution for this player's observation probability, given an action profile.
+        observation_marginal_distribtuion (Dict[Tuple[`ACTION`], Dict[`SIGNAL`, Decimal]]): mapping from sets of actions to observations to probabilities - this specifies the marginal distribution for this player's observation probability, given an action profile.
 
-        payoff (Dict[Tuple[Action], Decimal]): mapping from sets of actions to a payoff - this is the immediate reward for this player given an action profile.
+        payoff (Dict[Tuple[`ACTION`], Decimal]): mapping from sets of actions to a payoff - this is the immediate reward for this player given an action profile.
     """
 
     def __init__(self, lines=None):
@@ -79,18 +79,18 @@ class Player(object):
 
             # something else needs to fill in our observation_marginal_distribution, since we need the joint distribution.
 
-    def build_marginal_distribution(self, joint_distribution, my_dimension):
+    def build_marginal_distribution(self, joint_distribution, my_dimension: int):
         """Using a observation joint distribution table of probabilities, construct the marginal distribution for this player.
         Set this player's `observation_marginal_distribution`
 
         Args:
-            joint_distribution (Dict[tuple[Action], list[list[float], list[float], ... , list[float]]]):
+            joint_distribution (Dict[tuple[`ACTION`], list[list[float]]]):
                 The joint distribution (n-dimensional matrix, where the number of players is n)
                  of observation probabilities for all players.
                  Maps an action tuple to a matrix where the length of each row is len(`self.signals`)
                  and there are len(`action tuple`) == len(`players`) dimensions.
 
-            action_profiles (tuple[Action]): The set of action profiles to consider.
+            action_profiles (tuple[`ACTION`]): The set of action profiles to consider.
             my_dimension (int): The dimension to consider the marginal distribution for - for player 1, this is 0 (the first dimension). For player n, this is n-1 (the last dimension)
         """
         self.observation_marginal_distribution = {}
@@ -123,14 +123,14 @@ class Player(object):
         """Join this player's FSA with another player's FSA.
 
         Create a joint pre-FSA from this player and `other_player`.
-        If `other_player` is None, returns this Player.
+        If `other_player` is None, returns this `Player`.
 
         Note:
             This function is not idempotent - calling it with the same player as `other_player` will create a new joint player.
         Args:
             other_player (Player): The Player to join with this Player.
         Returns:
-            Player: The Player representing the joint pre-FSA of this Player and `other_player`.
+            Player: The `Player` representing the joint pre-FSA of this `Player` and `other_player`.
         """
         if other_player is None:
             return self
@@ -578,7 +578,7 @@ class GTModel(object):
 class PseudoPOMDPModel(object):
     """Describe a PseudoPOMDP model.
 
-    A PseudoPOMDPModel is the intermediate POMDP described in Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach by YongJoon Joe.
+    A PseudoPOMDPModel is the intermediate POMDP described in "Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach" by YongJoon Joe.
     Provides a method to convert from a GTModel.
 
     Args:
@@ -592,6 +592,10 @@ class PseudoPOMDPModel(object):
         observations (List[str]): the observations of player 1
         observation_probability (Dict[tuple[ACTION,STATE], Dict[str, float]): mapping from an action/state tuple to an observation to a probability. Represents the probability of an observation given an action/state.
         state_transition (Dict[STATE], Dict[ACTION, Dict[STATE, float]]]): mapping from a state θ^t to an action to a state θ^t+1 to a probability. Represents the conditional probability of transitioning to state θ^t+1 given θ^t and an action.
+        payoff (Dict[tuple[ACTION,STATE], float): mapping from an action/state tuple to a payoff (real number). Represents the immediate payoff of taking ACTION in STATE.
+        players (List[Player]): list of Players in the PseudoPOMDPModel - this structure is just used to help translate from GTModel.
+        signal_distribution (Dict[tuple(Action), List[List[float]]): Dictionary that maps a tuple of actions (action profile) to an N dimensional matrix (list of lists) where N is the number of players, and each dimension is length s, where s is the number of signals (observations) that player can have.
+        player1 (Player): the Player to consider as the agent in a POMDP. Other players get joined into a joint Player.
     """
 
     def __init__(self, gt_model=None):
@@ -603,29 +607,45 @@ class PseudoPOMDPModel(object):
         self.observations = []  # A set of observations/signals of player 1.
         # Note that this is an observation of the entire world - that is, the joint observations of all other players.
 
-
         self.observation_probability = {}  # A function that maps an observation given an action/state tuple to a probability
         self.state_transition = {}  # A function that represents the conditional probability that the next state
         # is θ^t+1 when the current state is θ^t and the action of player 1 is a_1
         self.payoff = {}  # A function that maps an action/state tuple to a real value.
 
-        #Additional data to help translation
+        # Additional data to help translation
         self.players = []
-        self.signal_distribution = []
+        self.signal_distribution = {}
         self.player1 = None
 
         self._V = {}  # The expected discounted payoff for player 1. Maps a state pair (θ_1, θ_2) to a real value.
         # Calculated as:
         # V_{θ_1,θ_2} = g_1 ((f(θ_1 ), f(θ_2))) +
-        # δ * Sum_{ω_1, ω_2 in } (o((ω_1, ω_2 ) | (f(θ_1 ), f(θ_2 ))) · V_{T(θ_1, ω_1 ),T(θ_2, ω_2 )} .
+        # δ * Sum_{ω_1, ω_2 in Ω} (o((ω_1, ω_2 ) | (f(θ_1 ), f(θ_2 ))) · V_{T(θ_1, ω_1 ),T(θ_2, ω_2 )} .
 
         if gt_model is not None:
             self.from_gt(gt_model)
 
     @property
     def V(self):
-        """
-        The expected payoff of player 1 in this pseudoPOMDPModel.
+        """dict[tuple[STATE,STATE], float]: The expected payoff of player 1 in this pseudoPOMDPModel.
+
+        Note:
+            Access to V assumes this PseudoPOMDPModel has been properly built
+            - it makes use of most of this PseudoPOMDPModel's attributes.
+            Accessing V prior to building this PseudoPOMDPModel may
+            result in undefined behaviour (including Exceptions).
+
+        This is only calculated once, on the first access to V. Repeated accesses will just return the 'cached' calculation.
+        V is calculated as::
+
+            V_{θ_1,θ_2} = g_1 ((f(θ_1), f(θ_2))) +
+            δ * Sum_{ω_1, ω_2 in Ω} (o((ω_1, ω_2) | (f(θ_1), f(θ_2))) ·
+            V_{T(θ_1, ω_1),T(θ_2, ω_2)}
+
+        Where f(STATE) is the action to take in STATE,
+        o((ω_1, ω_2 ) | (f(θ_1), f(θ_2)) is the joint probability distribution for observation pair (ω_1, ω_2) given an action tuple,
+        and T(θ_1, ω_1) is the state transition function given observation ω_1 and current state θ_1.
+
         """
         if len(self._V) == 0:
             self._V = self._calculate_expected_payoff()
@@ -635,12 +655,13 @@ class PseudoPOMDPModel(object):
         """Translates a GTModel into this PseudoPOMDPModel.
 
         Sets all of this model's attributes.
-        Follows the procedure described in Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach by YongJoon Joe.
+        Follows the procedure described in "Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach" by YongJoon Joe.
 
         Args:
             gt_model (GTModel): the GTModel to translate from.
         """
         self.title = gt_model.title
+        """:type : str"""
         self.discount = gt_model.discount
         self.gt = gt_model
         # states are the cartesian product of all states in gt_model of players except player 1
@@ -649,33 +670,37 @@ class PseudoPOMDPModel(object):
         self.signal_distribution = gt_model.signal_distribution
 
         player1 = gt_model.players[0]
+        """:type : Player"""
         self.player1 = player1
+        """:type : Player"""
 
         #We need to build a joint-FSA from all other players
         opponent = gt_model.players[1]
+        """:type : Player"""
         for player in gt_model.players:
             if player is not player1 and player is not gt_model.players[1]:
                 opponent = opponent.join(player)
 
         #Θ is a set of states of player 2
         self.states = opponent.states
+        """:type : list[tuple]"""
 
         # self.states is a list of tuples (maybe of length 1)
         # actions are the set of actions of player 1. Again, if all players use FSA M, we can pick any player.
         self.actions = player1.actions
+        """:type : list[str]"""
 
         # observations are the set of observations of player 1.
         self.observations = player1.signals
+        """:type : list[str]"""
 
         # Observation probability maps an observation given an action/state tuple to a probability
         # Then there are |observations| x |actions| x |states| many entries
 
         self.observation_probability = {}
+        """:type : dict[str, dict[str, dict[str, float]]]"""
         action_state_tuples = [(action_state[0], action_state[1]) for action_state in itertools.product(self.actions, self.states)]
-
-        #Note that each action_state_tuple in action_state_tuples is a tuple (maybe of length 1)
-
-        observation_profiles = [observation_profile for observation_profile in itertools.product(self.observations, repeat=len(gt_model.players))]
+        """:type : list[tuple[str, str]]"""
 
         for action in self.actions:
             self.observation_probability[action] = {}
@@ -686,6 +711,7 @@ class PseudoPOMDPModel(object):
 
             # we'll loop over each state to find the action profile (a_1, a_2, ...)
             action_profile = self._to_action_profile(state, action)
+            """:type : tuple[str]"""
 
             for observation in self.observations: #gets the combinations of observations possible.
                 # O(ω_1 | a_1 , θ^t ) = o_1 (ω_1 | (a_1 , f (θ^t ))).
@@ -731,7 +757,7 @@ class PseudoPOMDPModel(object):
 
             self.payoff[(action, state)] = payoff
 
-    def _calculate_expected_payoff(self):
+    def _calculate_expected_payoff(self) -> dict:
         """
         Computes the expected payoff function V_{θ_1,θ_2} for player 1
 
@@ -765,8 +791,10 @@ class PseudoPOMDPModel(object):
             for observation1, observation2 in itertools.product(self.observations, repeat=2):
                 coefficients_dict[(self.player1.state_transitions[theta1][observation1],
                                   self.player1.state_transitions[theta2][observation2])] +=\
-                float(self.discount * \
-                self.signal_distribution[(f_theta1, f_theta2)][self.observations.index(observation1)][self.observations.index(observation2)])
+                    float(self.discount *
+                          self.signal_distribution[(f_theta1, f_theta2)][self.observations.index(observation1)]
+                          [self.observations.index(observation2)]
+                          )
 
             #We need to subtract 1 from the coefficient corresponding to V_{θ_1,θ_2}
             coefficients_dict[(theta1, theta2)] -= 1
@@ -799,7 +827,7 @@ class PseudoPOMDPModel(object):
 
         return V
 
-    def _to_action_profile(self, state, action):
+    def _to_action_profile(self, state, action) -> tuple:
         """Returns the action profile for taking action `action` in state `state`.
 
         In particular, this function finds f(`state`) for all other players (i.e. the action to take in state `state`) and returns a tuple of those actions appended to `action`.
@@ -820,8 +848,6 @@ class PseudoPOMDPModel(object):
 
         return action_profile
 
-
-
     def __str__(self):
         """
         """
@@ -833,6 +859,7 @@ class PseudoPOMDPModel(object):
         s.append('State Transition probabilities: {}'.format(self.state_transition))
         s.append('Payoffs: {}'.format(self.payoff))
         return '\n'.join(s)
+
 
 class POMDPModel(object):
     """
@@ -880,7 +907,7 @@ class POMDPModel(object):
     def from_pseudo_pomdp(self, pseudo_pomdp_model):
         """Converts `pseudo_pomdp_model` into this `POMDPModel`.
 
-        Follows the procedure in Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach by YongJoon Joe.
+        Follows the procedure in "Automated Equilibrium Analysis of Repeated Games with Private Monitoring: A POMDP Approach" by YongJoon Joe.
 
         Args:
             pseudo_pomdp_model (PseudoPOMDPModel): The PseudoPOMDPModel to convert from.
@@ -988,34 +1015,39 @@ class POMDPModel(object):
             theta_t = theta_prime[1]
             self.payoff[(action, theta_prime)] = pseudo_pomdp_model.payoff[(action, theta_t)]
 
-
-    def to_value_function(self, player1):
+    def to_value_function(self, player1: Player):
         """Return the value function for player1's pre-FSA.
 
         See "A Variance Analysis for POMDP Policy Evaluation", Fard, Pineau, and Sun, AAAI-2008 for a description of the translation procedure.
 
         pomdp-solve expects each an action paired with each alpha vector, so we return a list of actions
-        corresponding to the respective alpha vector in V.
+        corresponding to the respective alpha vector in `V`.
 
         Args:
             player1 (Player): The player representing the policy graph / pre-FSA to generate the value function for.
 
         Returns:
             V, A:
-                V - the len(`S`) * len(`K`) dimensional vector that is the value function, where each row is an alpha vector corresponding to its respective state in the pre-FSA of player1.
-                A - the len(`S`) dimensional vector that lists the actions of each alpha vector in V.
+                V - the len(`S`) * len(`K`) dimensional vector that is the value function, where each row is an alpha vector corresponding to its respective state in the pre-FSA of `player1`.
+
+                A - the len(`S`) dimensional vector that lists the actions of each alpha vector in `V`.
         """
         K = np.array([k for k in player1.state_machine.keys()], ndmin=1)
         S = self.states
+        """:type : list[str]"""
         A = np.array(self.actions, ndmin=1)
 
         # set up matricies to use: V, R, T, O, and Π, and vectors a(k) and r^k.
 
         a = {}
+        """:type : dict[str, str]
+        maps a state k to an action"""
         for k in K:
             a[k] = player1.state_machine[k]
 
         r = {}
+        """:type : dict[str, list[float]]
+        maps a state k to a list of payoffs, indexed by state index."""
         for k in K:
             r[k] = {}
 
@@ -1027,13 +1059,61 @@ class POMDPModel(object):
 
         R = np.hstack((r[k] for k in K))
 
+        T = self._make_T(S, K, a)
+
+        O = self._make_O(A, S, K, a)
+
+        Pi = self._make_Pi(K, S, player1)
+
+        # V = (I−γTOΠ)^{−1}R
+        temp = np.multiply(float(self.discount), T)  # multiply does scalar multiplication
+        temp = np.dot(temp, O)  # dot does matrix multiplication
+        temp = np.dot(temp, Pi)
+        temp = np.subtract(np.identity(temp.shape[0]), temp)  # we can use temp.shape[0], because it is square.
+        temp = np.linalg.inv(temp)
+        V = np.dot(temp, R)
+
+        # we'll split V up into sublists based on |S|: every |S| elements in V belong to one list.
+        temp = []
+
+        i = 0
+        while i < V.shape[1]:
+            t = []
+            z = 0
+            while z < (len(S)):
+                t.append(V[0, i])
+                i += 1
+                z += 1
+            temp.append(t)
+
+        V = temp
+        ak = [a[k] for k in K]
+        return V, ak
+
+    def _make_T(self, S: list, K: list, a: dict) -> np.array:
+        """Compute the conditional probability of state transition in POMDP.
+
+        T is an len(`S`)*len(`K`) x len(`S`)*len(`K`) dimensional block diagonal matrix of len(`K`) x len(`K`) blocks,
+        with T_a(k) as the kth diagonal sub-matrix. T_a(k) is the transition probability matrix when selecting action a(k).
+
+        Args:
+            S (list[str]): a list of states
+            K (list[str]): a list of player 1 state machine states.
+            a (dict[str,str]): a mapping from state to action.
+        Returns:
+            np.array: mapping from action to 2-D array indexed
+            first by theta_t index and then by theta_t_plus_one index.
+        """
         T_a = {}  # maps action to state to state to real
+        """:type : dict[str, np.array]
+        conditional probability of moving from one state to another given an action.
+        accessed as T_a[action][theta_t_index][theta_t_plus_one_index]"""
 
         # self.state_transition.append((theta_t_plus_one, (theta_t, action), probability))
         # Rearrange self.state_transition so we can index by action.
         for (theta_t_plus_one, (theta_t, action), probability) in self.state_transition:
-            theta_t_index = self.states.index(theta_t)
-            theta_t_plus_one_index = self.states.index(theta_t_plus_one)
+            theta_t_index = S.index(theta_t)
+            theta_t_plus_one_index = S.index(theta_t_plus_one)
             if action not in T_a:
                 T_a[action] = np.zeros((len(S), len(S)))
 
@@ -1041,19 +1121,38 @@ class POMDPModel(object):
 
         #We'll make the sub-matricies ot give to T. They are |K| x |K| blocks, with T_a(k) as the kth diagonal submatrix
         t_submatricies = []
+        """:type : list[np.array]"""
         for k in K:
             t_submatricies.append(T_a[a[k]])
 
         T = block_diag(*t_submatricies)  # * black magic unpacks the t_submatricies list.
+        """:type : np.array"""
+        return T
 
+    def _make_O(self, A: list, K: list, S: list, a: dict) -> np.array:
+        """Compute the observation probability matrix.
+
+        Computes a 2-d matrix where the kth block, sth sub-block contains the sth row of O_a(k).
+
+        O_a(k) is a list of probabilities, indexed by `Z` (the observations), given action a(k).
+
+        Args:
+            A (list[str]): A list of actions
+            K (list[str]): A list of state machine states.
+            S (list[str]): A list of states
+            a (dict[str, str]): A mapping from machine state k to an action.
+        Returns:
+            np.array : a len(`S`)*len(`K`) x len(`Z`)*len(`S`)*len(`K`) dimensional block diagonal matrix.
+             The kth block, sth sub-block contains the sth row of O_a(k)
+        """
         # Make O_a(k) - the observation probability indexed by actions
         O_a = {}
         for action in A:
             if action not in O_a:
                 O_a[action] = []
-                for i in range(len(self.states)):
+                for i in range(len(S)):
                     O_a[action].append([])
-            for i, state in enumerate(self.states):
+            for i, state in enumerate(S):
                 for j, observation in enumerate(self.observations):
                     O_a[action][i].append(self.observation_probability[observation][(action, state)])
 
@@ -1067,6 +1166,26 @@ class POMDPModel(object):
         # now, we have |K| * |K| diagonal block matricies that are diagonal block matricies of the observation_subblocks
         O = block_diag(*observation_subblocks)  # * black magic unpacks the observation_subblocks list.
 
+        return O
+
+    def _make_Pi(self, K: list, S: list, player1: Player) -> np.array:
+        """Compute the transition function of `player1`'s pre-FSA in matrix form.
+
+        Compute an len(`Z`)*len(`S`)*len(`K`) x len(`S`)*len(`K`) dimensional block matrix of len(`K`) x len(`K`) blocks.
+        Each block is a len(`Z`)*len(`S`) x len(`S`) block diagonal sub-matrix of len(`S`) x len(`S`) sub-blocks.
+        Each sub-block is a len(`Z`) vector.
+        Then, for all s, the zth component of the sth diagonal block of the (k1,k2) submatrix
+        is 1 if k2 is a successor of k1 given observation z in `player1`'s pre-FSA, else 0.
+
+        Args:
+            K (list[str]): a list of state machine states.
+            S (list[str]): a list of states
+            player1 (Player): the player whose pre-FSA should be used.
+
+        Returns:
+            np.array: an len(`Z`)*len(`S`)*len(`K`) x len(`S`)*len(`K`) dimensional block matrix
+            representing the transition function of `player1`'s pre-FSA.
+        """
         # Pi is made of sub-matricies Pi_{k1,k2}.
         # Each sub-matrix is made of |S| diagonal blocks (i.e. Pi_{k1,k2} is diagonal block matrix).
         # Each diagonal block is made of a vector |Z|.
@@ -1099,34 +1218,25 @@ class POMDPModel(object):
             pi.append(sub_pi)
 
         Pi = np.bmat(pi)
-
-        # V = (I−γTOΠ)^{−1}R
-        temp = np.multiply(float(self.discount), T)  # multiply does scalar multiplication
-        temp = np.dot(temp, O)  # dot does matrix multiplication
-        temp = np.dot(temp, Pi)
-        temp = np.subtract(np.identity(temp.shape[0]), temp)  # we can use temp.shape[0], because it is square.
-        temp = np.linalg.inv(temp)
-        V = np.dot(temp, R)
-
-        # we'll split V up into sublists based on |S|: every |S| elements in V belong to one list.
-        temp = []
-
-        i = 0
-        while i < V.shape[1]:
-            t = []
-            z = 0
-            while z < (len(S)):
-                t.append(V[0, i])
-                i += 1
-                z += 1
-            temp.append(t)
-
-        V = temp
-        ak = [a[k] for k in K]
-        return V, ak
+        return Pi
 
     def value_function_to_Cassandra_format(self, V, ak):
         """Takes a Value Function V and associated actions ak and outputs them in the Cassandra alpha file format.
+
+        pomdp-solve expects an alpha file format as::
+
+            action_number
+            alpha-vector_coefficients
+
+            action_number
+            alpha-vector_coefficients
+
+            ...
+
+
+        So, we look up the index of each action in ak and prepend that to each vector.
+        The return string may be directly output to a file.
+
         Args:
             V: the value function - list of vectors ordered by ak
             ak: the actions associated with each vector in V
@@ -1171,11 +1281,13 @@ class POMDPModel(object):
         # T: <action> : <start-state> : <end-state> %f
 
         for theta_t_plusone, (theta_t, action), probability in self.state_transition:
-            s.append('T: {} : {} : {} {}'.format(action, self._statetuple_to_Cassandra(theta_t), self._statetuple_to_Cassandra(theta_t_plusone), probability))
+            s.append('T: {} : {} : {} {}'.format(action, self._statetuple_to_Cassandra(theta_t),
+                                                 POMDPModel._statetuple_to_Cassandra(theta_t_plusone), probability))
 
         for observation, action, state in itertools.product(self.observations, self.actions, self.states):
             #O: action : end-state : observation %f
-            s.append('O: {} : {} : {} {}'.format(action, self._statetuple_to_Cassandra(state), observation, self.observation_probability[observation][(action, state)]))
+            s.append('O: {} : {} : {} {}'.format(action, POMDPModel._statetuple_to_Cassandra(state), observation,
+                                                 self.observation_probability[observation][(action, state)]))
 
         for action, state in self.payoff:
             state_string = ''
@@ -1187,7 +1299,8 @@ class POMDPModel(object):
 
         return '\n'.join(s)
 
-    def _statetuple_to_Cassandra(self, t):
+    @staticmethod
+    def _statetuple_to_Cassandra(t):
         """Formats a POMDP tuple to a combined state that Cassandra format likes.
         Args:
             t (tuple[STATE]): a tuple of STATEs that should be combined (concatenated)

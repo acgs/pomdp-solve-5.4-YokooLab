@@ -95,10 +95,11 @@
 <span class="sd">    Show intermediate steps if `verbose` is true.</span>
 <span class="sd">    Output POMDP to `outputfilename`.</span>
 
-<span class="sd">    :param inputfilename (str): the path (may be relative) to a Shun formatted Game Theory file.</span>
-<span class="sd">    :param outputfilename (Optional[str]): the path (may be relative) to output the POMDP to.</span>
-<span class="sd">    :param verbose (bool): whether to output intermediate conversions to stdout.</span>
-<span class="sd">    :return:</span>
+<span class="sd">    Args:</span>
+<span class="sd">        inputfilename (str): the path (may be relative) to a Shun formatted Game Theory file.</span>
+<span class="sd">        outputfilename (Optional[str]): the path (may be relative) to output the POMDP to.</span>
+<span class="sd">        verbose (bool): whether to output intermediate conversions to stdout.</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">gt</span> <span class="o">=</span> <span class="n">GTModel</span><span class="p">(</span><span class="n">inputfilename</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
@@ -127,7 +128,8 @@
     <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s">&#39;Parses a Game Theory model and converts it to a POMDP model.&#39;</span><span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;gtmodel&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;The input file name for the Game Theory model.&#39;</span><span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;-pomdpmodel&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;The output file name for the POMDP model.&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;-verbose&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;Verbosity of output. If true, will output in verbose mode.&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;-verbose&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;Verbosity of output.&#39;</span>
+                                                    <span class="s">&#39; If true, will output in verbose mode.&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
 
     <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
     <span class="k">print</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">verbose</span><span class="p">)</span>
