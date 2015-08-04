@@ -17,7 +17,7 @@ getcontext().prec = 10
 import numpy as np
 from scipy.linalg import block_diag
 
-from gt_to_pomdp.utils import *
+from utils import *
 
 
 
@@ -1153,7 +1153,7 @@ class POMDPModel(object):
         """:type : np.array"""
         return T
 
-    def _make_O(self, A: list, K: list, S: list, a: dict) -> np.array:
+    def _make_O(self, A: list, S: list, K: list, a: dict) -> np.array:
         """Compute the observation probability matrix.
 
         Computes a 2-d matrix where the kth block, sth sub-block contains the sth row of O_a(k).
