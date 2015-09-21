@@ -637,6 +637,12 @@ meetStopCriteria( AlphaList prev_alpha_list,
 	use its own stopping criteria. */
   if ( param->opts->method  == POMDP_SOLVE_OPTS_Method_grid )
     {
+        /*
+        Victor Szczepanski addition. We stop if there are any belief states where the current function dominates the initial function.
+        */
+        if(dominance(param->input_belief_states, param->initial_policy, cur_alpha_list)){
+            return(TRUE);
+        }
 	 *error = FG_computeError( prev_alpha_list, cur_alpha_list, param );
     }
 

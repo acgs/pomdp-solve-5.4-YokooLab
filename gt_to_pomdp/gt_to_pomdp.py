@@ -41,7 +41,7 @@ break this format.
 
 
 import argparse
-from models import *
+from gt_to_pomdp.models import *
 
 
 def main(inputfilename, outputfilename=None, verbose=False):
@@ -82,6 +82,8 @@ def main(inputfilename, outputfilename=None, verbose=False):
     # We use capitals here as it is the convention of the POMDP literature.
     V, A = pomdp.to_value_function(pomdp.players[0])
     print(pomdp.value_function_to_Cassandra_format(V, A))
+
+    return pomdp
 
 
 if __name__ == "__main__":

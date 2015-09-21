@@ -437,7 +437,7 @@ Copyright (C) 2012 Free Software Foundation, Inc.
 This config.status script is free software; the Free Software Foundation
 gives unlimited permission to copy, distribute and modify it."
 
-ac_pwd='/home/victor/ClionProjects/pomdp-solve-5.4-YokooLab'
+ac_pwd='/home/greenpants/ClionProjects/pomdp-solve-5.4-YokooLab'
 srcdir='.'
 INSTALL='/usr/bin/install -c'
 MKDIR_P='/bin/mkdir -p'
@@ -649,7 +649,7 @@ S["LDFLAGS"]=""
 S["CFLAGS"]="-g -O2"
 S["CC"]="gcc"
 S["YFLAGS"]=""
-S["YACC"]="byacc"
+S["YACC"]="bison -y"
 S["DMALLOC_FALSE"]=""
 S["DMALLOC_TRUE"]="#"
 S["PROFILE_FALSE"]=""
@@ -670,12 +670,12 @@ S["mkdir_p"]="$(MKDIR_P)"
 S["MKDIR_P"]="/bin/mkdir -p"
 S["INSTALL_STRIP_PROGRAM"]="$(install_sh) -c -s"
 S["STRIP"]=""
-S["install_sh"]="${SHELL} /home/victor/ClionProjects/pomdp-solve-5.4-YokooLab/install-sh"
-S["MAKEINFO"]="${SHELL} /home/victor/ClionProjects/pomdp-solve-5.4-YokooLab/missing makeinfo"
-S["AUTOHEADER"]="${SHELL} /home/victor/ClionProjects/pomdp-solve-5.4-YokooLab/missing autoheader"
-S["AUTOMAKE"]="${SHELL} /home/victor/ClionProjects/pomdp-solve-5.4-YokooLab/missing automake-1.14"
-S["AUTOCONF"]="${SHELL} /home/victor/ClionProjects/pomdp-solve-5.4-YokooLab/missing autoconf"
-S["ACLOCAL"]="${SHELL} /home/victor/ClionProjects/pomdp-solve-5.4-YokooLab/missing aclocal-1.14"
+S["install_sh"]="${SHELL} /home/greenpants/ClionProjects/pomdp-solve-5.4-YokooLab/install-sh"
+S["MAKEINFO"]="${SHELL} /home/greenpants/ClionProjects/pomdp-solve-5.4-YokooLab/missing makeinfo"
+S["AUTOHEADER"]="${SHELL} /home/greenpants/ClionProjects/pomdp-solve-5.4-YokooLab/missing autoheader"
+S["AUTOMAKE"]="${SHELL} /home/greenpants/ClionProjects/pomdp-solve-5.4-YokooLab/missing automake-1.14"
+S["AUTOCONF"]="${SHELL} /home/greenpants/ClionProjects/pomdp-solve-5.4-YokooLab/missing autoconf"
+S["ACLOCAL"]="${SHELL} /home/greenpants/ClionProjects/pomdp-solve-5.4-YokooLab/missing aclocal-1.14"
 S["VERSION"]="5.4"
 S["PACKAGE"]="pomdp-solve"
 S["CYGPATH_W"]="echo"

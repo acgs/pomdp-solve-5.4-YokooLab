@@ -17,7 +17,7 @@ getcontext().prec = 10
 import numpy as np
 from scipy.linalg import block_diag
 
-from utils import *
+from gt_to_pomdp.utils import flatten_tuple, to_tuple
 
 
 
