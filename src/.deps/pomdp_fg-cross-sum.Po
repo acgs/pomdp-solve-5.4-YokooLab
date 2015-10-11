@@ -38,7 +38,7 @@ pomdp_fg-cross-sum.o: cross-sum.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h pomdp.h alpha.h \
- cross-sum.h
+ belief.h cross-sum.h
 
 /usr/include/stdc-predef.h:
 
@@ -147,5 +147,7 @@ xalloc.h:
 pomdp.h:
 
 alpha.h:
+
+belief.h:
 
 cross-sum.h:

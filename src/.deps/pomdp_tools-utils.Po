@@ -41,9 +41,8 @@ pomdp_tools-utils.o: utils.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
  /usr/include/x86_64-linux-gnu/bits/mathinline.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h params.h alpha.h \
- stats.h pomdp-solve-options.h program-options.h command-line.h \
- associative-array.h config-file.h belief.h pomdp.h parsimonious.h pg.h \
- utils.h
+ belief.h stats.h pomdp-solve-options.h program-options.h command-line.h \
+ associative-array.h config-file.h pomdp.h parsimonious.h pg.h utils.h
 
 /usr/include/stdc-predef.h:
 
@@ -163,6 +162,8 @@ params.h:
 
 alpha.h:
 
+belief.h:
+
 stats.h:
 
 pomdp-solve-options.h:
@@ -174,8 +175,6 @@ command-line.h:
 associative-array.h:
 
 config-file.h:
-
-belief.h:
 
 pomdp.h:
 

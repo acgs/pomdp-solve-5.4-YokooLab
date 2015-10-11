@@ -1008,7 +1008,7 @@ UTIL_purgeAlphaFile( char *in_alpha_filename,
 
   purgeAlphaList( in_alpha_list, 
                   param->q_purge_option, 
-                  param );
+                  param, NULL );
 
   sortAlphaList( in_alpha_list );
 

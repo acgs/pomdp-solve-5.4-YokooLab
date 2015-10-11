@@ -37,7 +37,8 @@ pomdp_tools-alpha.o: alpha.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/mathdef.h \
  /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
  /usr/include/x86_64-linux-gnu/bits/mathinline.h mdp/mdp.h \
- mdp/sparse-matrix.h global.h ../config.h xalloc.h pomdp.h alpha.h
+ mdp/sparse-matrix.h global.h ../config.h xalloc.h pomdp.h alpha.h \
+ belief.h
 
 /usr/include/stdc-predef.h:
 
@@ -146,3 +147,5 @@ xalloc.h:
 pomdp.h:
 
 alpha.h:
+
+belief.h:

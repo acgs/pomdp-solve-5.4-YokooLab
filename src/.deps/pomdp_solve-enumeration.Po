@@ -38,9 +38,9 @@ pomdp_solve-enumeration.o: enumeration.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h pomdp.h cmd-line.h \
- alpha.h cross-sum.h parsimonious.h params.h stats.h \
+ alpha.h belief.h cross-sum.h parsimonious.h params.h stats.h \
  pomdp-solve-options.h program-options.h command-line.h \
- associative-array.h config-file.h belief.h enumeration.h
+ associative-array.h config-file.h enumeration.h
 
 /usr/include/stdc-predef.h:
 
@@ -152,6 +152,8 @@ cmd-line.h:
 
 alpha.h:
 
+belief.h:
+
 cross-sum.h:
 
 parsimonious.h:
@@ -169,7 +171,5 @@ command-line.h:
 associative-array.h:
 
 config-file.h:
-
-belief.h:
 
 enumeration.h:

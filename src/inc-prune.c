@@ -323,11 +323,19 @@ generalizedIpCrossSum( AlphaList A,
      the list.  The prune routine will decide whether to do the normal
      thing or an epsilon-prune version. */
   if ( param->ip_type == NormalIp ) {
-
+    //printf("Normal pruning Ip\n");
     prune( search_list, purge_prune, param );
     return( search_list );
 
   } /* If NormalIp variation (optimization) */
+
+  /* VS Here we add another short-cut - if the inc-pruning type is BeliefIP, we'll directly call belief_prune.
+    This is basically so that we can have different pruning techniques in inc-prune that are separate from the post-algo prune techniques.*/
+  if( param->ip_type == BeliefIp) {
+      //printf("Belief pruning Ip\n");
+      belief_prune(search_list, param, param->belief_guided_points);
+      return( search_list );
+  }
 
   /* We will mark the best node for each simplex vertex and ranodm
      point initialization, so first clear the 'mark' field. */

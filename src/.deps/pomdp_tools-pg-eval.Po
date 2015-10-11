@@ -43,7 +43,7 @@ pomdp_tools-pg-eval.o: pg-eval.c /usr/include/stdc-predef.h \
  /usr/lib/gcc/x86_64-linux-gnu/4.8/include/float.h laspack/qmatrix.h \
  laspack/precond.h laspack/eigenval.h laspack/operats.h laspack/matrix.h \
  laspack/rtc.h global.h ../config.h xalloc.h laspack-util.h pg.h alpha.h \
- pg-eval.h
+ belief.h pg-eval.h
 
 /usr/include/stdc-predef.h:
 
@@ -184,5 +184,7 @@ laspack-util.h:
 pg.h:
 
 alpha.h:
+
+belief.h:
 
 pg-eval.h:

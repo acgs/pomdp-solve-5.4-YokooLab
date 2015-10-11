@@ -115,6 +115,7 @@ newPomdpSolveParams(  )
   params->initial_policy = NULL;
   params->input_belief_states_filename[0] = NULL_CHAR;
   params->input_belief_states = NULL;
+  params->belief_guided_points = NULL;
   params->max_secs = 0;
   params->memory_limit = 0;
   params->save_all = FALSE;
@@ -387,6 +388,7 @@ tempOptsToParamConversion( PomdpSolveParams params ) {
     {
     case POMDP_SOLVE_OPTS_Inc_Prune__END__:
     case POMDP_SOLVE_OPTS_Inc_Prune_normal: params->ip_type = NormalIp; break;
+    case POMDP_SOLVE_OPTS_Inc_Prune_belief_guided: params->ip_type = BeliefIp; break;
     case POMDP_SOLVE_OPTS_Inc_Prune_restricted_region: params->ip_type = RestrictedRegionIp; break;
     case POMDP_SOLVE_OPTS_Inc_Prune_generalized: params->ip_type = GeneralizedIp; break;
     }
@@ -407,6 +409,7 @@ tempOptsToParamConversion( PomdpSolveParams params ) {
     case POMDP_SOLVE_OPTS_Q_Purge_domonly: params->q_purge_option = purge_dom; break;
     case POMDP_SOLVE_OPTS_Q_Purge_normal_prune: params->q_purge_option = purge_prune; break;
     case POMDP_SOLVE_OPTS_Q_Purge_epsilon_prune: params->q_purge_option = purge_epsilon_prune; break;
+    case POMDP_SOLVE_OPTS_Q_Purge_belief_guided: params->q_purge_option = purge_belief_guided; break;
     }
 
   switch( opts->enum_purge_option )
@@ -416,6 +419,7 @@ tempOptsToParamConversion( PomdpSolveParams params ) {
     case POMDP_SOLVE_OPTS_Enum_Purge_domonly: params->enum_purge_option = purge_dom; break;
     case POMDP_SOLVE_OPTS_Enum_Purge_normal_prune: params->enum_purge_option = purge_prune; break;
     case POMDP_SOLVE_OPTS_Enum_Purge_epsilon_prune: params->enum_purge_option = purge_epsilon_prune; break;
+    case POMDP_SOLVE_OPTS_Enum_Purge_belief_guided: params->enum_purge_option = purge_belief_guided; break;
     }
 
   switch( opts->fg_purge_option )

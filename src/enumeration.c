@@ -167,7 +167,7 @@ enumerationByV( AlphaList **projection )
 /**********************************************************************/
 AlphaList 
 improveEnumeration( AlphaList **projection, 
-		    PomdpSolveParams param ) 
+		    PomdpSolveParams param, BeliefList beliefs)
 {
   /*
     This is the routine to call to do the enumeration exact POMDP
@@ -177,11 +177,14 @@ improveEnumeration( AlphaList **projection,
   int total, final;
 
   Assert ( projection != NULL, "Projection is NULL." );
-
+  //printf("Calling enumerationByV...\n");
   new_list = enumerationByV( projection );
+  //printf("Done enumeration.\n");
   total = sizeAlphaList( new_list );
 
-  purgeAlphaList( new_list, param->enum_purge_option, param );
+  //printf("About to purge alpha list...\n");
+  purgeAlphaList( new_list, param->enum_purge_option, param, beliefs );
+  //printf("Finished purging.\n");
   final = sizeAlphaList( new_list );
 
   if ( gVerbose[V_ENUMERATE] )

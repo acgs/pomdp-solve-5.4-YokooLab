@@ -38,8 +38,8 @@ pomdp_fg-parsimonious.o: parsimonious.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h pomdp.h alpha.h \
- stats.h params.h pomdp-solve-options.h program-options.h command-line.h \
- associative-array.h config-file.h belief.h region.h random.h \
+ belief.h stats.h params.h pomdp-solve-options.h program-options.h \
+ command-line.h associative-array.h config-file.h region.h random.h \
  parsimonious.h
 
 /usr/include/stdc-predef.h:
@@ -150,6 +150,8 @@ pomdp.h:
 
 alpha.h:
 
+belief.h:
+
 stats.h:
 
 params.h:
@@ -163,8 +165,6 @@ command-line.h:
 associative-array.h:
 
 config-file.h:
-
-belief.h:
 
 region.h:
 

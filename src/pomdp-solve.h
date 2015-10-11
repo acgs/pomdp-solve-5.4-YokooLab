@@ -82,7 +82,7 @@ extern AlphaList getDefaultInitialPolicy( );
    used.  Current algorithms that do it this way: TwoPass, Witness and
    IncrementalPruning */
 extern AlphaList improveByQ( AlphaList **projection,
-                             PomdpSolveParams param );
+                             PomdpSolveParams param, BeliefList belief_points );
 /* This does a single DP step of value iteration for a POMDP.  It
    takes in the previous value function and parameters for solving and
    returns the next or improved solution.  */

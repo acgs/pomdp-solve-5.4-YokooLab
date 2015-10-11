@@ -41,10 +41,11 @@ pomdp_solve-params.o: params.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
  /usr/include/x86_64-linux-gnu/bits/mathinline.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h timing.h random.h \
- pomdp.h alpha.h stats.h cmd-line.h lp-interface.h lp-solve/lpkit.h \
- lp-solve/hash.h lp-solve/lpglob.h params.h pomdp-solve-options.h \
- program-options.h command-line.h associative-array.h config-file.h \
- belief.h enumeration.h linear-support.h two-pass.h witness.h inc-prune.h
+ pomdp.h alpha.h belief.h stats.h cmd-line.h lp-interface.h \
+ lp-solve/lpkit.h lp-solve/hash.h lp-solve/lpglob.h params.h \
+ pomdp-solve-options.h program-options.h command-line.h \
+ associative-array.h config-file.h enumeration.h linear-support.h \
+ two-pass.h witness.h inc-prune.h
 
 /usr/include/stdc-predef.h:
 
@@ -168,6 +169,8 @@ pomdp.h:
 
 alpha.h:
 
+belief.h:
+
 stats.h:
 
 cmd-line.h:
@@ -191,8 +194,6 @@ command-line.h:
 associative-array.h:
 
 config-file.h:
-
-belief.h:
 
 enumeration.h:
 

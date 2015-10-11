@@ -40,7 +40,7 @@ pomdp_fg-pg.o: pg.c /usr/include/stdc-predef.h /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/string2.h \
  /usr/include/x86_64-linux-gnu/bits/string3.h /usr/include/assert.h \
  global.h ../config.h xalloc.h mdp/mdp.h mdp/sparse-matrix.h pomdp.h \
- alpha.h pg.h
+ alpha.h belief.h pg.h
 
 /usr/include/stdc-predef.h:
 
@@ -161,5 +161,7 @@ mdp/sparse-matrix.h:
 pomdp.h:
 
 alpha.h:
+
+belief.h:
 
 pg.h:

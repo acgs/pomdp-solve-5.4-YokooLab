@@ -125,14 +125,20 @@ extern int normalPrune( AlphaList orig_list,
 extern int prune( AlphaList orig_list, 
                   PurgeOption purge_option,
                   PomdpSolveParams param );
-     
+
+/* VS Prunes alpha vectors at the provided belief states.
+ */
+extern int belief_prune(AlphaList orig_list, PomdpSolveParams param, BeliefList beliefs);
+
 /* Removes vectors from the list according to the purging option sent
   it.  It can do anything from nothing, to simple domination checks,
   to full blown 'pruning'.  */
 extern void purgeAlphaList( AlphaList list, 
                             PurgeOption purge_option,
-                            PomdpSolveParams param );
-   
+                            PomdpSolveParams param,
+                            BeliefList beliefs);
+
+
 /* Runs the purgeAlphaList() routine on all the projection sets using
    the purging option for projections as set on the command line (or
    with default.)  */

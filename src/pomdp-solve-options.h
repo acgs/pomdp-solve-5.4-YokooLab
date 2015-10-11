@@ -101,6 +101,7 @@ typedef enum {
   POMDP_SOLVE_OPTS_Inc_Prune_normal,
   POMDP_SOLVE_OPTS_Inc_Prune_restricted_region,
   POMDP_SOLVE_OPTS_Inc_Prune_generalized,
+  POMDP_SOLVE_OPTS_Inc_Prune_belief_guided,
   POMDP_SOLVE_OPTS_Inc_Prune__END__
 } POMDP_SOLVE_OPTS_Inc_Prune_Type;
 
@@ -109,6 +110,7 @@ typedef enum {
   POMDP_SOLVE_OPTS_Enum_Purge_domonly,
   POMDP_SOLVE_OPTS_Enum_Purge_normal_prune,
   POMDP_SOLVE_OPTS_Enum_Purge_epsilon_prune,
+  POMDP_SOLVE_OPTS_Enum_Purge_belief_guided,
   POMDP_SOLVE_OPTS_Enum_Purge__END__
 } POMDP_SOLVE_OPTS_Enum_Purge_Type;
 
@@ -125,6 +127,7 @@ typedef enum {
   POMDP_SOLVE_OPTS_Q_Purge_domonly,
   POMDP_SOLVE_OPTS_Q_Purge_normal_prune,
   POMDP_SOLVE_OPTS_Q_Purge_epsilon_prune,
+  POMDP_SOLVE_OPTS_Q_Purge_belief_guided,
   POMDP_SOLVE_OPTS_Q_Purge__END__
 } POMDP_SOLVE_OPTS_Q_Purge_Type;
 
@@ -132,6 +135,7 @@ typedef enum {
   POMDP_SOLVE_OPTS_Stop_Criteria_exact,
   POMDP_SOLVE_OPTS_Stop_Criteria_weak,
   POMDP_SOLVE_OPTS_Stop_Criteria_bellman,
+  POMDP_SOLVE_OPTS_Stop_Criteria_Yokoo,
   POMDP_SOLVE_OPTS_Stop_Criteria__END__
 } POMDP_SOLVE_OPTS_Stop_Criteria_Type;
 
@@ -209,6 +213,7 @@ typedef enum {
     "normal", \
     "restricted_region", \
     "generalized", \
+    "belief_guided", \
     "" \
   }
 
@@ -217,6 +222,7 @@ typedef enum {
     "domonly", \
     "normal_prune", \
     "epsilon_prune", \
+    "belief_guided", \
     "" \
   }
 
@@ -233,6 +239,7 @@ typedef enum {
     "domonly", \
     "normal_prune", \
     "epsilon_prune", \
+    "belief_guided", \
     "" \
   }
 
@@ -240,6 +247,7 @@ typedef enum {
     "exact", \
     "weak", \
     "bellman", \
+    "yokoo", \
     "" \
   }
 

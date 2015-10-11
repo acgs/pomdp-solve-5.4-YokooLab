@@ -37,9 +37,9 @@ pomdp_fg-mcgs.o: mcgs.c /usr/include/stdc-predef.h /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
  /usr/include/x86_64-linux-gnu/bits/mathinline.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h signal-handler.h \
- params.h alpha.h stats.h pomdp-solve-options.h program-options.h \
- command-line.h associative-array.h config-file.h belief.h common.h \
- projection.h parsimonious.h pomdp-solve.h sim.h mcgs.h
+ params.h alpha.h belief.h stats.h pomdp-solve-options.h \
+ program-options.h command-line.h associative-array.h config-file.h \
+ common.h projection.h parsimonious.h pomdp-solve.h sim.h mcgs.h
 
 /usr/include/stdc-predef.h:
 
@@ -151,6 +151,8 @@ params.h:
 
 alpha.h:
 
+belief.h:
+
 stats.h:
 
 pomdp-solve-options.h:
@@ -162,8 +164,6 @@ command-line.h:
 associative-array.h:
 
 config-file.h:
-
-belief.h:
 
 common.h:
 

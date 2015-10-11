@@ -25,14 +25,14 @@
  *    1998-2003, Anthony R. Cassandra
  *
  *    All Rights Reserved
- *                          
+ *
  *    Permission to use, copy, modify, and distribute this software and its
  *    documentation for any purpose other than its incorporation into a
  *    commercial product is hereby granted without fee, provided that the
  *    above copyright notice appear in all copies and that both that
  *    copyright notice and this permission notice appear in supporting
  *    documentation.
- * 
+ *
  *    ANTHONY CASSANDRA DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
  *    INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR ANY
  *    PARTICULAR PURPOSE.  IN NO EVENT SHALL ANTHONY CASSANDRA BE LIABLE FOR
@@ -48,8 +48,8 @@
 
 /*
  *   All the routines that help to create a parsimonious representation,
- *   including optimizations and top-level pruning routines.  
- *   
+ *   including optimizations and top-level pruning routines.
+ *
  */
 
 #include <stdio.h>
@@ -72,11 +72,11 @@
 /**********************************************************************/
 
 /**********************************************************************/
-int 
-isEmptyRegionSimpleCheck( AlphaList list, 
+int
+isEmptyRegionSimpleCheck( AlphaList list,
 			  double *alpha,
 			  double epsilon,
-			  int domination_check ) 
+			  int domination_check )
 {
   /*
     There are a number of simple checks that can be made to determine if
@@ -94,7 +94,7 @@ isEmptyRegionSimpleCheck( AlphaList list,
 
   /* Check if item is already in the list. */
   node = findAlphaVector( list, alpha, epsilon );
-  
+
   if ( node != NULL )
     return ( TRUE );
 
@@ -104,25 +104,25 @@ isEmptyRegionSimpleCheck( AlphaList list,
     return ( TRUE );
 
   return ( FALSE );
- 
+
 }  /* isEmptyRegionSimpleCheck */
 /**********************************************************************/
-void 
-markBestAtSimplexVertices( AlphaList list, 
-			   int save_witness_points, 
-			   double epsilon ) 
+void
+markBestAtSimplexVertices( AlphaList list,
+			   int save_witness_points,
+			   double epsilon )
 {
-  /* 
+  /*
      Sets the 'mark' field of each vector that dominates at some belief
      simplex vertex.
-     
+
      A difference between this routine and initWithSimplexCornersQ()
      is that this vector does not have to construct the vectors for the
      points, it simply picks them out of the list provided.  This is
      used in the prune algorithm to initialize the list.
-     
+
      Will loop through all the belief simplex vertices and find the
-     best vectors at these points from the list.  
+     best vectors at these points from the list.
   */
   AlphaList node;
   double best_value;
@@ -137,11 +137,11 @@ markBestAtSimplexVertices( AlphaList list,
   /* We will actually need a belief point to generate the vector, so
      we will initialize it to all zeroes and set each component to 1.0
      as we need it. */
-  for( i = 0; i < gNumStates; i++ ) 
+  for( i = 0; i < gNumStates; i++ )
     gTempBelief[i] = 0.0;
-  
+
   for( i = 0; i < gNumStates; i++ ) {
-    
+
     /* Set this so we actually have a simplex corner in 'b'. */
     gTempBelief[i] = 1.0;
 
@@ -156,58 +156,58 @@ markBestAtSimplexVertices( AlphaList list,
 
       if ( save_witness_points == TRUE )
         addWitnessToAlphaNode( node, gTempBelief );
-    
+
     } /* if node->mark == FALSE */
 
     /* Clear the 'i'th component so we maintain a belief corner point
        during i+1. */
     gTempBelief[i] = 0.0;
-    
+
    }  /* for i */
-  
+
 }  /* markBestAtSimplexVertices */
 /**********************************************************************/
-void 
-markBestAtRandomPoints( AlphaList list, 
-			int num_points, 
+void
+markBestAtRandomPoints( AlphaList list,
+			int num_points,
 			int save_witness_points,
-			double epsilon ) 
+			double epsilon )
 {
-  /* 
+  /*
      Will generate 'num_points' random belief points and mark the
-     vectors at these points to the list.  
+     vectors at these points to the list.
   */
   AlphaList node;
   double best_value;
   int i;
-  
+
   Assert (  list != NULL, "Bad (NULL) parameter(s)." );
-  
+
   if ( num_points < 1 )
     return;
- 
+
   for( i = 0; i < num_points; i++ ) {
-    
+
     /* Get a random belief point, uniformly distributed over the
        belief simplex. */
     setRandomDistribution( gTempBelief, gNumStates );
-    
+
     node = bestVector( list, gTempBelief, &best_value, epsilon  );
-    
+
     /* It is possible that this vector had already been marked, so
        only need to mark it and consider whether to save a witness
        point for it if it is not yet marked. */
     if ( node->mark == FALSE ) {
-      
+
       node->mark = TRUE;
-      
+
       if ( save_witness_points == TRUE )
         addWitnessToAlphaNode( node, gTempBelief );
-      
+
     } /* if node->mark == FALSE */
-    
+
   }  /* for i */
-  
+
 }  /* markBestAtRandomPoints */
 /**********************************************************************/
 
@@ -218,11 +218,11 @@ markBestAtRandomPoints( AlphaList list,
 /**********************************************************************/
 
 /**********************************************************************/
-int 
+int
 isEpsilonApproximation( AlphaList test_list,
 			AlphaList orig_list,
 			double *max_diff,
-			PomdpSolveParams param  ) 
+			PomdpSolveParams param  )
 {
 /*
   Determines where or not test_list is an epsilon approximation of the
@@ -234,7 +234,7 @@ isEpsilonApproximation( AlphaList test_list,
   double diff;
 
   *max_diff = 0.0;
-  
+
   /* We check every vector in the original list to see if it yields a
      value that is better than the test_list because this tells us
      what we need to know. */
@@ -248,11 +248,11 @@ isEpsilonApproximation( AlphaList test_list,
        that will often be overlapping, this is a good optimization. We
        use a very small epsilon because this optimization is focused
        on when the values really should be identical. */
-    if ( queryAlphaList( test_list, vector->alpha, 
+    if ( queryAlphaList( test_list, vector->alpha,
                          SMALLEST_PRECISION ))
       continue;
 
-    if ( findRegionPoint( vector->alpha, test_list, 
+    if ( findRegionPoint( vector->alpha, test_list,
                           gTempBelief, &diff, param )) {
 
       /* We want to keep track of the maximal difference between the
@@ -263,16 +263,16 @@ isEpsilonApproximation( AlphaList test_list,
         return ( FALSE );
 
     } /* if LP found a region point */
-    
+
   } /* for vector */
 
   return ( TRUE );
 
 } /* isEpsilonApproximation */
 /**********************************************************************/
-int 
-epsilonPrune( AlphaList list, 
-	      PomdpSolveParams param  ) 
+int
+epsilonPrune( AlphaList list,
+	      PomdpSolveParams param  )
 {
   /*
     This is the first implementation of a real epsilon pruning algorithm
@@ -281,7 +281,7 @@ epsilonPrune( AlphaList list,
     epilson approximates the original.  This requires a copy of the
     original set.  Note that although the input set may not be minimal,
     it still represents the "exact" value function and we can use it for
-    comparison. 
+    comparison.
   */
   int num_pruned = 0;
   AlphaList orig_list, test_vector;
@@ -295,7 +295,7 @@ epsilonPrune( AlphaList list,
      vectors against the "true" set, we need to always maintain the
      true set. */
   orig_list = duplicateAlphaList( list );
-  
+
   /* Unmark all vector in the list so we can keep track of which ones
      we have checked.  Because the set will be dynamically changing as
      we test, it is easiest to just marke them as we use them rather
@@ -314,7 +314,7 @@ epsilonPrune( AlphaList list,
        approximation then we can just get rid of it.  Otherwise we
        need to add it back into the set. This routine returns the
        actual computed maximal difference between the two sets. */
-    if ( isEpsilonApproximation( list, orig_list, 
+    if ( isEpsilonApproximation( list, orig_list,
                                  &diff, param )) {
       destroyAlphaNode( test_vector );
       num_pruned++;
@@ -324,7 +324,7 @@ epsilonPrune( AlphaList list,
 
     else
       enqueueAlphaNode( list, test_vector );
-    
+
   } /* while no more unmarked vectors */
 
   param->epsilon_diff_of_last_prune = max_diff;
@@ -339,8 +339,8 @@ epsilonPrune( AlphaList list,
 /**********************************************************************/
 
 /**********************************************************************/
-int 
-dominationCheck( AlphaList orig_list ) 
+int
+dominationCheck( AlphaList orig_list )
 {
   /*
     Removes all vectors from the list that can be determined to have a
@@ -380,35 +380,35 @@ dominationCheck( AlphaList orig_list )
 
     list = list->next;
   } /* while list != NULL */
-  
+
   return( removeMarkedAlphaList( orig_list ));
-  
+
 }  /* dominationCheck */
 /**********************************************************************/
-int 
-normalPrune( AlphaList orig_list, PomdpSolveParams param ) 
+int
+normalPrune( AlphaList orig_list, PomdpSolveParams param )
 {
-  /* 
+  /*
      Will use linear programming to prune the list to a unique
      parsimonious represenation.  If the save_points flag is set, then
      each vector in the resulting set (with a non-empty) region will
      have the witness point used to verify its non-empty region saved in
      the node containing the vector. Returns the number of nodes pruned.
-     
+
      if the save_witness_points flag is TRUE, then for every useful
      vector found, we will also save the witness point that was found
      for this vector.
-     
+
      If the init_num_random_points value is > 0, then it will preceed
      the LP computation with a check for useful vectors at random
-     points. 
+     points.
 
      This uses the scheme propose by Lark and White, which is mentioned
      in White's 1991 Operations Research POMDP survey article.
   */
   AlphaList new_alpha_list, cur_node, best_node;
   int num_pruned = 0;
-  
+
   Assert( orig_list != NULL, "List is NULL." );
 
   /* Want to allow variations on the epsilon pruning.
@@ -416,16 +416,16 @@ normalPrune( AlphaList orig_list, PomdpSolveParams param )
   /* We will mark the best node for each simplex vertex and ranodm
      point initialization, so first clear the 'mark' field. */
   clearMarkAlphaList( orig_list );
-  
+
   /* First we select vectors using this simple test. This will
      only mark the best vectors. */
-  markBestAtSimplexVertices( orig_list, 
+  markBestAtSimplexVertices( orig_list,
                              param->use_witness_points,
                              param->alpha_epsilon );
 
   /* Use random points to initialize the list, but this will only do
      something if param->prune_init_rand_points > 0 */
-  markBestAtRandomPoints( orig_list, 
+  markBestAtRandomPoints( orig_list,
                           param->prune_init_rand_points,
                           param->use_witness_points,
                           param->alpha_epsilon );
@@ -441,7 +441,7 @@ normalPrune( AlphaList orig_list, PomdpSolveParams param )
 
     /* See if this node gives us a witness point that there must be a
        vector to be added to new list from original list. */
-    if ( findRegionPoint( cur_node->alpha, new_alpha_list, 
+    if ( findRegionPoint( cur_node->alpha, new_alpha_list,
                           gTempBelief, NULL, param )) {
 
       /* Note that the finding of a witness point does *not*
@@ -494,14 +494,14 @@ normalPrune( AlphaList orig_list, PomdpSolveParams param )
   return( num_pruned );
 }  /* normalPrune */
 /**********************************************************************/
-int 
-prune( AlphaList orig_list, 
+int
+prune( AlphaList orig_list,
        PurgeOption purge_option,
-       PomdpSolveParams param ) 
+       PomdpSolveParams param )
 {
   /*
     This routine just serves as a multiplexor for the particular type of
-    pruning option specified. 
+    pruning option specified.
   */
   int num_pruned;
 
@@ -517,38 +517,121 @@ prune( AlphaList orig_list,
     break;
 
   } /* switch */
-  
+
   return ( num_pruned );
-  
+
 }  /* prune */
 /**********************************************************************/
-void 
-purgeAlphaList( AlphaList list, 
+int belief_prune( AlphaList orig_list, PomdpSolveParams param, BeliefList beliefs)
+{
+  /* Victor Szczepanski.
+     Removes all vectors that do not dominate at the current belief list. */
+  int initial_num_vectors = sizeAlphaList(orig_list);
+  //printf("Inside belief_prune.\n");
+  //printf("Original Alpha List Size: %d\n", sizeAlphaList(orig_list));
+  //showAlphaList(orig_list);
+  //showBeliefList(beliefs);
+  AlphaList new_alpha_list;
+
+  clearMarkAlphaList(orig_list);
+
+  int i;
+  double cur_value, cur_best_value = 0.0;
+  //we'll iterate over each belief and find the alpha vector that dominates at that belief
+  BeliefList belief_state = beliefs;
+  AlphaList alpha_ptr = orig_list->head;
+  AlphaList best_alpha = orig_list->head;
+  while( belief_state != NULL )
+  {
+    //printf("Inside belief_state loop.\n");
+    Assert(belief_state->b != NULL, "double array backing belief_state is NULL.");
+    alpha_ptr = orig_list->head;
+    best_alpha = NULL;
+    //for each alpha vector, find its value at belief_state
+    cur_best_value = 0.0;
+    while( alpha_ptr != NULL)
+    {
+      //printf("Inside alpha_ptr loop.\n");
+      cur_value = 0.0;
+      // compute the cross product of this alpha vector and this belief state.
+      for(i = 0; i < gNumStates; i++){
+        //printf("checking state %d\n", i);
+        double belief = belief_state->b[i];
+        double alpha = alpha_ptr->alpha[i];
+        cur_value += belief * alpha;
+      }
+
+        if(cur_value > cur_best_value){
+            cur_best_value = cur_value;
+            best_alpha = alpha_ptr;
+        }
+
+        alpha_ptr = alpha_ptr->next;
+
+    }
+
+    belief_state = belief_state->next;
+    //if( best_alpha->mark){
+        //printf("We have already marked this vector as best for some other belief state.\n");
+    //}
+    //we'll mark best_alpha for extraction later
+    best_alpha->mark = TRUE;
+
+    //add best_alpha to new_alpha_list, since it dominates at belief_state
+    //printf("Appending new alpha to new_alpha_list...\n");
+    //best_alpha = extractAlphaNode(orig_list, best_alpha);
+    //appendNodeToAlphaList(new_alpha_list, best_alpha);
+//    appendAlphaList(new_alpha_list, best_alpha->alpha, best_alpha->action);
+    //printf("Done appending.\n");
+  } /* belief_state != NULL */
+
+
+  new_alpha_list = extractMarkedAlphaList(orig_list);
+  //printf("Got pruned alpha list:\n");
+  //showAlphaList(new_alpha_list);
+  orig_list->head = new_alpha_list->head;
+  orig_list->tail = new_alpha_list->tail;
+  orig_list->length = new_alpha_list->length;
+
+  /* Now free up the header memory for the new list, since it was just
+     being used as temporary storage. */
+  new_alpha_list->head = NULL;
+  new_alpha_list->tail = NULL;
+  destroyAlphaList( new_alpha_list );
+  return initial_num_vectors - sizeAlphaList(orig_list);
+}
+
+
+
+/**********************************************************************/
+void
+purgeAlphaList( AlphaList list,
 		PurgeOption purge_option,
-		PomdpSolveParams param ) 
+		PomdpSolveParams param, BeliefList beliefs)
 {
   /*
     Removes vectors from the list according to the purging option sent
     it.  It can do anything from nothing, to simple domination checks,
     to full blown 'pruning'.
-    
+
     It needs to param structure because it uses some of those fileds to
     decide how to do the pruning.
   */
   Assert ( list != NULL, "List is NULL." );
-  
+
   switch ( purge_option ) {
   case purge_dom:
-    dominationCheck( list ); 
+    dominationCheck( list );
     break;
-    
-  case purge_prune:
+
   case purge_epsilon_prune:
     /* We assume that pruning always does a domination check first. */
-    dominationCheck( list ); 
+    dominationCheck( list );
     prune( list, purge_option, param );
     break;
-    
+  case purge_belief_guided:
+    belief_prune(list, param, beliefs);
+    break;
   case purge_none:
   default:
     /* Do nothing. */
@@ -557,9 +640,9 @@ purgeAlphaList( AlphaList list,
 
  }  /* purgeAlphaList */
 /**********************************************************************/
-void 
-purgeProjections( AlphaList **projection, 
-		  PomdpSolveParams param ) 
+void
+purgeProjections( AlphaList **projection,
+		  PomdpSolveParams param )
 {
   /*
     Runs the purgeAlphaList() routine on all the projection sets using
@@ -567,20 +650,20 @@ purgeProjections( AlphaList **projection,
     with default.)
   */
   int a, z;
-  
+
   if ( projection == NULL )
     return;
 
-  for ( a = 0; a < gNumActions; a++ ) 
+  for ( a = 0; a < gNumActions; a++ )
     for ( z = 0; z < gNumObservations; z++ )
 
       /* If an observation is not possible, then we will have an empty
          projection list. Also, there is no need to purge a list of
          length 1. */
       if ( projection[a][z]->length > 1 )
-        purgeAlphaList( projection[a][z], 
+        purgeAlphaList( projection[a][z],
                         param->proj_purge,
-                        param );
-      
+                        param, NULL );
+
 }  /* purgeProjections */
 /**********************************************************************/

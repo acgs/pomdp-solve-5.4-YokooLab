@@ -41,7 +41,7 @@ break this format.
 
 
 import argparse
-from gt_to_pomdp.models import *
+from models import *
 
 
 def main(inputfilename, outputfilename=None, verbose=False):

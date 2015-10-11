@@ -77,6 +77,7 @@ extern void cleanUpEnumeration( );
 /* This is the routine to call to do the enumeration exact POMDP
   algorithm given a set of this epochs projection vectors.  */
 extern AlphaList improveEnumeration( AlphaList **projection,
-                                     PomdpSolveParams param );
+                                     PomdpSolveParams param,
+                                     BeliefList beliefs );
 
 #endif

@@ -38,9 +38,9 @@ pomdp_fg-zlz_speedup.o: zlz_speedup.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib.h xalloc.h timing.h alpha.h \
- projection.h common.h params.h stats.h pomdp-solve-options.h \
+ belief.h projection.h common.h params.h stats.h pomdp-solve-options.h \
  program-options.h command-line.h associative-array.h config-file.h \
- belief.h region.h parsimonious.h zlz_speedup.h
+ region.h parsimonious.h zlz_speedup.h
 
 /usr/include/stdc-predef.h:
 
@@ -150,6 +150,8 @@ timing.h:
 
 alpha.h:
 
+belief.h:
+
 projection.h:
 
 common.h:
@@ -167,8 +169,6 @@ command-line.h:
 associative-array.h:
 
 config-file.h:
-
-belief.h:
 
 region.h:
 

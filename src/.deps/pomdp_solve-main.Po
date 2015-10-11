@@ -41,10 +41,10 @@ pomdp_solve-main.o: main.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/string2.h \
  /usr/include/x86_64-linux-gnu/bits/string3.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h signal-handler.h \
- params.h alpha.h stats.h pomdp-solve-options.h program-options.h \
- command-line.h associative-array.h config-file.h belief.h cmd-line.h \
- pomdp.h random.h pg.h projection.h enumeration.h linear-support.h \
- two-pass.h witness.h inc-prune.h pomdp-solve.h
+ params.h alpha.h belief.h stats.h pomdp-solve-options.h \
+ program-options.h command-line.h associative-array.h config-file.h \
+ cmd-line.h pomdp.h random.h pg.h projection.h enumeration.h \
+ linear-support.h two-pass.h witness.h inc-prune.h pomdp-solve.h
 
 /usr/include/stdc-predef.h:
 
@@ -166,6 +166,8 @@ params.h:
 
 alpha.h:
 
+belief.h:
+
 stats.h:
 
 pomdp-solve-options.h:
@@ -177,8 +179,6 @@ command-line.h:
 associative-array.h:
 
 config-file.h:
-
-belief.h:
 
 cmd-line.h:
 

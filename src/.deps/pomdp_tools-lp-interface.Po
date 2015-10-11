@@ -33,10 +33,9 @@ pomdp_tools-lp-interface.o: lp-interface.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/string2.h \
  /usr/include/x86_64-linux-gnu/bits/string3.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h stats.h params.h \
- alpha.h pomdp-solve-options.h program-options.h command-line.h \
- associative-array.h config-file.h belief.h lp-interface.h \
- lp-solve/lpkit.h /usr/include/math.h \
- /usr/include/x86_64-linux-gnu/bits/huge_val.h \
+ alpha.h belief.h pomdp-solve-options.h program-options.h command-line.h \
+ associative-array.h config-file.h lp-interface.h lp-solve/lpkit.h \
+ /usr/include/math.h /usr/include/x86_64-linux-gnu/bits/huge_val.h \
  /usr/include/x86_64-linux-gnu/bits/huge_valf.h \
  /usr/include/x86_64-linux-gnu/bits/huge_vall.h \
  /usr/include/x86_64-linux-gnu/bits/inf.h \
@@ -148,6 +147,8 @@ params.h:
 
 alpha.h:
 
+belief.h:
+
 pomdp-solve-options.h:
 
 program-options.h:
@@ -157,8 +158,6 @@ command-line.h:
 associative-array.h:
 
 config-file.h:
-
-belief.h:
 
 lp-interface.h:
 

@@ -25,14 +25,14 @@
  *    1998-2003, Anthony R. Cassandra
  *
  *    All Rights Reserved
- *                          
+ *
  *    Permission to use, copy, modify, and distribute this software and its
  *    documentation for any purpose other than its incorporation into a
  *    commercial product is hereby granted without fee, provided that the
  *    above copyright notice appear in all copies and that both that
  *    copyright notice and this permission notice appear in supporting
  *    documentation.
- * 
+ *
  *    ANTHONY CASSANDRA DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
  *    INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR ANY
  *    PARTICULAR PURPOSE.  IN NO EVENT SHALL ANTHONY CASSANDRA BE LIABLE FOR
@@ -90,10 +90,10 @@ AlphaList gCurAlphaHeader;
 AlphaList *gCurAlphaVector;
 
 /**********************************************************************/
-void 
-relinkObsSources( AlphaList list ) 
+void
+relinkObsSources( AlphaList list )
 {
-  /* 
+  /*
      Changes the obs_source array from pointing at projection nodes to
      pointing at the actual sources of the projection vectors in the
      previous iteration's alpha list.  During construction of the Q_a
@@ -103,29 +103,31 @@ relinkObsSources( AlphaList list )
      for which they were created from. Before destroying the projection
      sets, we want to redirect the choice pointers to their previous
      alpha list sources.  This is the basis for coming up with the
-     policy graph. 
+     policy graph.
   */
   int z;
 
   Assert( list != NULL, "List is NULL" );
-  
+
   if ( list->length < 1 )
     return;
 
   list = list->head;
-  while ( list != NULL ) { 
-    
-    for ( z = 0; z < gNumObservations; z++ )
-      if ( list->obs_source[z] != NULL )
-        list->obs_source[z] = list->obs_source[z]->prev_source;
+  while ( list != NULL ) {
+    //printf("In relinkObsSources loop.\n");
+    for ( z = 0; z < gNumObservations; z++ ) {
+        //printf("Accessing list->obs_source[%d].\n", z);
+        if (list->obs_source[z] != NULL)
+            list->obs_source[z] = list->obs_source[z]->prev_source;
+    }
 
     list = list->next;
   }  /* while */
 
 }  /* relinkObsSources */
 /**********************************************************************/
-void 
-initCommon(  ) 
+void
+initCommon(  )
 {
   /*
     Many places in the code can use temporary memory storage for
@@ -133,14 +135,14 @@ initCommon(  )
     this purpose.
   */
   int a;
-   
+
   /* We want to have an AlphaList node for each action to temporarily
      hold all necessary information as we build vectors from belief
      points. In addition, we will want to treat this as a list.  We
      thus create an array of these nodes so we can access them as an
      array, but then also create a header node for them to be able to
      access them as a list. */
-   gCurAlphaVector 
+   gCurAlphaVector
      = (AlphaList *) XMALLOC ( gNumActions
                               * sizeof( *gCurAlphaVector ));
    for ( a = 0; a < gNumActions; a++ ) {
@@ -154,8 +156,8 @@ initCommon(  )
      appendNodeToAlphaList( gCurAlphaHeader, gCurAlphaVector[a] );
 }  /* initCommon */
 /**********************************************************************/
-void 
-cleanUpCommon(  ) 
+void
+cleanUpCommon(  )
 {
   /*
     Free up any temporary memory that was allocated.
@@ -168,21 +170,21 @@ cleanUpCommon(  )
 
 }  /* cleanUpCommon */
 /**********************************************************************/
- 
+
 /**********************************************************************/
 /**************    Lower Level Solution Routines      *****************/
 /**********************************************************************/
 
 /**********************************************************************/
-double 
-bellmanError( AlphaList prev_list, 
+double
+bellmanError( AlphaList prev_list,
 	      AlphaList cur_list,
-	      PomdpSolveParams param ) 
+	      PomdpSolveParams param )
 {
 /*
   Computes the Bellman residual between two successive value
   funcitons, finding the point of maximal difference between the two
-  sets. 
+  sets.
 
 
 */
@@ -198,12 +200,12 @@ bellmanError( AlphaList prev_list,
     /* We assume that not finding a region point is "zero" error, and
 	  that if we find a difference, then findRegionPoint() will set
 	  "diff" variable appropriately.  */
-    if ( ! findRegionPoint( vector->alpha, prev_list, 
+    if ( ! findRegionPoint( vector->alpha, prev_list,
                           gTempBelief, &diff, param )) {
 
 	 diff = 0.0;
     } /* if LP found a region point */
-    
+
       /* We want to keep track of the maximal difference between the
          two sets so we know the true error. */
       max_diff = Max( max_diff, diff );
@@ -224,21 +226,21 @@ bellmanError( AlphaList prev_list,
   for(  vector = prev_list->head;
         vector != NULL;
         vector = vector->next ) {
-    
+
     /* We assume that not finding a region point is "zero" error, and
 	  that if we find a difference, then findRegionPoint() will set
 	  "diff" variable appropriately.  */
-    if ( ! findRegionPoint( vector->alpha, cur_list, 
+    if ( ! findRegionPoint( vector->alpha, cur_list,
 					   gTempBelief, &diff, param )) {
-      
+
 	 diff = 0.0;
-	 
+
     } /* if LP found a region point */
-    
+
     /* We want to keep track of the maximal difference between the
 	  two sets so we know the true error. */
     max_diff = Max( max_diff, diff );
-      
+
   } /* for vector */
 
   return ( max_diff );
@@ -246,10 +248,10 @@ bellmanError( AlphaList prev_list,
 }  /* bellmanError */
 
 /**********************************************************************/
-int 
-bestAlphaForBeliefQ( AlphaList node, double *b, 
+int
+bestAlphaForBeliefQ( AlphaList node, double *b,
 		     AlphaList *projection,
-		     double epsilon ) 
+		     double epsilon )
 {
 /*
   Constructs the alpha vector for the point 'b' using the projection
@@ -260,14 +262,14 @@ bestAlphaForBeliefQ( AlphaList node, double *b,
    AlphaList best_proj_vector;
    int i, z;
    double best_value;
-   
+
    /* In theory, for a properly specified POMDP, it should not be
 	 possible for all the projections to be NULL, since there has to be
 	 some observation that is possible. However, just as a sanity check,
 	 we will track to ensure this is true using this flag. */
    int non_null_proj = 0;
 
-   Assert ( ( node != NULL ) 
+   Assert ( ( node != NULL )
             && ( b != NULL )
             && ( projection != NULL )
             && ( node->alpha != NULL)
@@ -275,9 +277,9 @@ bestAlphaForBeliefQ( AlphaList node, double *b,
             "Bad (NULL) parameter(s)." );
 
    /* Initialize the alpha vector to all zeroes. */
-   for ( i = 0; i < gNumStates; i++ ) 
+   for ( i = 0; i < gNumStates; i++ )
      node->alpha[i] = 0.0;
-     
+
    /* Now pick out the best vector for the projection set for each
       observation.  The best overall vector is just the sum of these
       individual best vectors. */
@@ -287,10 +289,10 @@ bestAlphaForBeliefQ( AlphaList node, double *b,
 
 	  /* Find the best vector for all the observation 'z' projections.
 		If projection[z] is NULL, then this returns NULL. */
-	  best_proj_vector = bestVector( projection[z], b, 
+	  best_proj_vector = bestVector( projection[z], b,
 							   &best_value, epsilon  );
 
-	  non_null_proj = 1;  /* The sanity check flag gets set to 'ok' */	  
+	  non_null_proj = 1;  /* The sanity check flag gets set to 'ok' */
 	}
 
 	else {
@@ -305,7 +307,7 @@ bestAlphaForBeliefQ( AlphaList node, double *b,
        node->obs_source[z] = NULL;
        continue;
      } /* if observation not possible */
-     
+
      /* We want to see where each projection source came from and set
         this vectors obs_choice to that vector.  This gives us the
         policy graph information we desire. */
@@ -313,37 +315,37 @@ bestAlphaForBeliefQ( AlphaList node, double *b,
 
      /* Now add this best projection vector's component values to the
         components in the node. */
-     for ( i = 0; i < gNumStates; i++ ) 
+     for ( i = 0; i < gNumStates; i++ )
        node->alpha[i] += best_proj_vector->alpha[i];
-     
-     /* Note that the immediate rewards have already been taken into 
+
+     /* Note that the immediate rewards have already been taken into
         account for the projection vectors. */
-     
+
    }  /* for z */
 
    /* Here is where we put the sanity check. */
    Assert ( non_null_proj != 0, "All projections are NULL." );
-   
+
    return ( TRUE );
 }  /* bestAlphaForBeliefQ */
 /**********************************************************************/
-int 
-setBestAlphaForBeliefQ( double *b, AlphaList *projection, double epsilon ) 
+int
+setBestAlphaForBeliefQ( double *b, AlphaList *projection, double epsilon )
 {
   /*
     Just uses the bestAlphaForBeliefQ() routine, but uses the global
     temporary variable gCurAlphaVector[0] to hold it.
   */
-  
+
   /* Note that we are using gCurAlphaVector[0] just for the storage
      and that this does not necessarily mean we are computing for
      action '0'. */
   return ( bestAlphaForBeliefQ( gCurAlphaVector[0], b, projection,
                                 epsilon ));
-   
+
 }  /* setBestAlphaForBeliefQ */
 /**********************************************************************/
-int 
+int
 setBestAlphasForBeliefV( double *b, AlphaList **projection, double epsilon )
 {
   /*
@@ -357,14 +359,14 @@ setBestAlphasForBeliefV( double *b, AlphaList **projection, double epsilon )
   int a;
   int result = TRUE;
 
-  Assert( b != NULL && projection != NULL, 
+  Assert( b != NULL && projection != NULL,
           "Bad (NULL) parameter(s)." );
 
   for( a = 0; a < gNumActions; a++ )
     result = result
-      && bestAlphaForBeliefQ( gCurAlphaVector[a], b, 
+      && bestAlphaForBeliefQ( gCurAlphaVector[a], b,
                               projection[a], epsilon );
-   
+
   // PBVI:
   printf( "Belief: " );
   showAlpha( b );
@@ -379,62 +381,62 @@ setBestAlphasForBeliefV( double *b, AlphaList **projection, double epsilon )
   return ( result );
 }  /* setBestAlphasForBeliefV */
 /**********************************************************************/
-double 
+double
 oneStepValue( double *b, AlphaList **projection,
-	      AlphaList *best_vector, double epsilon ) 
+	      AlphaList *best_vector, double epsilon )
 {
   /*
     This routine will first create all of the alpha vectors (one for
     each action) for this point in the global array gCurAlphaVector,
     then it will determine which one is best for this point.  It will
     return the best value and set the parameter 'action' to be the action
-    that was best.  
-    
+    that was best.
+
     If there are ties...(they are currently deterministically broken)
-    
+
     Assumes gValueType is reward (which is true when rewards are
     accessed through the getImmediateReward() routine in global.c.)
   */
   double best_value;
-  
+
   /* Construct the vector for each action and put them in global
      array gCurAlphaVector and gCurAlphaHeader list.
   */
   setBestAlphasForBeliefV( b, projection, epsilon );
-  
+
   /* Use the global array as a list and get the best one. */
-  *best_vector = bestVector( gCurAlphaHeader, b, 
+  *best_vector = bestVector( gCurAlphaHeader, b,
                              &best_value, epsilon );
-  
+
   return( best_value );
 }  /* oneStepValue */
 /**********************************************************************/
-AlphaList 
-makeAlphaVector( AlphaList new_alpha_list, 
+AlphaList
+makeAlphaVector( AlphaList new_alpha_list,
 		 AlphaList **projection,
-		 double *b, double epsilon ) 
+		 double *b, double epsilon )
 {
   /* This routine will actually create the new alpha vector for the
      point 'b' sent in.  It will add the vector to the list if it is not
      already there, and either way it will return the pointer into
      new_alpha_list for the vector.
-     
+
      It first constructs all the vectors (for each action), then it finds
      which one is best (via dot product) finally it checks to see if
      the vector is in the list or not, and adds if if it isn't.
   */
   AlphaList best_vector, new_alpha_node;
-  
+
   /* This has the effect of creating the vectors in the global array
      gCurAlphaVector and returning an AlphaList pointer to the one
      that was best. We aren't really interested in the value here. */
   oneStepValue( b, projection, &best_vector, epsilon );
-  
+
   /* See if this vector is already in the list or not. */
-  new_alpha_node = findAlphaVector( new_alpha_list, 
+  new_alpha_node = findAlphaVector( new_alpha_list,
                                     best_vector->alpha,
                                     epsilon );
-  
+
   if ( new_alpha_node != NULL )
     return ( NULL );
 
@@ -449,12 +451,12 @@ makeAlphaVector( AlphaList new_alpha_list,
 
 }  /* makeAlphaVector */
 /**********************************************************************/
-AlphaList 
-addVectorAtBeliefQ( AlphaList list, 
+AlphaList
+addVectorAtBeliefQ( AlphaList list,
 		    double *belief,
 		    AlphaList *projection,
 		    int save_witness_point ,
-		    double epsilon ) 
+		    double epsilon )
 {
   /*
     This routine will construct the vector for the belief point sent in
@@ -464,7 +466,7 @@ addVectorAtBeliefQ( AlphaList list,
     'list'.  It assumes that anything in list has been demonstrated to
     be the best vector for at least some belief point.  This does this
     considering only the action for the projections sent in.
-    
+
     Returns a pointer to the new node added.
   */
   AlphaList node;
@@ -483,7 +485,7 @@ addVectorAtBeliefQ( AlphaList list,
      gCurAlphaVector[0] is the absolute best vector. The only question
      now is whether or not this vector is already in the list or
      not. */
-  
+
   node = findAlphaVector( list, gCurAlphaVector[0]->alpha,
                           epsilon );
 
@@ -508,10 +510,10 @@ addVectorAtBeliefQ( AlphaList list,
 
 }  /* addVectorAtBeliefQ */
 /**********************************************************************/
-int 
+int
 initWithSimplexCornersQ( AlphaList list, AlphaList *projection,
 			 int save_witness_point,
-			 double epsilon ) 
+			 double epsilon )
 {
   /*
     This initializes the given list with vectors that are constructed
@@ -521,30 +523,30 @@ initWithSimplexCornersQ( AlphaList list, AlphaList *projection,
     vectors at these points to the list.  Only adds the vector if they
     are not already in the list and returns the number of vectors that
     were added. Essentially this routine just calls addVectorAtBeliefQ()
-    for each simplex corner. 
+    for each simplex corner.
   */
   int i;
   int num_added = 0;
 
   Assert( list != NULL && projection != NULL,
           "Bad (NULL) parameter(s)." );
-  
+
   /* We will actually need a belief point to generate the vector, so
      we will initialize it to all zeroes and set each component to 1.0
      as we need it. */
-  for( i = 0; i < gNumStates; i++ ) 
+  for( i = 0; i < gNumStates; i++ )
     gTempBelief[i] = 0.0;
-  
+
   for( i = 0; i < gNumStates; i++ ) {
-    
+
     /* In normal initWithSimplexCorners() we loop over the full list
        to find the vector that has the highest value for component
        'i'.  Here we just need to see if the vector generated from
        this simplex corner is any better than what we have. */
-    
+
     /* Set this so we actually have a simplex corner in 'b'. */
     gTempBelief[i] = 1.0;
-    
+
     /* Note that if we are using the option of saving witness points,
        this addVectorAtBeliefQ() will do this. */
     if ( addVectorAtBeliefQ( list, gTempBelief, projection,
@@ -554,18 +556,18 @@ initWithSimplexCornersQ( AlphaList list, AlphaList *projection,
     /* Clear the 'i'th component so we maintain a belief corner point
         during i+1. */
     gTempBelief[i] = 0.0;
-    
+
    }  /* for i */
-  
+
   return ( num_added );
 
 }  /* initWithSimplexCornersQ */
 /**********************************************************************/
-int 
+int
 initWithRandomBeliefPointsQ( AlphaList list, int num_points,
 			     AlphaList *projection,
 			     int save_witness_point,
-			     double epsilon) 
+			     double epsilon)
 {
   /*
     Will generate 'num_points' random belief points and add the vectors
@@ -582,11 +584,11 @@ initWithRandomBeliefPointsQ( AlphaList list, int num_points,
     return ( 0 );
 
   for( i = 0; i < num_points; i++ ) {
-    
+
     /* Get a random belief point, uniformly distributed over the
        belief simplex. */
     setRandomDistribution( gTempBelief, gNumStates );
-    
+
     /* Note that if we are using the option of saving witness points,
        this addVectorAtBeliefQ() will do this. */
     if ( addVectorAtBeliefQ( list, gTempBelief, projection,
@@ -594,15 +596,15 @@ initWithRandomBeliefPointsQ( AlphaList list, int num_points,
       num_added++;
 
   }  /* for i */
-  
+
   return ( num_added );
 
 }  /* initWithRandomBeliefPointsQ */
 /**********************************************************************/
-int 
-initListSimpleQ( AlphaList list, 
+int
+initListSimpleQ( AlphaList list,
 		 AlphaList *projection,
-		 PomdpSolveParams param ) 
+		 PomdpSolveParams param )
 {
   /*
     For algorithms that search belief space incremntally (e.g., witness,
@@ -620,15 +622,15 @@ initListSimpleQ( AlphaList list,
      maximal at every belief simplex vertex and thus must be maximal
      everywhere. For this case, we can bail out right here knowing
      that the Q-function list must be of size '1'. */
-  if ( initWithSimplexCornersQ( list, 
+  if ( initWithSimplexCornersQ( list,
                                 projection,
                                 param->use_witness_points,
                                 param->alpha_epsilon ) < 2 )
     return( list->length );
-  
+
   /* Use random points to initialize the list, but this will only do
      something if param->init_rand_points > 0 */
-  initWithRandomBeliefPointsQ( list, 
+  initWithRandomBeliefPointsQ( list,
                                param->alg_init_rand_points,
                                projection,
                                param->use_witness_points,
@@ -643,7 +645,7 @@ shouldTerminateEarly( AlphaList list, PomdpSolveParams param )
 {
   /* This should be called at points in the solution procedures where
 	you might wantr to terminate early based on onno-algorithmic
-	decisions, e.g., size of solution has grown too large. 
+	decisions, e.g., size of solution has grown too large.
   */
 
   /* FIXME: Currently, this feature is not implemented, so we never

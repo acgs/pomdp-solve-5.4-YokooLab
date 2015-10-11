@@ -80,5 +80,6 @@ extern AlphaList improveFiniteGrid( AlphaList **projection,
 							 PomdpSolveParams param );
 #endif
 
+extern BeliefList genNextReachableBeliefStates( PomdpSolveParams param, BeliefList old_list);
 
 #endif

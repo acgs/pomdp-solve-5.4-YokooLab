@@ -87,7 +87,8 @@
 #include "zlz_speedup.h"
 #include "mcgs.h"
 #include "pomdp-solve.h"
- #include "double-vector.h"
+#include "belief-state.h"
+#include "double-vector.h"
 
 /**********************************************************************/
 /************* Routines for beginning and end of solving   ************/
@@ -183,7 +184,9 @@ initPomdpSolve( PomdpSolveParams param )
                 }
                 temp = temp->next;
             }
-
+      //Copy input_belief_states to belief_guided_points
+      param->belief_guided_points = param->input_belief_states;
+      //param->belief_guided_points = (BeliefList ) DV_duplicateList((DoubleVectorList ) param->input_belief_states);
      }
    }
    else{
@@ -527,37 +530,37 @@ weakBound( AlphaList cur_alpha_list,
 
 
 /**********************************************************************/
-double bestValue(BeliefList belief_state, AlphaList function)
-{
+//double bestValue(BeliefList belief_state, AlphaList function)
+//{
 	/*Finds the maximal value at belief_state in AlphaList function. Note that this function does not
 	find the action associated with that value. */
-	Assert(belief_state != NULL, "provided belief_state is NULL.");
-	Assert(function != NULL, "provided function is NULL.");
+//	Assert(belief_state != NULL, "provided belief_state is NULL.");
+//	Assert(function != NULL, "provided function is NULL.");
 
-	double cur_value;
-	double cur_best_value = worstPossibleValue();
-	int i;
-	printf("\n");
-	AlphaList alpha_ptr = function->head;
-	while(alpha_ptr != NULL){
-		showAlpha(alpha_ptr->alpha);
+//	double cur_value;
+//	double cur_best_value = worstPossibleValue();
+//	int i;
+//	printf("\n");
+//	AlphaList alpha_ptr = function->head;
+//	while(alpha_ptr != NULL){
+//		showAlpha(alpha_ptr->alpha);
 		/*Get the dot product value */
-		cur_value = 0.0;
-		for(i = 0; i < gNumStates; i++){
-			double belief = belief_state->b[i];
-			double alpha = alpha_ptr->alpha[i];
-			cur_value += belief * alpha;
-		}
+//		cur_value = 0.0;
+//		for(i = 0; i < gNumStates; i++){
+//			double belief = belief_state->b[i];
+//			double alpha = alpha_ptr->alpha[i];
+//			cur_value += belief * alpha;
+//		}
 
-		if(cur_value > cur_best_value){
-			cur_best_value = cur_value;
-		}
+//		if(cur_value > cur_best_value){
+//			cur_best_value = cur_value;
+//		}
 
-		alpha_ptr = alpha_ptr->next;
-	}
-	return cur_best_value;
+//		alpha_ptr = alpha_ptr->next;
+//	}
+//	return cur_best_value;
 
-}
+//}
 
 int dominance(BeliefList bl, AlphaList initial_function, AlphaList current_function)
 {
@@ -581,7 +584,7 @@ int dominance(BeliefList bl, AlphaList initial_function, AlphaList current_funct
             Assert(current_function != NULL, "Current Alpha List is NULL!");
             current_function_value = bestValue(temp, current_function) ;
 
-            if(current_function_value > initial_function_value){
+            if(current_function_value - initial_function_value > 0.0001){
                 printf("Current function is better than initial at belief state ");
 
                 if ( temp->b == NULL) {
@@ -640,8 +643,10 @@ meetStopCriteria( AlphaList prev_alpha_list,
         /*
         Victor Szczepanski addition. We stop if there are any belief states where the current function dominates the initial function.
         */
-        if(dominance(param->input_belief_states, param->initial_policy, cur_alpha_list)){
-            return(TRUE);
+        if( param->opts->stop_criteria == POMDP_SOLVE_OPTS_Stop_Criteria_Yokoo) {
+            if (dominance(param->input_belief_states, param->initial_policy, cur_alpha_list)) {
+                return (TRUE);
+            }
         }
 	 *error = FG_computeError( prev_alpha_list, cur_alpha_list, param );
     }
@@ -657,12 +662,6 @@ meetStopCriteria( AlphaList prev_alpha_list,
          when it would have been the "current" solution. */
         sortAlphaList( cur_alpha_list );
 
-         /*
-         Victor Szczepanski addition. We stop if there are any belief states where the current function dominates the initial function.
-         */
-         if(dominance(param->input_belief_states, param->initial_policy, cur_alpha_list)){
-               return(TRUE);
-         }
 
 	 switch( param->opts->stop_criteria ) {
 	 case POMDP_SOLVE_OPTS_Stop_Criteria_exact:
@@ -692,7 +691,14 @@ meetStopCriteria( AlphaList prev_alpha_list,
 						 cur_alpha_list,
 						 param );
 	   break;
-
+         case POMDP_SOLVE_OPTS_Stop_Criteria_Yokoo:
+             /*
+             Victor Szczepanski addition. We stop if there are any belief states where the current function dominates the initial function.
+             */
+             if(dominance(param->input_belief_states, param->initial_policy, cur_alpha_list)){
+                 return(TRUE);
+             }
+             break;
 	 default:
 	   Abort( "Unrecognized stopping criteria.\n" );
 
@@ -965,7 +971,7 @@ endViEpoch( PomdpSolveParams param )
 /**********************************************************************/
 AlphaList
 improveByQ( AlphaList **projection,
-	    PomdpSolveParams param )
+	    PomdpSolveParams param, BeliefList belief_points)
 {
   /*
      Some algorithms will solve one iteration of POMDP value iteration
@@ -1038,7 +1044,7 @@ improveByQ( AlphaList **projection,
   startContext( param->stat, Context_Q_a_merge );
   purgeAlphaList( new_list,
                   param->q_purge_option,
-                  param );
+                  param, belief_points );
 
   /* If we used epsilon pruning, then record the computed difference
      which was temporarily stored in the 'param' structure. */
@@ -1063,6 +1069,7 @@ improveV( AlphaList prev_alpha_list,
     in the previous value function and parameters for solving and
     returns the next or improved solution.
   */
+  //printf("Inside improveV.\n");
   AlphaList next_alpha_list;
   AlphaList **projection;
 
@@ -1091,7 +1098,10 @@ improveV( AlphaList prev_alpha_list,
   switch( param->opts->method ) {
 
   case POMDP_SOLVE_OPTS_Method_enum:
-    next_alpha_list = improveEnumeration( projection, param );
+    //printf("Improving via enumeration.\n");
+    next_alpha_list = improveEnumeration( projection, param, param->belief_guided_points);
+    //printf("Next alpha list:\n");
+    //showAlphaList(next_alpha_list);
     break;
 
   case POMDP_SOLVE_OPTS_Method_linsup:
@@ -1106,7 +1116,7 @@ improveV( AlphaList prev_alpha_list,
   case POMDP_SOLVE_OPTS_Method_witness:
   case POMDP_SOLVE_OPTS_Method_incprune:
   case POMDP_SOLVE_OPTS_Method_twopass:
-    next_alpha_list = improveByQ( projection, param );
+    next_alpha_list = improveByQ( projection, param, param->belief_guided_points );
     break;
 
   case POMDP_SOLVE_OPTS_Method_grid:
@@ -1121,18 +1131,26 @@ improveV( AlphaList prev_alpha_list,
     Abort( "Unrecognized solution method.");
 
   } /* switch gMethod */
+  //printf("Done with improve method. Relinking obs sources...\n");
 
   /* While building the next alpha list, the 'obs_source' points
      into the projection vectors, but now we want them to point
      directly into prev_alpha_list for purposes of the policy
      graph stuff. */
   relinkObsSources( next_alpha_list );
+  //printf("Done relinking obs sources.\nFreeing all projections...\n");
 
   /* Having redirected the obs_source pointer in next_alpha_list
      from projection to prev_alpha_list, we can now free up the
      memory for the projections, since we no longer need them and
      we don't have to worry about leaving pointers to nowhere. */
   freeAllProjections( projection );
+  //printf("Done freeing projections.\n");
+  /* We compute the next set of belief states, if we use them for pruning
+   */
+  if( param->enum_purge_option == purge_belief_guided || param->q_purge_option == purge_belief_guided || param->ip_type == BeliefIp) {
+    param->belief_guided_points = genNextReachableBeliefStates(param, param->belief_guided_points);
+  }
 
   return ( next_alpha_list );
 
@@ -1146,6 +1164,7 @@ solvePomdp( PomdpSolveParams param )
     SIGINT signal is received.  If initial_policy is NULL, then the default
     initial policy will be used.
   */
+  //printf("In solvePomdp.\n");
   AlphaList prev_alpha_list = NULL;
   AlphaList next_alpha_list;
   int done = FALSE;
@@ -1238,12 +1257,15 @@ solvePomdp( PomdpSolveParams param )
 
     /* Start the clock ticking on this epoch time and show some
        information indicating the epoch as started. */
+    //printf("Starting epoch stats...\n");
     epochStartStats( param->stat );
+    //printf("Done starting epoch stats.\n");
 
     /* This is the heart of solution process: computing one value
        function from the other. */
+    //printf("About to call improveV.\n");
     next_alpha_list = improveV( prev_alpha_list, param );
-
+    //printf("Done with improveV.\n");
     /* In case the -save_all option was selected, save the files. We
        need to do this *before* we do the ZLZ update, otherwise the
        policy graph and value functions might not make much sense.

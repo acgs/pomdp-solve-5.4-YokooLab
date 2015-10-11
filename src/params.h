@@ -91,22 +91,25 @@
 typedef enum { purge_none,
                purge_dom,
                purge_prune,
-               purge_epsilon_prune } PurgeOption;
+               purge_epsilon_prune,
+               purge_belief_guided } PurgeOption;
 #define PURGE_OPTION_STRINGS     { \
                                       "none", \
                                       "domonly", \
                                       "normal_prune", \
-                                      "epsilon_prune" \
+                                      "epsilon_prune", \
+                                      "belief_guided" \
                                   }
 
 #define MAX_INC_PRUNE_TYPES                    3
 typedef enum { NormalIp,
                RestrictedRegionIp,
-               GeneralizedIp } GeneralizedIpChoice;
+               GeneralizedIp, BeliefIp } GeneralizedIpChoice;
 #define INC_PRUNE_TYPE_STRINGS     { \
                                       "normal", \
                                       "restricted_region", \
-                                      "generalized" \
+                                      "generalized", \
+                                      "belief_guided"\
                                    }
 
 #define MAX_VI_VARIATION_TYPES                    4
@@ -190,6 +193,10 @@ struct PomdpSolveParamStruct {
   char input_belief_states_filename[MAX_FILENAME_LENGTH];
   /*The set of belief states (same number as states?)*/
   BeliefList input_belief_states;
+
+  /*Victor Szczepanski
+   The BeliefList we will use for belief guided pruning. */
+  BeliefList belief_guided_points;
 
   /* We can set a timer to interrupt the program after too many
      seconds have elapsed.  It is done from the command line and is

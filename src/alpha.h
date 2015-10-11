@@ -58,6 +58,7 @@
 #define ALPHA_H 1
 
 #include <stdio.h>
+#include "belief.h"
 
 /**********************************************************************/
 /********************       CONSTANTS       ***************************/
@@ -215,6 +216,7 @@ extern int isLexicographicallyBetter( AlphaList first_alpha,
 extern int isDominatedVector( double *alpha1, 
                               double *alpha2 );
 
+extern double bestValue(BeliefList belief_state, AlphaList function);
 /**********************************************************************/
 /******************  Obs_Source Routines         **********************/
 /**********************************************************************/

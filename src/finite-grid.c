@@ -207,6 +207,85 @@ searchAndAddBeliefStates( BeliefList belief_list,
 } /* searchAndAddBeliefStates */
 
 /**********************************************************************/
+/* Performs one iteration of the breadth-first search usually used by finite-grid.
+ This lets us control the number of iterations externally.
+ */
+BeliefList
+genNextReachableBeliefStates( PomdpSolveParams param, BeliefList old_list){
+  //printf("Inside genNextReachableBeliefStates.\n");
+
+  //since this function may be called without finite grid being initialized, we'll initialized gFGTempBelief here if we need to.
+  if( gFGTempBelief == NULL)
+  {
+    gFGTempBelief = (double *) XCALLOC( gNumStates,
+                                        sizeof(double));
+
+  }
+
+  int action, obs;
+  BeliefList walk_ptr;
+  BeliefList new_list = NULL;
+  int added_belief_state = 1;
+  walk_ptr = old_list;
+  added_belief_state = 0;
+
+  /* Breadth first search, so we first will generate a bunch of
+    belief states, add then to the list (unless they are duplicates),
+    then at the end, recurse on any new ones.
+  */
+  while( walk_ptr != NULL ) {
+    //printf("One iteration of old_list...\n");
+
+    /* Skip belief sttaes that have already been transformed. */
+    if (walk_ptr->mark) {
+      walk_ptr = walk_ptr->next;
+      continue;
+    }
+
+    /* Mark the belief state indicating it has been transformed. */
+    walk_ptr->mark = 1;
+
+    /* For each action */
+    for (action = 0; action < gNumActions; action++) {
+
+      /* For each observation */
+      for (obs = 0; obs < gNumObservations; obs++) {
+
+        /* Transform the belief state.  If the observation is
+           impossible for this belief state, then we just move
+           on. */
+        //printf("Transforming belief state...\n");
+        Assert(walk_ptr, "walk_ptr is NULL before transform belief state.");
+        Assert(walk_ptr->b, "belief state in walk_ptr is NULL.");
+        Assert(gFGTempBelief, "gFGTempBelief is NULL.");
+        if (!transformBeliefState(walk_ptr->b,
+                                  gFGTempBelief,
+                                  action,
+                                  obs)) {
+          //printf("Continuing...\n");
+          continue;
+        }
+
+        /* If it is not in list, add it and then recurse */
+        //printf("Finding if belief state in list already...\n");
+        if (findBeliefState(new_list, gFGTempBelief,
+                            0.0001) == NULL) {
+
+          //printf("Appending to belief list.\n");
+          new_list = appendBeliefList(new_list, gFGTempBelief);
+          added_belief_state = 1;
+        }
+
+        /* else if it is in the list, do not add and  do not recurse. */
+      } /* for obs */
+    } /* for action */
+  }/* while walk_ptr */
+//  printf("Done with genNextReachableBeliefStates.\n");
+  return new_list;
+} /* genNextReachableBeliefStates */
+
+
+/**********************************************************************/
 BeliefList 
 genAllBeliefStates( PomdpSolveParams param )
 {
@@ -471,7 +550,7 @@ improveFiniteGrid( AlphaList **projection, PomdpSolveParams param )
              "\t  FiniteGrid improve (pre-purging): %d vectors.\n",
              new_alpha_list->length );
 
-  purgeAlphaList( new_alpha_list, param->fg_purge_option, param );
+  purgeAlphaList( new_alpha_list, param->fg_purge_option, param, NULL );
 
   if ( gVerbose[V_FINITE_GRID] )
     fprintf( param->report_file, 

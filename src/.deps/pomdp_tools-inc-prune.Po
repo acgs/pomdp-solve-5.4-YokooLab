@@ -38,9 +38,9 @@ pomdp_tools-inc-prune.o: inc-prune.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h pomdp.h alpha.h \
- region.h params.h stats.h pomdp-solve-options.h program-options.h \
- command-line.h associative-array.h config-file.h belief.h common.h \
- cross-sum.h parsimonious.h inc-prune.h
+ belief.h region.h params.h stats.h pomdp-solve-options.h \
+ program-options.h command-line.h associative-array.h config-file.h \
+ common.h cross-sum.h parsimonious.h inc-prune.h
 
 /usr/include/stdc-predef.h:
 
@@ -150,6 +150,8 @@ pomdp.h:
 
 alpha.h:
 
+belief.h:
+
 region.h:
 
 params.h:
@@ -165,8 +167,6 @@ command-line.h:
 associative-array.h:
 
 config-file.h:
-
-belief.h:
 
 common.h:
 

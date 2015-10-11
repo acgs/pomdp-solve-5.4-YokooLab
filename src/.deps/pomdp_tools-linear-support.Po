@@ -38,8 +38,8 @@ pomdp_tools-linear-support.o: linear-support.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h pomdp.h alpha.h \
- params.h stats.h pomdp-solve-options.h program-options.h command-line.h \
- associative-array.h config-file.h belief.h common.h vertex-enum.h \
+ belief.h params.h stats.h pomdp-solve-options.h program-options.h \
+ command-line.h associative-array.h config-file.h common.h vertex-enum.h \
  linear-support.h
 
 /usr/include/stdc-predef.h:
@@ -150,6 +150,8 @@ pomdp.h:
 
 alpha.h:
 
+belief.h:
+
 params.h:
 
 stats.h:
@@ -163,8 +165,6 @@ command-line.h:
 associative-array.h:
 
 config-file.h:
-
-belief.h:
 
 common.h:
 

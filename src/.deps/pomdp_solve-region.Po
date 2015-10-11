@@ -38,9 +38,9 @@ pomdp_solve-region.o: region.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h pomdp.h alpha.h \
- stats.h lp-interface.h lp-solve/lpkit.h lp-solve/hash.h \
+ belief.h stats.h lp-interface.h lp-solve/lpkit.h lp-solve/hash.h \
  lp-solve/lpglob.h params.h pomdp-solve-options.h program-options.h \
- command-line.h associative-array.h config-file.h belief.h region.h
+ command-line.h associative-array.h config-file.h region.h
 
 /usr/include/stdc-predef.h:
 
@@ -150,6 +150,8 @@ pomdp.h:
 
 alpha.h:
 
+belief.h:
+
 stats.h:
 
 lp-interface.h:
@@ -171,7 +173,5 @@ command-line.h:
 associative-array.h:
 
 config-file.h:
-
-belief.h:
 
 region.h:

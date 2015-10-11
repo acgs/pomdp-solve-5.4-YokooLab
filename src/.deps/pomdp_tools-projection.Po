@@ -39,7 +39,7 @@ pomdp_tools-projection.o: projection.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/mathinline.h \
  /usr/lib/gcc/x86_64-linux-gnu/4.8/include/float.h mdp/mdp.h \
  mdp/sparse-matrix.h global.h ../config.h xalloc.h pomdp.h alpha.h \
- projection.h
+ belief.h projection.h
 
 /usr/include/stdc-predef.h:
 
@@ -150,5 +150,7 @@ xalloc.h:
 pomdp.h:
 
 alpha.h:
+
+belief.h:
 
 projection.h:

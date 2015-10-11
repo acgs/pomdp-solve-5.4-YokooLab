@@ -26,9 +26,9 @@ pomdp_test-xalloc.o: ../src/xalloc.c /usr/include/stdc-predef.h \
  /usr/lib/gcc/x86_64-linux-gnu/4.8/include/stdarg.h \
  /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
  /usr/include/x86_64-linux-gnu/bits/sys_errlist.h ../src/xalloc.h \
- ../src/alpha.h ../src/stats.h ../src/pomdp-solve-options.h \
- ../src/program-options.h ../src/command-line.h \
- ../src/associative-array.h ../src/config-file.h ../src/belief.h
+ ../src/alpha.h ../src/belief.h ../src/stats.h \
+ ../src/pomdp-solve-options.h ../src/program-options.h \
+ ../src/command-line.h ../src/associative-array.h ../src/config-file.h
 
 /usr/include/stdc-predef.h:
 
@@ -112,6 +112,8 @@ pomdp_test-xalloc.o: ../src/xalloc.c /usr/include/stdc-predef.h \
 
 ../src/alpha.h:
 
+../src/belief.h:
+
 ../src/stats.h:
 
 ../src/pomdp-solve-options.h:
@@ -123,5 +125,3 @@ pomdp_test-xalloc.o: ../src/xalloc.c /usr/include/stdc-predef.h \
 ../src/associative-array.h:
 
 ../src/config-file.h:
-
-../src/belief.h:

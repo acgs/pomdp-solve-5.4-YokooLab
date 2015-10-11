@@ -267,6 +267,14 @@ isDominatedVector( double *alpha1, double *alpha2 )
 } /* isDominatedVector */
 /**********************************************************************/
 
+int
+isDominatedVectorBelief( double *alpha1, double *alpha2, double belief_state )
+{
+  /*
+   * Returns true if alpha2 is dominated by alpha1 at belief_state.
+   */
+}
+
 /**********************************************************************/
 /******************  Obs_Source Routines         **********************/
 /**********************************************************************/
@@ -552,6 +560,36 @@ addWitnessToAlphaNode( AlphaList node, double *witness )
 
 }  /* addWitnessToAlphaNode */
 /**********************************************************************/
+double bestValue(BeliefList belief_state, AlphaList function) {
+    /*Finds the maximal value at belief_state in AlphaList function. Note that this function does not
+    find the action associated with that value. */
+    Assert(belief_state != NULL, "provided belief_state is NULL.");
+    Assert(function != NULL, "provided function is NULL.");
+
+    double cur_value;
+    double cur_best_value = worstPossibleValue();
+    int i;
+    printf("\n");
+    AlphaList alpha_ptr = function->head;
+    while (alpha_ptr != NULL) {
+        //showAlpha(alpha_ptr->alpha);
+        /*Get the dot product value */
+        cur_value = 0.0;
+        for (i = 0; i < gNumStates; i++) {
+            double belief = belief_state->b[i];
+            double alpha = alpha_ptr->alpha[i];
+            cur_value += belief * alpha;
+        }
+
+        if (cur_value > cur_best_value) {
+            cur_best_value = cur_value;
+        }
+
+        alpha_ptr = alpha_ptr->next;
+    }
+    return cur_best_value;
+}
+
 
 /**********************************************************************/
 /******************  Alpha List Routines         **********************/
